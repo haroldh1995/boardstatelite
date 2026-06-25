@@ -1,4 +1,4 @@
-import { List, PlusCircle } from "lucide-react";
+import { List, PlusCircle, TreePine } from "lucide-react";
 import { useRef } from "react";
 import { useFieldStore } from "../state/useFieldStore";
 
@@ -6,12 +6,14 @@ export function BottomDock() {
   const activateField = useFieldStore((state) => state.activateField);
   const openModal = useFieldStore((state) => state.openModal);
   const holdRef = useRef<number | null>(null);
+  const holdFiredRef = useRef(false);
 
   function startHold() {
-    holdRef.current = window.setTimeout(
-      () => openModal({ kind: "transformAll" }),
-      640,
-    );
+    holdFiredRef.current = false;
+    holdRef.current = window.setTimeout(() => {
+      holdFiredRef.current = true;
+      openModal({ kind: "transformAll" });
+    }, 640);
   }
 
   function endHold() {
@@ -32,15 +34,25 @@ export function BottomDock() {
       <button
         type="button"
         className="activate-button"
-        onClick={activateField}
+        onClick={() => {
+          if (holdFiredRef.current) {
+            holdFiredRef.current = false;
+            return;
+          }
+          activateField();
+        }}
         onPointerDown={startHold}
         onPointerUp={endHold}
         onPointerLeave={endHold}
         onPointerCancel={endHold}
       >
-        <span className="activate-sigil" aria-hidden="true" />
-        <strong>ACTIVATE FIELD</strong>
-        <small>Tap to resolve • Hold to Transform All</small>
+        <span className="activate-sigil" aria-hidden="true">
+          <TreePine />
+        </span>
+        <span className="activate-copy">
+          <strong>ACTIVATE FIELD</strong>
+          <small>{"Tap to resolve \u2022 Hold to Transform All"}</small>
+        </span>
       </button>
       <button
         type="button"

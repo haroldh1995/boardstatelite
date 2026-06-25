@@ -36,6 +36,7 @@ for (const width of widths) {
     await expect(
       page.getByRole("button", { name: /41 tap to set life total/i }),
     ).toBeVisible();
+    await page.getByRole("button", { name: /expand life controls/i }).click();
     await page.getByRole("button", { name: /^Undo$/ }).click();
     await expect(
       page.getByRole("button", { name: /40 tap to set life total/i }),

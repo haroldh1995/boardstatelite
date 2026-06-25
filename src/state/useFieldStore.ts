@@ -34,6 +34,8 @@ import type {
   StackScope,
 } from "../domain/types";
 import { loadLastField, saveField } from "../services/db";
+import { createReferenceFixtureField } from "../dev/referenceFixture";
+import { isReferenceFixtureMode } from "../dev/referenceMode";
 
 const HISTORY_LIMIT = 80;
 
@@ -119,6 +121,18 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
   redoStack: [],
 
   async initialize() {
+    if (isReferenceFixtureMode()) {
+      set({
+        field: createReferenceFixtureField(),
+        hydrated: true,
+        startupVisible: false,
+        modal: null,
+        undoStack: [],
+        redoStack: [],
+        lastResult: null,
+      });
+      return;
+    }
     const loaded = await loadLastField();
     if (loaded) {
       const sanitized = sanitizeImportedField(loaded);

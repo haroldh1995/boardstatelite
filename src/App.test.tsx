@@ -59,6 +59,9 @@ describe("Baord State Lite app shell", () => {
       screen.getByRole("button", { name: /41 tap to set life total/i }),
     ).toBeInTheDocument();
 
+    await user.click(
+      screen.getByRole("button", { name: /expand life controls/i }),
+    );
     await user.click(screen.getByRole("button", { name: /^undo$/i }));
     expect(
       screen.getByRole("button", { name: /40 tap to set life total/i }),

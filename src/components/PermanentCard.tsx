@@ -1,4 +1,4 @@
-import { Grip, RotateCcw, ShieldOff } from "lucide-react";
+import { Grip, RotateCcw, Shield, ShieldOff } from "lucide-react";
 import { useRef, useState } from "react";
 import type { PermanentGroup, SupportStatus } from "../domain/types";
 import { useFieldStore } from "../state/useFieldStore";
@@ -6,6 +6,7 @@ import { useFieldStore } from "../state/useFieldStore";
 interface PermanentCardProps {
   group: PermanentGroup;
   compact?: boolean;
+  variant?: "creature" | "permanent" | "attachment";
   onDragStart: (id: string) => void;
   onDropOn: (id: string) => void;
 }
@@ -13,6 +14,7 @@ interface PermanentCardProps {
 export function PermanentCard({
   group,
   compact = false,
+  variant = "creature",
   onDragStart,
   onDropOn,
 }: PermanentCardProps) {
@@ -33,6 +35,7 @@ export function PermanentCard({
   );
   const support = supportLabel(group.identity?.supportStatus, group.isGeneric);
   const image = group.identity?.imageUrl || group.identity?.imageSmall;
+  const isStack = group.quantity > 1;
 
   function pointerDown() {
     setGesture("hold");
@@ -77,11 +80,14 @@ export function PermanentCard({
     <article
       className={[
         "permanent-card",
+        `card-variant-${variant}`,
         compact ? "compact-card" : "",
+        isStack ? "is-stack" : "",
         group.statuses.tapped ? "is-tapped" : "",
         group.statuses.depowered ? "is-depowered" : "",
         gesture === "waiting" ? "gesture-waiting" : "",
       ].join(" ")}
+      role="listitem"
       draggable
       onDragStart={() => onDragStart(group.id)}
       onDragOver={(event) => event.preventDefault()}
@@ -97,58 +103,84 @@ export function PermanentCard({
         if (event.key === "Delete") removeGroup(group.id, 1);
       }}
     >
-      <div className="card-image-frame">
-        {image ? (
-          <img src={image} alt={`${group.label} card`} loading="lazy" />
-        ) : (
-          <div className="generic-silhouette" aria-label="Generic placeholder">
-            <span>{group.characteristics.cardTypes[0] ?? "Object"}</span>
-            {group.isGeneric && <small>Triple-tap to identify</small>}
-          </div>
-        )}
-        <span className="quantity-badge">x{group.quantity}</span>
-        {group.statuses.depowered && (
-          <span className="depower-badge" aria-label="Abilities disabled">
-            <ShieldOff />
+      <div className="card-visual-shell">
+        <div className="card-image-frame">
+          {image ? (
+            <img src={image} alt={`${group.label} card`} loading="lazy" />
+          ) : (
+            <div
+              className="generic-silhouette"
+              aria-label="Generic placeholder"
+            >
+              <span>{group.characteristics.cardTypes[0] ?? "Object"}</span>
+              {group.isGeneric && <small>Triple-tap to identify</small>}
+            </div>
+          )}
+          <span className="quantity-badge">
+            {"\u00d7"}
+            {group.quantity}
           </span>
-        )}
-        {group.statuses.transformed && (
-          <span className="transform-badge" aria-label="Transformed">
-            <RotateCcw />
+          {group.statuses.depowered && (
+            <span className="depower-badge" aria-label="Abilities disabled">
+              <ShieldOff />
+            </span>
+          )}
+          {group.statuses.transformed && (
+            <span className="transform-badge" aria-label="Transformed">
+              <RotateCcw />
+            </span>
+          )}
+          {group.characteristics.isCreature && (
+            <span className="pt-badge">
+              {group.pt.currentPower ?? "-"} /{" "}
+              {group.pt.currentToughness ?? "-"}
+            </span>
+          )}
+          <span
+            className={`support-indicator support-${group.identity?.supportStatus ?? "generic"}`}
+            aria-label={support}
+            title={support}
+          />
+          <button
+            type="button"
+            className="counter-stack"
+            aria-label={`Counters on ${group.label}`}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              openModal({
+                kind: "managePermanent",
+                groupId: group.id,
+                payload: { panel: "counters" },
+              });
+            }}
+          >
+            {visibleCounters.map(([name, count]) => (
+              <span className="counter-badge" key={name}>
+                {name === "Shield" ? (
+                  <Shield aria-hidden="true" />
+                ) : (
+                  <span className="counter-name">{name}</span>
+                )}
+                <strong>
+                  {"\u00d7"}
+                  {count}
+                </strong>
+              </span>
+            ))}
+            {hiddenCounters > 0 && (
+              <span className="counter-badge counter-more">
+                +{hiddenCounters}
+              </span>
+            )}
+          </button>
+          <span className="drag-handle" aria-hidden="true">
+            <Grip />
           </span>
-        )}
+        </div>
       </div>
-      <div className="card-caption">
-        <strong>{group.label}</strong>
-        <small>{support}</small>
-      </div>
-      <button
-        type="button"
-        className="counter-stack"
-        aria-label={`Counters on ${group.label}`}
-        onClick={(event) => {
-          event.stopPropagation();
-          openModal({
-            kind: "managePermanent",
-            groupId: group.id,
-            payload: { panel: "counters" },
-          });
-        }}
-      >
-        {visibleCounters.map(([name, count]) => (
-          <span key={name}>
-            {name} x{count}
-          </span>
-        ))}
-        {hiddenCounters > 0 && <span>+{hiddenCounters} more</span>}
-      </button>
-      {group.characteristics.isCreature && (
-        <span className="pt-badge">
-          {group.pt.currentPower ?? "-"} / {group.pt.currentToughness ?? "-"}
-        </span>
-      )}
-      <span className="drag-handle" aria-hidden="true">
-        <Grip />
+      <span className="sr-only">
+        {group.label}. {support}
       </span>
     </article>
   );

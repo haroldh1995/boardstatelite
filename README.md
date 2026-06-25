@@ -43,7 +43,31 @@ npm run lint
 npm test
 npm run build
 npm run e2e
+npm run test:visual
 ```
+
+Update the committed visual baselines after intentional UI changes:
+
+```bash
+npm run test:visual:update
+```
+
+## Reference Visual Fixture
+
+For local and test-only visual audits, open:
+
+```text
+http://127.0.0.1:5173/?fixture=reference
+```
+
+The fixture loads the reference battlefield with life 40, the specified counters,
+tracked cards, attachments, resource chips, and bottom controls. It is gated to
+local/dev hosts and is not available as a normal field on the GitHub Pages
+deployment.
+
+The current 430px fixture screenshot is saved at
+`docs/screenshots/reference-fixture-430.png`, with a side-by-side comparison at
+`docs/screenshots/reference-comparison-430.png`.
 
 ## Deployment
 

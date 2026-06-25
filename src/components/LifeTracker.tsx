@@ -1,5 +1,8 @@
 import {
   BatteryCharging,
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
   Crown,
   Minus,
   Plus,
@@ -19,6 +22,7 @@ export function LifeTracker() {
   const undo = useFieldStore((state) => state.undo);
   const redo = useFieldStore((state) => state.redo);
   const [increment, setIncrement] = useState(1);
+  const [expanded, setExpanded] = useState(false);
 
   return (
     <section
@@ -40,7 +44,7 @@ export function LifeTracker() {
         });
       }}
     >
-      <div className="counter-column">
+      <div className="counter-column counter-column-left">
         <PlayerCounter
           icon={<Skull />}
           label="Poison"
@@ -65,6 +69,7 @@ export function LifeTracker() {
         type="button"
         className="life-total"
         onClick={() => openModal({ kind: "life" })}
+        aria-label={`${player.life} tap to set life total`}
       >
         <strong>{player.life}</strong>
         <span>Tap to set life total</span>
@@ -78,7 +83,7 @@ export function LifeTracker() {
         <Plus />
       </HoldButton>
 
-      <div className="counter-column align-right">
+      <div className="counter-column counter-column-right">
         <PlayerCounter
           icon={<Shield />}
           label="CMD Damage"
@@ -91,7 +96,22 @@ export function LifeTracker() {
         />
       </div>
 
-      <div className="quick-row" aria-label="Life quick controls">
+      <button
+        type="button"
+        className="life-expand"
+        aria-label={
+          expanded ? "Collapse life controls" : "Expand life controls"
+        }
+        aria-expanded={expanded}
+        onClick={() => setExpanded((value) => !value)}
+      >
+        {expanded ? <ChevronUp /> : <ChevronDown />}
+      </button>
+
+      <div
+        className={expanded ? "quick-row expanded" : "quick-row"}
+        aria-label="Life quick controls"
+      >
         {[1, 5, 10].map((value) => (
           <button
             type="button"
@@ -138,6 +158,7 @@ function PlayerCounter({
         <small>{label}</small>
         <strong>{value}</strong>
       </span>
+      <ChevronRight aria-hidden="true" className="counter-chevron" />
     </button>
   );
 }

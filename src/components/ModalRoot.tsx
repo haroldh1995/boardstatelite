@@ -814,6 +814,7 @@ function SettingsSheet() {
   const importField = useFieldStore((state) => state.importField);
   const [importText, setImportText] = useState("");
   const [exportText, setExportText] = useState("");
+  const [importError, setImportError] = useState("");
   return (
     <div>
       <h2 id="modal-title">Settings</h2>
@@ -900,14 +901,18 @@ function SettingsSheet() {
             type="button"
             onClick={() => {
               try {
-                importField(JSON.parse(importText));
+                const imported = importField(JSON.parse(importText));
+                setImportError(
+                  imported ? "" : "Import failed: invalid backup.",
+                );
               } catch {
-                window.alert("Import failed: invalid JSON.");
+                setImportError("Import failed: invalid JSON.");
               }
             }}
           >
             Import JSON Backup
           </button>
+          {importError && <p className="form-error">{importError}</p>}
           <button type="button" className="danger-action" onClick={resetField}>
             Reset App Data
           </button>
