@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Baord State Lite icon">
+  <rect width="128" height="128" rx="28" fill="#050907"/>
+  <path d="M64 12c17 18 31 35 31 58 0 23-15 42-31 46-16-4-31-23-31-46 0-23 14-40 31-58Z" fill="#0f3d2e"/>
+  <path d="M64 20c12 15 22 29 22 48 0 16-9 31-22 37-13-6-22-21-22-37 0-19 10-33 22-48Z" fill="#18a66a"/>
+  <path d="M39 78c14-6 25-20 25-42 0 22 11 36 25 42-11 2-19 9-25 20-6-11-14-18-25-20Z" fill="#dfffe7"/>
+  <circle cx="64" cy="70" r="10" fill="#101a23"/>
+</svg>
