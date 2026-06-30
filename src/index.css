@@ -1,5 +1,5 @@
 :root {
-  --bg-void: #020405;
+  --bg-void: #07040d;
   --bg-deep: #05090b;
   --surface-black: rgba(3, 8, 10, 0.94);
   --surface-blue: rgba(6, 15, 22, 0.9);
@@ -15,6 +15,11 @@
   --accent-violet: #d48dff;
   --accent-violet-soft: rgba(212, 141, 255, 0.36);
   --accent-gold: #ffd35c;
+  --parent-gold: #f1c06b;
+  --parent-gold-bright: #ffe58a;
+  --parent-pink: #ff7ecd;
+  --parent-hud-blue: rgba(143, 211, 255, 0.34);
+  --parent-hud-purple: rgba(113, 65, 185, 0.3);
   --radius-panel: 16px;
   --radius-card: 8px;
   --radius-pill: 999px;
@@ -52,13 +57,52 @@ html {
 }
 
 body {
+  position: relative;
+  isolation: isolate;
   min-width: 320px;
   min-height: 100svh;
   margin: 0;
-  background: var(--bg-void);
+  background: transparent;
+  overflow-x: hidden;
+}
+
+body::before,
+body::after {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+}
+
+body::before {
+  z-index: -2;
+  background:
+    url("./assets/boardstate-bg-portrait.png"),
+    linear-gradient(135deg, #06030b, #170d21 52%, #090612);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+body::after {
+  z-index: -1;
+  background:
+    radial-gradient(
+      circle at 18% 10%,
+      rgba(143, 211, 255, 0.05),
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at 82% 22%,
+      rgba(255, 126, 205, 0.045),
+      transparent 36%
+    ),
+    linear-gradient(180deg, rgba(7, 4, 13, 0.05), rgba(7, 4, 13, 0.18));
 }
 
 #root {
+  position: relative;
+  z-index: 0;
   min-height: 100svh;
 }
 
@@ -73,4 +117,15 @@ select,
 textarea {
   font: inherit;
   letter-spacing: 0;
+}
+
+@media (orientation: landscape), (min-width: 900px) {
+  body::before {
+    background:
+      url("./assets/boardstate-bg-landscape.png"),
+      linear-gradient(135deg, #06030b, #170d21 52%, #090612);
+    background-position: center;
+    background-repeat: no-repeat;
+    background-size: cover;
+  }
 }
