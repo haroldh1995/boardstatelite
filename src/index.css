@@ -66,15 +66,11 @@ body {
   overflow-x: hidden;
 }
 
-body::before,
-body::after {
+body::before {
   position: fixed;
   inset: 0;
   pointer-events: none;
   content: "";
-}
-
-body::before {
   z-index: -2;
   background:
     url("./assets/boardstate-bg-portrait.png"),
@@ -82,22 +78,6 @@ body::before {
   background-position: center;
   background-repeat: no-repeat;
   background-size: cover;
-}
-
-body::after {
-  z-index: -1;
-  background:
-    radial-gradient(
-      circle at 18% 10%,
-      rgba(143, 211, 255, 0.05),
-      transparent 34%
-    ),
-    radial-gradient(
-      circle at 82% 22%,
-      rgba(255, 126, 205, 0.045),
-      transparent 36%
-    ),
-    linear-gradient(180deg, rgba(7, 4, 13, 0.05), rgba(7, 4, 13, 0.18));
 }
 
 #root {
