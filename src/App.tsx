@@ -33,16 +33,19 @@ function App() {
           <h1>Baord State Lite</h1>
           <p>{fieldName}</p>
         </div>
-        {needRefresh[0] && (
+      </header>
+      {needRefresh[0] && (
+        <aside className="pwa-update-toast" role="status" aria-live="polite">
+          <span>New visual update ready</span>
           <button
             type="button"
             className="update-button"
             onClick={() => void updateServiceWorker(true)}
           >
-            Update ready
+            Refresh app
           </button>
-        )}
-      </header>
+        </aside>
+      )}
       {!hydrated ? (
         <main className="loading-screen">Loading saved field...</main>
       ) : (
