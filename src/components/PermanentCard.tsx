@@ -1,4 +1,4 @@
-import { Grip, RotateCcw, Shield, ShieldOff } from "lucide-react";
+import { EyeOff, Grip, RotateCcw, Shield, ShieldOff } from "lucide-react";
 import { useRef, useState } from "react";
 import type { PermanentGroup, SupportStatus } from "../domain/types";
 import { useFieldStore } from "../state/useFieldStore";
@@ -36,6 +36,7 @@ export function PermanentCard({
   const support = supportLabel(group.identity?.supportStatus, group.isGeneric);
   const image = group.identity?.imageUrl || group.identity?.imageSmall;
   const isStack = group.quantity > 1;
+  const trackingDisabled = group.trackingEnabled === false;
 
   function pointerDown() {
     setGesture("hold");
@@ -85,6 +86,7 @@ export function PermanentCard({
         isStack ? "is-stack" : "",
         group.statuses.tapped ? "is-tapped" : "",
         group.statuses.depowered ? "is-depowered" : "",
+        trackingDisabled ? "is-not-tracked" : "",
         gesture === "waiting" ? "gesture-waiting" : "",
       ].join(" ")}
       role="listitem"
@@ -95,7 +97,11 @@ export function PermanentCard({
       onPointerDown={pointerDown}
       onPointerUp={pointerUp}
       onPointerCancel={() => setGesture("idle")}
-      aria-label={`${group.label}, stack size ${group.quantity}`}
+      aria-label={`${group.label}, stack size ${group.quantity}${
+        trackingDisabled
+          ? ". Not Tracked. This permanent remains on the battlefield but its abilities will be ignored by automatic resolution"
+          : ""
+      }`}
       tabIndex={0}
       onKeyDown={(event) => {
         if (event.key === "Enter")
@@ -123,6 +129,11 @@ export function PermanentCard({
           {group.statuses.depowered && (
             <span className="depower-badge" aria-label="Abilities disabled">
               <ShieldOff />
+            </span>
+          )}
+          {trackingDisabled && (
+            <span className="tracking-badge" aria-label="Not Tracked">
+              <EyeOff />
             </span>
           )}
           {group.statuses.transformed && (
@@ -180,7 +191,10 @@ export function PermanentCard({
         </div>
       </div>
       <span className="sr-only">
-        {group.label}. {support}
+        {group.label}. {support}.{" "}
+        {trackingDisabled
+          ? `${group.label} remains on the battlefield but its abilities will be ignored by automatic resolution.`
+          : "Tracking enabled."}
       </span>
     </article>
   );

@@ -5,9 +5,15 @@ import {
   applyCounters,
   replaceGenericIdentity,
   resolveLandEntry,
+  restoreTransformations,
+  setTrackingEnabled,
   transformCreatures,
 } from "./engine";
-import { calculateTotals } from "./field";
+import {
+  calculateTotals,
+  createDefaultField,
+  sanitizeImportedField,
+} from "./field";
 import {
   animPakal,
   catharsCrusade,
@@ -204,5 +210,291 @@ describe("field resolver", () => {
     expect(transformed.depowerMode).toBe("all");
     expect(transformed.statuses.transformed).toBe(true);
     expect(result.events).toHaveLength(0);
+  });
+
+  it("stops and resumes tracking a real card without removing it from totals", () => {
+    const anim = tracked(animPakal());
+    const stopped = setTrackingEnabled(
+      fieldWith([anim]),
+      anim.id,
+      false,
+      "all",
+      1,
+    );
+    const stoppedAnim = stopped.field.groups.find((group) =>
+      group.identity?.name.includes("Anim Pakal"),
+    );
+    const ignored = activateField(stopped.field);
+    const resumed = setTrackingEnabled(
+      stopped.field,
+      stoppedAnim?.id ?? anim.id,
+      true,
+      "all",
+      1,
+    );
+    const activeAgain = activateField(resumed.field);
+
+    expect(stoppedAnim?.trackingEnabled).toBe(false);
+    expect(stoppedAnim?.counters).toEqual({});
+    expect(calculateTotals(stopped.field.groups).creatures).toBe(1);
+    expect(
+      ignored.field.groups.find((group) => group.label === "Gnome"),
+    ).toBeUndefined();
+    expect(ignored.summary.join(" ")).toContain(
+      "No supported active abilities resolved",
+    );
+    expect(
+      resumed.field.groups.find((group) =>
+        group.identity?.name.includes("Anim Pakal"),
+      )?.trackingEnabled,
+    ).toBe(true);
+    expect(
+      activeAgain.field.groups.find((group) => group.label === "Gnome")
+        ?.quantity,
+    ).toBe(1);
+  });
+
+  it("keeps a not-tracked creature as an eligible recipient for tracked effects", () => {
+    const anim = tracked(animPakal());
+    const crusade = tracked(catharsCrusade());
+    const bear = tracked(
+      testCard({
+        name: "Runeclaw Bear",
+        typeLine: "Creature - Bear",
+        oracleText: "",
+        power: "2",
+        toughness: "2",
+      }),
+    );
+    const stoppedBear = setTrackingEnabled(
+      fieldWith([bear]),
+      bear.id,
+      false,
+      "all",
+      1,
+    ).field.groups[0];
+
+    const result = activateField(fieldWith([anim, crusade, stoppedBear]));
+    const bearAfter = result.field.groups.find(
+      (group) => group.identity?.name === "Runeclaw Bear",
+    );
+
+    expect(bearAfter?.trackingEnabled).toBe(false);
+    expect(bearAfter?.counters["+1/+1"]).toBe(1);
+    expect(bearAfter?.pt.currentPower).toBe(3);
+    expect(bearAfter?.pt.currentToughness).toBe(3);
+  });
+
+  it("ignores a not-tracked Cathars Crusade while preserving its enchantment total", () => {
+    const anim = tracked(animPakal());
+    const crusade = tracked(catharsCrusade());
+    const stoppedCrusade = setTrackingEnabled(
+      fieldWith([crusade]),
+      crusade.id,
+      false,
+      "all",
+      1,
+    ).field.groups[0];
+
+    const result = activateField(fieldWith([anim, stoppedCrusade]));
+    const gnomes = result.field.groups.find((group) => group.label === "Gnome");
+
+    expect(gnomes?.quantity).toBe(1);
+    expect(gnomes?.counters["+1/+1"]).toBeUndefined();
+    expect(calculateTotals(result.field.groups).enchantments).toBe(1);
+  });
+
+  it("ignores a not-tracked Doubling Season replacement effect", () => {
+    const season = tracked(doublingSeason());
+    const stoppedSeason = setTrackingEnabled(
+      fieldWith([season]),
+      season.id,
+      false,
+      "all",
+      1,
+    ).field.groups[0];
+    const creature = genericCreature();
+
+    const counters = applyCounters(
+      fieldWith([stoppedSeason, creature]),
+      creature.id,
+      "+1/+1",
+      1,
+      "all",
+      1,
+      "game-action",
+    );
+    const activation = activateField(
+      fieldWith([tracked(animPakal()), stoppedSeason]),
+    );
+
+    expect(
+      counters.field.groups.find((group) => group.id === creature.id)?.counters[
+        "+1/+1"
+      ],
+    ).toBe(1);
+    expect(
+      activation.field.groups.find((group) => group.label === "Gnome")
+        ?.quantity,
+    ).toBe(1);
+    expect(calculateTotals(activation.field.groups).enchantments).toBe(1);
+  });
+
+  it("filters not-tracked landfall sources from background watchers", () => {
+    const baloths = tracked(rampagingBaloths());
+    const stoppedBaloths = setTrackingEnabled(
+      fieldWith([baloths]),
+      baloths.id,
+      false,
+      "all",
+      1,
+    ).field.groups[0];
+    const ignored = resolveLandEntry(
+      fieldWith([stoppedBaloths]),
+      2,
+      "one-at-a-time",
+    );
+    const active = resolveLandEntry(
+      fieldWith([tracked(rampagingBaloths())]),
+      2,
+      "one-at-a-time",
+    );
+
+    expect(
+      ignored.field.groups.find((group) => group.label === "Beast"),
+    ).toBeUndefined();
+    expect(
+      active.field.groups.find((group) => group.label === "Beast")?.quantity,
+    ).toBe(2);
+  });
+
+  it("splits and merges stacks when tracking changes for part of a stack", () => {
+    const scute = tracked(
+      testCard({
+        name: "Scute Swarm",
+        typeLine: "Creature - Insect",
+        oracleText: "Landfall",
+        power: "1",
+        toughness: "1",
+      }),
+      8,
+    );
+    const stopped = setTrackingEnabled(
+      fieldWith([scute]),
+      scute.id,
+      false,
+      "custom",
+      3,
+    );
+    const stoppedGroup = stopped.field.groups.find(
+      (group) => group.trackingEnabled === false,
+    );
+    const trackedGroup = stopped.field.groups.find(
+      (group) => group.trackingEnabled !== false,
+    );
+    const resumed = setTrackingEnabled(
+      stopped.field,
+      stoppedGroup?.id ?? "",
+      true,
+      "all",
+      1,
+    );
+
+    expect(stoppedGroup?.quantity).toBe(3);
+    expect(trackedGroup?.quantity).toBe(5);
+    expect(resumed.field.groups).toHaveLength(1);
+    expect(resumed.field.groups[0].quantity).toBe(8);
+    expect(resumed.field.groups[0].trackingEnabled).toBe(true);
+  });
+
+  it("preserves tracking state through transform and restore", () => {
+    const anim = tracked(animPakal());
+    const stopped = setTrackingEnabled(
+      fieldWith([anim]),
+      anim.id,
+      false,
+      "all",
+      1,
+    );
+    const target = testCard({
+      name: "Colossal Dreadmaw",
+      typeLine: "Creature - Dinosaur",
+      oracleText: "Trample",
+      power: "6",
+      toughness: "6",
+    });
+    const transformed = transformCreatures(
+      stopped.field,
+      target,
+      "all",
+      [],
+      false,
+    );
+    const restored = restoreTransformations(transformed.field);
+
+    expect(transformed.field.groups[0].trackingEnabled).toBe(false);
+    expect(transformed.field.groups[0].identity?.name).toBe(
+      "Colossal Dreadmaw",
+    );
+    expect(restored.field.groups[0].trackingEnabled).toBe(false);
+    expect(restored.field.groups[0].identity?.name).toContain("Anim Pakal");
+  });
+
+  it("keeps not-tracked separate from depower state", () => {
+    const anim = tracked(animPakal());
+    const depowered = {
+      ...anim,
+      abilitiesActive: false,
+      depowerMode: "all" as const,
+      statuses: { ...anim.statuses, depowered: true },
+    };
+    const stopped = setTrackingEnabled(
+      fieldWith([depowered]),
+      depowered.id,
+      false,
+      "all",
+      1,
+    ).field.groups[0];
+    const resumed = setTrackingEnabled(
+      fieldWith([stopped]),
+      stopped.id,
+      true,
+      "all",
+      1,
+    ).field.groups[0];
+
+    expect(stopped.trackingEnabled).toBe(false);
+    expect(stopped.depowerMode).toBe("all");
+    expect(stopped.abilitiesActive).toBe(false);
+    expect(resumed.trackingEnabled).toBe(true);
+    expect(resumed.depowerMode).toBe("all");
+    expect(resumed.abilitiesActive).toBe(false);
+  });
+
+  it("migrates and persists explicit tracking state safely", () => {
+    const anim = tracked(animPakal());
+    const savedWithoutTracking = {
+      ...createDefaultField(),
+      groups: [{ ...anim, trackingEnabled: undefined }],
+    };
+    const migrated = sanitizeImportedField(savedWithoutTracking);
+    const stopped = setTrackingEnabled(
+      fieldWith([anim]),
+      anim.id,
+      false,
+      "all",
+      1,
+    );
+    const reloaded = sanitizeImportedField(
+      JSON.parse(JSON.stringify(stopped.field)),
+    );
+    const corrupted = sanitizeImportedField({
+      ...stopped.field,
+      groups: [{ ...stopped.field.groups[0], trackingEnabled: "nope" }],
+    });
+
+    expect(migrated?.groups[0].trackingEnabled).toBe(true);
+    expect(reloaded?.groups[0].trackingEnabled).toBe(false);
+    expect(corrupted?.groups[0].trackingEnabled).toBe(true);
   });
 });

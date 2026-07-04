@@ -2,7 +2,7 @@
 
 Baord State Lite is a mobile-first Magic: The Gathering companion app for tracking a personal battlefield without becoming a full digital battlefield simulator.
 
-The app tracks your life total, player counters, relevant battlefield objects, generic placeholders, counters, statuses, tokens, selected real-card abilities, and supported trigger/replacement chains. Cards added through Scryfall are treated as active tracked permanents, so users should add only cards whose abilities they want automated. Other permanents should be represented by generic placeholders.
+The app tracks your life total, player counters, relevant battlefield objects, generic placeholders, counters, statuses, tokens, selected real-card abilities, and supported trigger/replacement chains. Cards added through Scryfall are treated as active tracked permanents, so users should add only cards whose abilities they want automated. Other permanents should be represented by generic placeholders. If a real card is already on the field but its abilities should be ignored temporarily, long-press it and choose Stop Tracking Card.
 
 ## Current Automated Card Logic
 
@@ -15,6 +15,10 @@ The app tracks your life total, player counters, relevant battlefield objects, g
 - User-defined custom effects for activate-field actions.
 
 Unsupported cards can still be tracked as permanents, receive counters, count toward totals, be depowered, be transformed, and be removed, but their unsupported Oracle text is not guessed.
+
+## Tracking Controls
+
+Stop Tracking Card is a user-controlled automation preference, separate from Depower. A not-tracked card stays visible, keeps its current counters and statuses, continues contributing to relevant totals, and remains an eligible recipient for effects from tracked cards. Its own supported abilities, replacement effects, static effects, background watcher responses, and attached card automation are ignored until Resume Tracking Card is used.
 
 ## Stack
 

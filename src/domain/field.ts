@@ -1,4 +1,10 @@
-import { createGenericGroup, makeId, mergeCompatibleStacks } from "./cards";
+import {
+  createGenericGroup,
+  makeId,
+  mergeCompatibleStacks,
+  recalculateStats,
+  withStackKey,
+} from "./cards";
 import type {
   FieldState,
   OpponentValues,
@@ -204,13 +210,7 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
       .filter((group): group is PermanentGroup =>
         Boolean(group && typeof group.id === "string"),
       )
-      .map((group, index) => ({
-        ...group,
-        label: sanitizeText(group.label, "Imported object"),
-        notes: sanitizeText(group.notes, ""),
-        quantity: clampNumber(group.quantity, 1, 999999999, 1),
-        order: Number.isFinite(group.order) ? group.order : index,
-      })),
+      .map((group, index) => normalizeGroupShape(group, index)),
     pinnedTotals: Array.isArray(candidate.pinnedTotals)
       ? candidate.pinnedTotals
       : defaults.pinnedTotals,
@@ -317,7 +317,9 @@ export function calculateTotals(
 export function normalizeField(field: FieldState): FieldState {
   return {
     ...field,
-    groups: mergeCompatibleStacks(field.groups),
+    groups: mergeCompatibleStacks(
+      field.groups.map((group, index) => normalizeGroupShape(group, index)),
+    ),
     updatedAt: new Date().toISOString(),
   };
 }
@@ -344,6 +346,25 @@ function sanitizeNumberRecord(value: unknown): Record<string, number> {
       return acc;
     },
     {},
+  );
+}
+
+function normalizeGroupShape(
+  group: PermanentGroup,
+  index: number,
+): PermanentGroup {
+  return withStackKey(
+    recalculateStats({
+      ...group,
+      label: sanitizeText(group.label, "Imported object"),
+      notes: sanitizeText(group.notes, ""),
+      quantity: clampNumber(group.quantity, 1, 999999999, 1),
+      order: Number.isFinite(group.order) ? group.order : index,
+      trackingEnabled:
+        typeof group.trackingEnabled === "boolean"
+          ? group.trackingEnabled
+          : true,
+    }),
   );
 }
 

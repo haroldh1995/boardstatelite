@@ -26,6 +26,7 @@ export type ModalKind =
   | "life"
   | "playerCounters"
   | "managePermanent"
+  | "trackingConfirm"
   | "removeStack"
   | "replaceGeneric"
   | "transformAll"
@@ -163,6 +164,7 @@ export interface PermanentGroup {
   attachedTo: string | null;
   order: number;
   abilitiesActive: boolean;
+  trackingEnabled: boolean;
   depowerMode: "none" | "all" | "triggered" | "selected";
   disabledAbilities: string[];
   isGeneric: boolean;

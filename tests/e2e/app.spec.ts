@@ -43,3 +43,57 @@ for (const width of widths) {
     ).toBeVisible();
   });
 }
+
+test("not-tracked card state can be stopped and resumed from the permanent menu", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 430, height: 900 });
+  await page.goto("/?fixture=reference", { waitUntil: "load" });
+  const anim = page.locator('article[aria-label^="Anim Pakal"]').first();
+
+  await longPress(page, anim);
+  await page.getByRole("button", { name: "Stop Tracking Card" }).click();
+  await expect(page.getByRole("dialog")).toContainText(
+    "This card will remain on your battlefield",
+  );
+  await page.mouse.click(4, 4);
+  await expect(page.locator(".modal-overlay")).toHaveCount(0);
+  await expect(anim).not.toHaveAttribute("aria-label", /Not Tracked/);
+
+  await longPress(page, anim);
+  await page.getByRole("button", { name: "Stop Tracking Card" }).click();
+  await page.getByRole("button", { name: "Stop Tracking" }).click();
+  await expect(anim).toHaveAttribute("aria-label", /Not Tracked/);
+  await expect(anim.locator(".tracking-badge")).toBeVisible();
+
+  await page.getByRole("button", { name: /ACTIVATE FIELD/ }).click();
+  await expect(page.getByRole("dialog")).toContainText(
+    "No supported active abilities resolved",
+  );
+  await page
+    .locator(".modal-actions")
+    .getByRole("button", { name: "Close" })
+    .click();
+
+  await longPress(page, anim);
+  await page.getByRole("button", { name: "Resume Tracking Card" }).click();
+  await page.getByRole("button", { name: "Resume Tracking" }).click();
+  await expect(anim).not.toHaveAttribute("aria-label", /Not Tracked/);
+
+  await page.getByRole("button", { name: /ACTIVATE FIELD/ }).click();
+  await expect(page.getByRole("dialog")).toContainText("Anim Pakal");
+});
+
+async function longPress(
+  page: import("@playwright/test").Page,
+  locator: import("@playwright/test").Locator,
+) {
+  await locator.scrollIntoViewIfNeeded();
+  const box = await locator.boundingBox();
+  if (!box)
+    throw new Error("Cannot long-press element without a bounding box.");
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(700);
+  await page.mouse.up();
+}

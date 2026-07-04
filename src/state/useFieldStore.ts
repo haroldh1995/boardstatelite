@@ -14,6 +14,7 @@ import {
   resolveLandEntry,
   restoreTransformations as resolveRestoreTransformations,
   setLife as resolveSetLife,
+  setTrackingEnabled as resolveSetTrackingEnabled,
   transformCreatures as resolveTransformCreatures,
 } from "../domain/engine";
 import {
@@ -90,6 +91,12 @@ interface FieldStore {
   setDepowerMode: (
     groupId: string,
     mode: FieldState["groups"][number]["depowerMode"],
+  ) => void;
+  setTrackingEnabled: (
+    groupId: string,
+    trackingEnabled: boolean,
+    scope: StackScope,
+    customQuantity: number,
   ) => void;
   setBasePowerToughness: (
     groupId: string,
@@ -344,6 +351,21 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
       next,
       [mode === "none" ? "Abilities restored." : "Abilities disabled."],
       set,
+    );
+  },
+
+  setTrackingEnabled(groupId, trackingEnabled, scope, customQuantity) {
+    commitResult(
+      trackingEnabled ? "Resume tracking card" : "Stop tracking card",
+      resolveSetTrackingEnabled(
+        get().field,
+        groupId,
+        trackingEnabled,
+        scope,
+        customQuantity,
+      ),
+      set,
+      false,
     );
   },
 

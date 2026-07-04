@@ -619,6 +619,7 @@ textarea:focus-visible {
 .quantity-badge,
 .pt-badge,
 .depower-badge,
+.tracking-badge,
 .transform-badge,
 .counter-badge {
   position: absolute;
@@ -641,6 +642,7 @@ textarea:focus-visible {
 }
 
 .depower-badge,
+.tracking-badge,
 .transform-badge {
   top: 31px;
   right: 6px;
@@ -656,9 +658,21 @@ textarea:focus-visible {
 }
 
 .depower-badge svg,
+.tracking-badge svg,
 .transform-badge svg {
   width: 14px;
   height: 14px;
+}
+
+.tracking-badge {
+  top: 58px;
+  color: #dbe8f3;
+  border-color: rgba(174, 205, 229, 0.52);
+  background: rgba(15, 23, 32, 0.84);
+}
+
+.is-not-tracked .transform-badge {
+  top: 85px;
 }
 
 .pt-badge {
@@ -780,6 +794,19 @@ textarea:focus-visible {
   filter: grayscale(0.95) brightness(0.68);
 }
 
+.permanent-card.is-not-tracked:not(.is-depowered) img {
+  filter: saturate(0.72) contrast(0.96) brightness(0.88);
+}
+
+.permanent-card.is-not-tracked .card-image-frame {
+  border-color: rgba(174, 205, 229, 0.58);
+  box-shadow:
+    0 8px 18px rgba(0, 0, 0, 0.46),
+    0 0 0 1px rgba(223, 236, 247, 0.1),
+    0 0 15px rgba(174, 205, 229, 0.18);
+  animation: tracking-state-pulse 420ms ease-out;
+}
+
 .permanent-card.is-depowered .card-image-frame::after {
   content: "";
   position: absolute;
@@ -787,6 +814,27 @@ textarea:focus-visible {
   border-top: 2px solid rgba(255, 255, 255, 0.68);
   transform: rotate(-28deg);
   pointer-events: none;
+}
+
+@keyframes tracking-state-pulse {
+  0% {
+    box-shadow:
+      0 8px 18px rgba(0, 0, 0, 0.46),
+      0 0 0 1px rgba(223, 236, 247, 0.16),
+      0 0 3px rgba(174, 205, 229, 0.08);
+  }
+  60% {
+    box-shadow:
+      0 8px 18px rgba(0, 0, 0, 0.46),
+      0 0 0 1px rgba(223, 236, 247, 0.26),
+      0 0 24px rgba(174, 205, 229, 0.34);
+  }
+  100% {
+    box-shadow:
+      0 8px 18px rgba(0, 0, 0, 0.46),
+      0 0 0 1px rgba(223, 236, 247, 0.1),
+      0 0 15px rgba(174, 205, 229, 0.18);
+  }
 }
 
 .gesture-waiting .card-image-frame {
@@ -1124,6 +1172,16 @@ textarea:focus-visible {
 .modal-sheet p {
   color: #cce5d8;
   margin: 0 0 10px;
+}
+
+.tracking-state-copy,
+.support-copy {
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.tracking-scope {
+  margin-top: 12px;
 }
 
 .modal-actions,

@@ -1,5 +1,5 @@
 import { X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { COUNTER_OPTIONS } from "../domain/cards";
 import { TOTAL_LABELS } from "../domain/field";
 import type {
@@ -16,6 +16,7 @@ export function ModalRoot() {
   const modal = useFieldStore((state) => state.modal);
   const closeModal = useFieldStore((state) => state.closeModal);
   const startupVisible = useFieldStore((state) => state.startupVisible);
+  const sheetRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
@@ -24,6 +25,10 @@ export function ModalRoot() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [closeModal, modal?.kind]);
+
+  useEffect(() => {
+    sheetRef.current?.focus();
+  }, [modal?.kind]);
 
   if (!modal) return null;
   const blocking = modal.kind === "startup" && startupVisible;
@@ -39,6 +44,7 @@ export function ModalRoot() {
       }}
     >
       <section
+        ref={sheetRef}
         className={
           modal.kind === "managePermanent"
             ? "modal-sheet bottom-sheet"
@@ -47,7 +53,24 @@ export function ModalRoot() {
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
+        tabIndex={-1}
         onPointerDown={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key !== "Tab") return;
+          const focusable = sheetRef.current?.querySelectorAll<HTMLElement>(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+          );
+          if (!focusable?.length) return;
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+          }
+        }}
       >
         {!blocking && (
           <button
@@ -79,6 +102,15 @@ function ModalContent({ modal }: { modal: ModalState }) {
       return <PlayerCountersSheet />;
     case "managePermanent":
       return <ManagePermanentSheet groupId={modal.groupId} />;
+    case "trackingConfirm":
+      return (
+        <TrackingConfirmSheet
+          groupId={modal.groupId}
+          trackingEnabled={Boolean(
+            (modal.payload as { trackingEnabled?: boolean })?.trackingEnabled,
+          )}
+        />
+      );
     case "removeStack":
       return <RemoveStackSheet groupId={modal.groupId} />;
     case "replaceGeneric":
@@ -129,6 +161,10 @@ function StartupWarning() {
             replaced with actual cards. They do not contribute card abilities
             until replaced.
           </p>
+          <p>
+            Added a real card but do not want its abilities included right now?
+            Long-press it and choose Stop Tracking Card.
+          </p>
         </>
       ) : (
         <div className="learn-copy">
@@ -142,6 +178,11 @@ function StartupWarning() {
             Unsupported cards remain useful for quantities, counters,
             power/toughness, depower, transformation, and manual custom effects,
             but their Oracle text is never guessed.
+          </p>
+          <p>
+            Stop Tracking Card is an app tracking preference, not depower. The
+            card stays visible, keeps previous counters and tokens, still counts
+            for totals, and can receive effects from other tracked permanents.
           </p>
         </div>
       )}
@@ -391,6 +432,7 @@ function ManagePermanentSheet({ groupId }: { groupId?: string }) {
   const applyCounters = useFieldStore((state) => state.applyCounters);
   const toggleStatus = useFieldStore((state) => state.toggleStatus);
   const setDepowerMode = useFieldStore((state) => state.setDepowerMode);
+  const openModal = useFieldStore((state) => state.openModal);
   const setBasePowerToughness = useFieldStore(
     (state) => state.setBasePowerToughness,
   );
@@ -405,10 +447,42 @@ function ManagePermanentSheet({ groupId }: { groupId?: string }) {
   const [toughness, setToughness] = useState(group?.pt.baseToughness ?? 1);
 
   if (!group) return <p>Permanent not found.</p>;
+  const canToggleTracking = Boolean(group.identity) && !group.isGeneric;
+  const trackingEnabled = group.trackingEnabled !== false;
   return (
     <div>
       <h2 id="modal-title">{group.label}</h2>
       <div className="sheet-columns">
+        <section>
+          <h3>Automation</h3>
+          <p className="tracking-state-copy">
+            {canToggleTracking
+              ? trackingEnabled
+                ? "Tracked: supported abilities may participate in automatic field resolution."
+                : "Not Tracked: this permanent remains counted and visible, but its own abilities are ignored."
+              : "Generic placeholders do not contribute card abilities unless custom automation is added."}
+          </p>
+          {canToggleTracking && (
+            <button
+              type="button"
+              className={trackingEnabled ? "danger-action" : "primary-action"}
+              onClick={() =>
+                openModal({
+                  kind: "trackingConfirm",
+                  groupId: group.id,
+                  payload: { trackingEnabled: !trackingEnabled },
+                })
+              }
+            >
+              {trackingEnabled ? "Stop Tracking Card" : "Resume Tracking Card"}
+            </button>
+          )}
+          <p className="support-copy">
+            Support status:{" "}
+            {group.identity?.supportStatus.replaceAll("-", " ") ??
+              "No card abilities"}
+          </p>
+        </section>
         <section>
           <h3>Counters</h3>
           <label>
@@ -583,6 +657,93 @@ function ManagePermanentSheet({ groupId }: { groupId?: string }) {
             Remove One Neutrally
           </button>
         </section>
+      </div>
+    </div>
+  );
+}
+
+function TrackingConfirmSheet({
+  groupId,
+  trackingEnabled,
+}: {
+  groupId?: string;
+  trackingEnabled: boolean;
+}) {
+  const group = useGroup(groupId);
+  const setTrackingEnabled = useFieldStore((state) => state.setTrackingEnabled);
+  const closeModal = useFieldStore((state) => state.closeModal);
+  const [scope, setScope] = useState<StackScope>("all");
+  const [customQuantity, setCustomQuantity] = useState(1);
+
+  if (!group) return <p>Permanent not found.</p>;
+  const isStopping = !trackingEnabled;
+
+  return (
+    <div>
+      <h2 id="modal-title">
+        {isStopping ? "Stop Tracking Card" : "Resume Tracking Card"}
+      </h2>
+      <p>
+        {isStopping
+          ? "This card will remain on your battlefield, keep its counters and statuses, and continue counting toward relevant totals. Its own card abilities will be ignored by automatic field activation and background trigger processing until tracking is restored."
+          : "This card will remain in its current battlefield state and its supported card abilities will be included in future automatic field activation and background trigger processing. Resuming tracking does not create enter-the-battlefield triggers or undo prior changes."}
+      </p>
+      {group.quantity > 1 && (
+        <div className="tracking-scope">
+          <p>
+            {group.label} is a stack of {group.quantity}.
+          </p>
+          <div className="segmented wrap">
+            {[
+              ["one", "One"],
+              ["custom", "Custom number"],
+              ["all", "Entire stack"],
+            ].map(([value, label]) => (
+              <button
+                type="button"
+                key={value}
+                className={scope === value ? "selected" : ""}
+                onClick={() => setScope(value as StackScope)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {scope === "custom" && (
+            <label>
+              Quantity
+              <input
+                type="number"
+                min={1}
+                max={group.quantity}
+                value={customQuantity}
+                onChange={(event) =>
+                  setCustomQuantity(Number(event.target.value))
+                }
+              />
+            </label>
+          )}
+        </div>
+      )}
+      <div className="modal-actions">
+        <button
+          type="button"
+          className={isStopping ? "danger-action" : "primary-action"}
+          onClick={() => {
+            setTrackingEnabled(
+              group.id,
+              trackingEnabled,
+              scope,
+              customQuantity,
+            );
+            closeModal();
+          }}
+        >
+          {isStopping ? "Stop Tracking" : "Resume Tracking"}
+        </button>
+        <button type="button" onClick={closeModal}>
+          Cancel
+        </button>
       </div>
     </div>
   );

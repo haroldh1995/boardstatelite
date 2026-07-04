@@ -166,6 +166,19 @@ test.describe("reference visual fixture", () => {
     );
   });
 
+  test("not-tracked permanent indicator", async ({ page }) => {
+    await openReferenceFixture(page, 430, 1280);
+    const anim = page.locator('article[aria-label^="Anim Pakal"]').first();
+    await longPress(page, anim);
+    await page.getByRole("button", { name: "Stop Tracking Card" }).click();
+    await page.getByRole("button", { name: "Stop Tracking" }).click();
+    await expect(anim).toHaveAttribute("aria-label", /Not Tracked/);
+    await expect(anim).toHaveScreenshot(
+      "not-tracked-permanent.png",
+      screenshotOptions,
+    );
+  });
+
   test("Scryfall search modal", async ({ page }) => {
     await openReferenceFixture(page, 430, 1280);
     await page.getByRole("button", { name: /^Add$/ }).click();

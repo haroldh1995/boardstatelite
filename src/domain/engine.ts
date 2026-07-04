@@ -302,6 +302,85 @@ export function applyCounters(
   });
 }
 
+export function setTrackingEnabled(
+  field: FieldState,
+  groupId: string,
+  trackingEnabled: boolean,
+  scope: StackScope,
+  customQuantity: number,
+): ResolutionResult {
+  const working = cloneField(field);
+  const details: ResolutionStep[] = [];
+  const events: GameEvent[] = [];
+  const changedGroupIds = new Set<string>();
+  const group = working.groups.find((entry) => entry.id === groupId);
+
+  if (!group) {
+    return finalizeResult(field, working, {
+      title: trackingEnabled ? "Tracking Not Restored" : "Tracking Not Stopped",
+      details,
+      events,
+      changedGroupIds,
+      loopDetected: false,
+      fallbackSummary: ["The selected permanent no longer exists."],
+    });
+  }
+
+  const targetQuantity =
+    scope === "one"
+      ? 1
+      : scope === "custom"
+        ? Math.max(1, Math.min(customQuantity, group.quantity))
+        : group.quantity;
+  const split = splitGroupForQuantity(working.groups, groupId, targetQuantity);
+  working.groups = split.groups;
+
+  if (!split.targetId) {
+    return finalizeResult(field, working, {
+      title: trackingEnabled ? "Tracking Not Restored" : "Tracking Not Stopped",
+      details,
+      events,
+      changedGroupIds,
+      loopDetected: false,
+      fallbackSummary: ["The selected permanent could not be split."],
+    });
+  }
+
+  working.groups = working.groups.map((entry) => {
+    if (entry.id !== split.targetId) return entry;
+    changedGroupIds.add(entry.id);
+    return withStackKey(
+      recalculateStats({
+        ...entry,
+        trackingEnabled,
+      }),
+    );
+  });
+  const affected = working.groups.find((entry) => entry.id === split.targetId);
+  const count = affected?.quantity ?? targetQuantity;
+  details.push(
+    step(
+      trackingEnabled ? "Tracking restored" : "Tracking disabled",
+      trackingEnabled
+        ? `Tracking restored for ${count} ${group.label}. Future automatic resolutions may use its supported abilities again.`
+        : `Tracking disabled for ${count} ${group.label}. It remains on the battlefield, keeps counters and statuses, and continues counting toward relevant totals.`,
+    ),
+  );
+
+  return finalizeResult(field, working, {
+    title: trackingEnabled ? "Tracking Restored" : "Tracking Disabled",
+    details,
+    events,
+    changedGroupIds,
+    loopDetected: false,
+    fallbackSummary: [
+      trackingEnabled
+        ? `Tracking restored for ${group.label}.`
+        : `Tracking disabled for ${group.label}.`,
+    ],
+  });
+}
+
 export function removeGroupQuantity(
   field: FieldState,
   groupId: string,
@@ -408,6 +487,7 @@ export function replaceGenericIdentity(
         },
         isGeneric: false,
         abilitiesActive: true,
+        trackingEnabled: entry.trackingEnabled !== false,
         pt: {
           ...entry.pt,
           printedPower: entry.pt.printedPower,
@@ -731,6 +811,15 @@ function applyActivateCustomEffects(
   for (const effect of field.customEffects.filter(
     (entry) => entry.enabled && entry.trigger === "activate-field",
   )) {
+    const sourceGroupId = (effect as { sourceGroupId?: string }).sourceGroupId;
+    if (
+      sourceGroupId &&
+      !field.groups.some(
+        (group) => group.id === sourceGroupId && isAutomationSource(group),
+      )
+    ) {
+      continue;
+    }
     const amount = resolveValue(effect.action.amount, field, totals);
     if (effect.action.kind === "add-counters") {
       const targets =
@@ -898,11 +987,20 @@ function findActiveByName(
 
 function isActiveNamed(group: PermanentGroup, nameFragment: string): boolean {
   return (
+    isAutomationSource(group) &&
+    Boolean(group.identity?.name.toLowerCase().includes(nameFragment))
+  );
+}
+
+function isAutomationSource(group: PermanentGroup): boolean {
+  return (
     group.zone === "battlefield" &&
+    group.trackingEnabled !== false &&
     group.abilitiesActive &&
     group.depowerMode !== "all" &&
     group.depowerMode !== "triggered" &&
-    Boolean(group.identity?.name.toLowerCase().includes(nameFragment))
+    Boolean(group.identity) &&
+    !group.isGeneric
   );
 }
 
