@@ -497,4 +497,19 @@ describe("field resolver", () => {
     expect(reloaded?.groups[0].trackingEnabled).toBe(false);
     expect(corrupted?.groups[0].trackingEnabled).toBe(true);
   });
+
+  it("migrates older settings objects with safe production defaults", () => {
+    const oldSave = {
+      ...createDefaultField(),
+      settings: {
+        cardSize: "compact",
+      },
+    };
+    const migrated = sanitizeImportedField(oldSave);
+
+    expect(migrated?.settings.cardSize).toBe("compact");
+    expect(migrated?.settings.reducedMotion).toBe(false);
+    expect(migrated?.settings.readAloud).toBe(false);
+    expect(migrated?.watcherPreferences.landEntryMode).toBe("ask");
+  });
 });
