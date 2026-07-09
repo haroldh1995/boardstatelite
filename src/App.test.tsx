@@ -68,52 +68,6 @@ describe("Baord State Lite app shell", () => {
     ).toBeInTheDocument();
   });
 
-  it("remembers the acknowledged first-launch warning on reload", async () => {
-    const user = userEvent.setup();
-    const first = render(<App />);
-
-    await user.click(
-      await screen.findByRole("button", { name: /continue to field/i }),
-    );
-    first.unmount();
-    useFieldStore.setState({
-      field: createDefaultField(),
-      hydrated: false,
-      startupVisible: true,
-      modal: { kind: "startup" },
-      lastResult: null,
-      undoStack: [],
-      redoStack: [],
-    });
-
-    render(<App />);
-
-    expect(
-      await screen.findByRole("button", { name: /40 tap to set life total/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText("Only add cards whose abilities should be tracked"),
-    ).not.toBeInTheDocument();
-  });
-
-  it("opens player counter editing from visible counter chips", async () => {
-    const user = userEvent.setup();
-    render(<App />);
-
-    await user.click(
-      await screen.findByRole("button", { name: /continue to field/i }),
-    );
-    await user.click(screen.getByRole("button", { name: /poison: 0/i }));
-
-    expect(screen.getByText("Player Counters")).toBeInTheDocument();
-    const poisonInput = screen.getByRole("spinbutton", { name: "poison" });
-    await user.clear(poisonInput);
-    await user.type(poisonInput, "3");
-    expect(
-      screen.getByRole("button", { name: /poison: 3/i }),
-    ).toBeInTheDocument();
-  });
-
   it("closes non-blocking popups on outside tap without applying changes or click-through", async () => {
     const user = userEvent.setup();
     const { container } = render(<App />);

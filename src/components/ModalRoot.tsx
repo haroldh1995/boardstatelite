@@ -93,13 +93,7 @@ function ModalContent({ modal }: { modal: ModalState }) {
     case "startup":
       return <StartupWarning />;
     case "add":
-      return (
-        <AddSheet
-          initialTab={
-            (modal.payload as { tab?: "card" | "generic" } | undefined)?.tab
-          }
-        />
-      );
+      return <AddSheet />;
     case "preview":
       return <PreviewSheet groupId={modal.groupId} />;
     case "life":
@@ -129,8 +123,6 @@ function ModalContent({ modal }: { modal: ModalState }) {
       return <DetailsSheet />;
     case "settings":
       return <SettingsSheet />;
-    case "tutorial":
-      return <TutorialSheet />;
     case "exactTotal":
       return (
         <ExactTotalSheet
@@ -219,15 +211,11 @@ function StartupWarning() {
   );
 }
 
-function AddSheet({
-  initialTab = "card",
-}: {
-  initialTab?: "card" | "generic";
-}) {
+function AddSheet() {
   const addCard = useFieldStore((state) => state.addCard);
   const addGeneric = useFieldStore((state) => state.addGeneric);
   const closeModal = useFieldStore((state) => state.closeModal);
-  const [tab, setTab] = useState<"card" | "generic">(initialTab);
+  const [tab, setTab] = useState<"card" | "generic">("card");
   const [genericKind, setGenericKind] =
     useState<Parameters<typeof addGeneric>[0]["kind"]>("Creature");
   const [quantity, setQuantity] = useState(1);
@@ -451,7 +439,6 @@ function ManagePermanentSheet({ groupId }: { groupId?: string }) {
   const removeGroup = useFieldStore((state) => state.removeGroup);
   const closeModal = useFieldStore((state) => state.closeModal);
   const [counter, setCounter] = useState("+1/+1");
-  const [customCounter, setCustomCounter] = useState("");
   const [amount, setAmount] = useState(1);
   const [scope, setScope] = useState<StackScope>("all");
   const [customQuantity, setCustomQuantity] = useState(1);
@@ -507,20 +494,8 @@ function ManagePermanentSheet({ groupId }: { groupId?: string }) {
               {COUNTER_OPTIONS.map((option) => (
                 <option key={option}>{option}</option>
               ))}
-              <option value="custom">Custom counter...</option>
             </select>
           </label>
-          {counter === "custom" && (
-            <label>
-              Custom counter name
-              <input
-                value={customCounter}
-                maxLength={32}
-                onChange={(event) => setCustomCounter(event.target.value)}
-                placeholder="Keyword, shield variant, or table note"
-              />
-            </label>
-          )}
           <label>
             Amount
             <input
@@ -571,16 +546,9 @@ function ManagePermanentSheet({ groupId }: { groupId?: string }) {
             type="button"
             className="primary-action"
             onClick={() => {
-              const appliedCounter =
-                counter === "custom"
-                  ? customCounter
-                      .replace(/[<>{}`]/g, "")
-                      .trim()
-                      .slice(0, 32) || "Custom"
-                  : counter;
               applyCounters(
                 group.id,
-                appliedCounter,
+                counter,
                 amount,
                 scope,
                 customQuantity,
@@ -1005,7 +973,6 @@ function SettingsSheet() {
   const resetField = useFieldStore((state) => state.resetField);
   const exportField = useFieldStore((state) => state.exportField);
   const importField = useFieldStore((state) => state.importField);
-  const openModal = useFieldStore((state) => state.openModal);
   const [importText, setImportText] = useState("");
   const [exportText, setExportText] = useState("");
   const [importError, setImportError] = useState("");
@@ -1072,73 +1039,6 @@ function SettingsSheet() {
             />
             Background watchers
           </label>
-          <label>
-            Animation speed
-            <select
-              value={field.settings.animationSpeed}
-              onChange={(event) =>
-                updateSettings({
-                  animationSpeed: event.target
-                    .value as typeof field.settings.animationSpeed,
-                })
-              }
-            >
-              <option value="reduced">Reduced</option>
-              <option value="normal">Normal</option>
-              <option value="fast">Fast</option>
-            </select>
-          </label>
-          <label className="inline-check">
-            <input
-              type="checkbox"
-              checked={field.settings.reducedMotion}
-              onChange={(event) =>
-                updateSettings({ reducedMotion: event.target.checked })
-              }
-            />
-            Reduced-motion mode
-          </label>
-          <label className="inline-check">
-            <input
-              type="checkbox"
-              checked={field.settings.sound}
-              onChange={(event) =>
-                updateSettings({ sound: event.target.checked })
-              }
-            />
-            Sound cues
-          </label>
-          <label className="inline-check">
-            <input
-              type="checkbox"
-              checked={field.settings.haptics}
-              onChange={(event) =>
-                updateSettings({ haptics: event.target.checked })
-              }
-            />
-            Haptics
-          </label>
-          <label className="inline-check">
-            <input
-              type="checkbox"
-              checked={field.settings.readAloud}
-              onChange={(event) =>
-                updateSettings({ readAloud: event.target.checked })
-              }
-            />
-            Read-aloud prompts
-          </label>
-        </section>
-        <section>
-          <h3>Rules Learning</h3>
-          <p>
-            Reopen the short tracking tutorial when you need a reminder about
-            tracked cards, generic placeholders, correction-only changes, and
-            Activate Field.
-          </p>
-          <button type="button" onClick={() => openModal({ kind: "tutorial" })}>
-            Open Rules-Learning Tutorial
-          </button>
         </section>
         <section>
           <h3>Backup</h3>
@@ -1187,69 +1087,6 @@ function SettingsSheet() {
             Coast.
           </p>
         </section>
-      </div>
-    </div>
-  );
-}
-
-function TutorialSheet() {
-  const openModal = useFieldStore((state) => state.openModal);
-  const closeModal = useFieldStore((state) => state.closeModal);
-  return (
-    <div className="tutorial-sheet" aria-live="polite">
-      <h2 id="modal-title">Rules-Learning Tutorial</h2>
-      <ol className="details-list">
-        <li>
-          <strong>Tracked cards automate supported text.</strong>
-          <span>
-            Add real Scryfall cards only when their supported abilities should
-            participate in Activate Field or background watcher resolution.
-          </span>
-        </li>
-        <li>
-          <strong>Generic placeholders represent ordinary objects.</strong>
-          <span>
-            They can be counted, tapped, transformed, stacked, and given
-            counters without adding unsupported card abilities.
-          </span>
-        </li>
-        <li>
-          <strong>Correction Only is bookkeeping.</strong>
-          <span>
-            Use it when you are fixing totals or counters and do not want
-            replacement effects, landfall, or other watchers to react.
-          </span>
-        </li>
-        <li>
-          <strong>Activate Field is one undoable transaction.</strong>
-          <span>
-            It resolves modeled initiating effects, replacement effects,
-            reactive triggers, static recalculations, and a summary you can
-            inspect before continuing.
-          </span>
-        </li>
-        <li>
-          <strong>Stop Tracking is not Depower.</strong>
-          <span>
-            A Not Tracked card stays visible and can receive outside effects,
-            but its own abilities and replacement effects are ignored until
-            tracking is resumed.
-          </span>
-        </li>
-      </ol>
-      <div className="modal-actions">
-        <button
-          type="button"
-          className="primary-action"
-          onClick={() =>
-            openModal({ kind: "add", payload: { tab: "generic" } })
-          }
-        >
-          Add Generic Placeholder
-        </button>
-        <button type="button" onClick={closeModal}>
-          Return to Field
-        </button>
       </div>
     </div>
   );

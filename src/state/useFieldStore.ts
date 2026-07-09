@@ -39,7 +39,6 @@ import { createReferenceFixtureField } from "../dev/referenceFixture";
 import { isReferenceFixtureMode } from "../dev/referenceMode";
 
 const HISTORY_LIMIT = 80;
-const STARTUP_ACK_KEY = "baord-state-lite:startup-warning-acknowledged";
 
 interface FieldStore {
   field: FieldState;
@@ -142,28 +141,22 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
       return;
     }
     const loaded = await loadLastField();
-    const startupAcknowledged = hasAcknowledgedStartupWarning();
     if (loaded) {
       const sanitized = sanitizeImportedField(loaded);
       if (sanitized) {
         set({
           field: sanitized,
           hydrated: true,
-          startupVisible: !startupAcknowledged,
-          modal: startupAcknowledged ? null : { kind: "startup" },
+          startupVisible: true,
+          modal: { kind: "startup" },
         });
         return;
       }
     }
-    set({
-      hydrated: true,
-      startupVisible: !startupAcknowledged,
-      modal: startupAcknowledged ? null : { kind: "startup" },
-    });
+    set({ hydrated: true, startupVisible: true, modal: { kind: "startup" } });
   },
 
   acknowledgeStartup() {
-    markStartupWarningAcknowledged();
     set({ startupVisible: false, modal: null });
   },
 
@@ -410,12 +403,7 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
     const nextValue = Math.max(0, Math.trunc(value));
     const delta = nextValue - current;
     if (delta === 0) return;
-    if (
-      key === "lands" &&
-      delta > 0 &&
-      mode !== "correction" &&
-      field.settings.backgroundWatchers
-    ) {
+    if (key === "lands" && delta > 0 && mode !== "correction") {
       commitResult(
         "Landfall background event",
         resolveLandEntry(field, delta, mode),
@@ -513,7 +501,6 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
       undoStack: undoStack.slice(0, -1),
       redoStack: [entry, ...redoStack].slice(0, HISTORY_LIMIT),
       lastResult: null,
-      modal: null,
     });
     void saveField(entry.before);
   },
@@ -527,7 +514,6 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
       undoStack: [...undoStack, entry].slice(-HISTORY_LIMIT),
       redoStack: redoStack.slice(1),
       lastResult: null,
-      modal: null,
     });
     void saveField(entry.after);
   },
@@ -663,20 +649,4 @@ function createManualGroup(
     });
   }
   return createGenericGroup({ kind: "Land", label: `Manual ${key}`, quantity });
-}
-
-function hasAcknowledgedStartupWarning(): boolean {
-  try {
-    return localStorage.getItem(STARTUP_ACK_KEY) === "true";
-  } catch {
-    return false;
-  }
-}
-
-function markStartupWarningAcknowledged(): void {
-  try {
-    localStorage.setItem(STARTUP_ACK_KEY, "true");
-  } catch {
-    // If storage is unavailable, keep the in-memory acknowledgement for this session.
-  }
 }

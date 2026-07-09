@@ -84,69 +84,6 @@ test("not-tracked card state can be stopped and resumed from the permanent menu"
   await expect(page.getByRole("dialog")).toContainText("Anim Pakal");
 });
 
-test("startup warning, player counters, and settings persist across reloads", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
-  await page.getByRole("button", { name: "Continue to Field" }).click();
-  await page.getByRole("button", { name: /poison: 0/i }).click();
-  await page.getByRole("spinbutton", { name: "poison" }).fill("3");
-  await page.mouse.click(4, 4);
-  await page.getByRole("button", { name: /^Tools$/ }).click();
-  await page.getByLabel("Reduced-motion mode").check();
-  await page.mouse.click(4, 4);
-
-  await page.reload();
-
-  await expect(
-    page.getByText("Only add cards whose abilities should be tracked"),
-  ).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /poison: 3/i })).toBeVisible();
-  await expect(page.locator(".app-shell.reduced-motion")).toBeVisible();
-});
-
-test("Activate Field resolves the reference Anim Pakal chain and undo restores it", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 430, height: 1000 });
-  await page.goto("/?fixture=reference", { waitUntil: "load" });
-  const anim = page.locator('article[aria-label^="Anim Pakal"]').first();
-  const before = await anim.getAttribute("aria-label");
-
-  await page.getByRole("button", { name: /ACTIVATE FIELD/ }).click();
-
-  await expect(page.getByRole("dialog")).toContainText("Field Activated");
-  await expect(page.getByRole("dialog")).toContainText("Cathars' Crusade");
-  await expect(page.getByLabel(/Gnome, stack size/)).toBeVisible();
-  await page.getByRole("button", { name: /^Undo$/ }).click();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(anim).toHaveAttribute("aria-label", before ?? "");
-});
-
-test("Scryfall search loads a real card image and adds the selected printing", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 430, height: 900 });
-  await page.goto("/");
-  await page.getByRole("button", { name: "Continue to Field" }).click();
-  await page.getByRole("button", { name: /^Add$/ }).click();
-  await page.getByPlaceholder("Search Scryfall cards").fill("sol ring");
-  await page
-    .getByRole("button", { name: /Sol Ring/i })
-    .first()
-    .click();
-  const preview = page.locator(".card-preview-pane .preview-card-image");
-  await expect(preview).toBeVisible({ timeout: 20_000 });
-  await expect
-    .poll(() =>
-      preview.evaluate((image) => (image as HTMLImageElement).naturalWidth),
-    )
-    .toBeGreaterThan(0);
-  await page.getByRole("button", { name: "Add Tracked Card" }).click();
-  await expect(page.locator('article[aria-label^="Sol Ring"]')).toBeVisible();
-});
-
 async function longPress(
   page: import("@playwright/test").Page,
   locator: import("@playwright/test").Locator,

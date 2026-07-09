@@ -13,9 +13,6 @@ function App() {
   const initialize = useFieldStore((state) => state.initialize);
   const hydrated = useFieldStore((state) => state.hydrated);
   const fieldName = useFieldStore((state) => state.field.name);
-  const reducedMotion = useFieldStore(
-    (state) => state.field.settings.reducedMotion,
-  );
   const referenceMode = isReferenceFixtureMode();
   const { needRefresh, updateServiceWorker } = useRegisterSW({
     onRegisteredSW() {
@@ -29,13 +26,7 @@ function App() {
 
   return (
     <div
-      className={[
-        "app-shell",
-        referenceMode ? "reference-fixture" : "",
-        reducedMotion ? "reduced-motion" : "",
-      ]
-        .filter(Boolean)
-        .join(" ")}
+      className={referenceMode ? "app-shell reference-fixture" : "app-shell"}
     >
       <header className="app-header" aria-label="Baord State Lite">
         <div>

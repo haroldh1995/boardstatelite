@@ -33,7 +33,6 @@ export type ModalKind =
   | "summary"
   | "details"
   | "settings"
-  | "tutorial"
   | "exactTotal"
   | "triggerOrder"
   | "customEffect";
@@ -222,7 +221,6 @@ export interface SettingsState {
   themeAccent: "verdant" | "sapphire" | "violet";
   sound: boolean;
   haptics: boolean;
-  readAloud: boolean;
 }
 
 export interface WatcherPreferences {

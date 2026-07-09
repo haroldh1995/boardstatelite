@@ -152,7 +152,6 @@ export function createDefaultSettings(): SettingsState {
     themeAccent: "verdant",
     sound: false,
     haptics: true,
-    readAloud: false,
   };
 }
 
@@ -212,14 +211,6 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
         Boolean(group && typeof group.id === "string"),
       )
       .map((group, index) => normalizeGroupShape(group, index)),
-    settings: {
-      ...defaults.settings,
-      ...candidate.settings,
-    },
-    watcherPreferences: {
-      ...defaults.watcherPreferences,
-      ...candidate.watcherPreferences,
-    },
     pinnedTotals: Array.isArray(candidate.pinnedTotals)
       ? candidate.pinnedTotals
       : defaults.pinnedTotals,

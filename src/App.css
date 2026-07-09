@@ -584,9 +584,7 @@ textarea:focus-visible {
   height: 100%;
   display: grid;
   place-items: center;
-  align-content: center;
-  gap: 7px;
-  padding: 12px 8px 34px;
+  padding: 12px;
   text-align: center;
   background:
     radial-gradient(
@@ -610,16 +608,12 @@ textarea:focus-visible {
 }
 
 .generic-silhouette small {
-  display: block;
-  max-width: 86%;
   color: #cde9dd;
   font-size: 0.62rem;
-  line-height: 1.05;
 }
 
 .large-placeholder {
   min-height: 260px;
-  padding: 20px;
 }
 
 .quantity-badge,
@@ -1609,12 +1603,4 @@ textarea {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
   }
-}
-
-.reduced-motion *,
-.reduced-motion *::before,
-.reduced-motion *::after {
-  scroll-behavior: auto !important;
-  transition-duration: 0.01ms !important;
-  animation-duration: 0.01ms !important;
 }
