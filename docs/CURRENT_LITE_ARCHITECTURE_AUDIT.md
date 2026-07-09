@@ -2,7 +2,7 @@
 
 Audit date: 2026-07-09.
 
-This audit describes the current BoardState Lite implementation before ecosystem integration work. The app is displayed as **Baord State Lite** and is deployed from `main` to GitHub Pages at `/boardstatelite/`.
+This audit describes the current Baord State Lite implementation before ecosystem integration work. The app is displayed as **Baord State Lite** and is deployed from `main` to GitHub Pages at `/boardstatelite/`.
 
 ## Repository And App Entry Points
 

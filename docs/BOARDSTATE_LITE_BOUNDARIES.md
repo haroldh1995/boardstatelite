@@ -1,10 +1,10 @@
-# BoardState Lite Boundaries
+# Baord State Lite Boundaries
 
-This repository contains BoardState Lite, displayed in the app as **Baord State Lite**. The spelling is intentional in the current product surface and must not be silently changed by ecosystem work.
+This repository contains Baord State Lite, displayed in the app as **Baord State Lite**. The spelling is intentional in the current product surface and must not be silently changed by ecosystem work.
 
 ## What Lite Is
 
-BoardState Lite is a fast physical-table companion for a player who wants local help tracking their own battlefield. It is optimized for mobile use during real tabletop Magic: The Gathering games.
+Baord State Lite is a fast physical-table companion for a player who wants local help tracking their own battlefield. It is optimized for mobile use during real tabletop Magic: The Gathering games.
 
 Lite is responsible for:
 

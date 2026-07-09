@@ -1,6 +1,6 @@
 # Integration Risks
 
-This register documents risks for future ecosystem work. It is intentionally conservative so BoardState Lite remains a fast physical-table companion while original BoardState becomes the authoritative Advanced engine.
+This register documents risks for future ecosystem work. It is intentionally conservative so Baord State Lite remains a fast physical-table companion while original BoardState becomes the authoritative Advanced engine.
 
 ## State Shape Incompatibility
 

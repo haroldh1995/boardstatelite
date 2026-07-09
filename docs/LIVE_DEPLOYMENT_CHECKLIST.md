@@ -1,6 +1,6 @@
 # Live Deployment Checklist
 
-Use this checklist before claiming BoardState Lite is deployed and usable from the web.
+Use this checklist before claiming Baord State Lite is deployed and usable from the web.
 
 ## Local Install
 

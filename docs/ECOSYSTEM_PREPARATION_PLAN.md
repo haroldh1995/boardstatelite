@@ -1,8 +1,8 @@
 # Ecosystem Preparation Plan
 
-This plan sequences the BoardState Lite ecosystem-preparation path. Each prompt must preserve the current Lite physical-table workflow and avoid turning Lite into the original BoardState app.
+This plan sequences the Baord State Lite ecosystem-preparation path. Each prompt must preserve the current Lite physical-table workflow and avoid turning Lite into the original BoardState app.
 
-## 1. Audit BoardState Lite And Preserve Current UI/Gameplay
+## 1. Audit Baord State Lite And Preserve Current UI/Gameplay
 
 Goal: document current architecture, state ownership, persistence, rules-helper boundaries, risks, tests, and deployment while adding only safe preservation guardrails.
 
