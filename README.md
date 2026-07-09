@@ -73,6 +73,14 @@ The current 430px fixture screenshot is saved at
 `docs/screenshots/reference-fixture-430.png`, with a side-by-side comparison at
 `docs/screenshots/reference-comparison-430.png`.
 
+## Ecosystem Preparation Docs
+
+- `docs/BOARDSTATE_LITE_BOUNDARIES.md`
+- `docs/CURRENT_LITE_ARCHITECTURE_AUDIT.md`
+- `docs/ECOSYSTEM_PREPARATION_PLAN.md`
+- `docs/INTEGRATION_RISKS.md`
+- `docs/LIVE_DEPLOYMENT_CHECKLIST.md`
+
 ## Deployment
 
 The Vite config uses `/boardstatelite/` as the base path in GitHub Actions and `/` locally. The `Deploy GitHub Pages` workflow builds `dist` and publishes it through GitHub Pages.
