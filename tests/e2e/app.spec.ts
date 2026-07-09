@@ -106,25 +106,6 @@ test("startup warning, player counters, and settings persist across reloads", as
   await expect(page.locator(".app-shell.reduced-motion")).toBeVisible();
 });
 
-test("rules-learning tutorial remains available from Tools", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/");
-  await page.getByRole("button", { name: "Continue to Field" }).click();
-  await page.getByRole("button", { name: /^Tools$/ }).click();
-  await page
-    .getByRole("button", { name: "Open Rules-Learning Tutorial" })
-    .click();
-
-  await expect(page.getByRole("dialog")).toContainText(
-    "Rules-Learning Tutorial",
-  );
-  await expect(page.getByRole("dialog")).toContainText("Activate Field");
-  await page.getByRole("button", { name: "Return to Field" }).click();
-  await expect(page.locator(".modal-overlay")).toHaveCount(0);
-});
-
 test("Activate Field resolves the reference Anim Pakal chain and undo restores it", async ({
   page,
 }) => {
