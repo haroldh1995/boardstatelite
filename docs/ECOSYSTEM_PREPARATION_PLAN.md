@@ -67,16 +67,19 @@ Expected inputs:
 
 Expected outputs:
 
-- Adapter interfaces.
-- Unavailable adapter implementation.
-- Safe feature flag defaulted off.
-- Tests proving local helper behavior remains unchanged.
+- Adapter interfaces and centralized manager.
+- Unavailable adapter implementation and diagnostics.
+- Canonical Lite battlefield snapshot serializer.
+- Future rules-result parser.
+- Version and capability model.
+- Fallback path proving local helper behavior remains unchanged.
 
 Systems likely affected:
 
 - Domain types.
 - Engine entry points.
 - Store actions.
+- Adapter modules under `src/rulesAdapter`.
 - Settings/status copy if needed.
 
 Tests to preserve:
@@ -85,6 +88,7 @@ Tests to preserve:
 - Not Tracked and Depower filtering.
 - Existing supported card tests.
 - Offline/local-only tests.
+- Adapter unavailable/fallback tests.
 
 ## 3. Add Canonical Shared-Game-Session Support
 

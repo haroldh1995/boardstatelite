@@ -37,6 +37,7 @@ import type {
 import { loadLastField, saveField } from "../services/db";
 import { createReferenceFixtureField } from "../dev/referenceFixture";
 import { isReferenceFixtureMode } from "../dev/referenceMode";
+import { rulesAdapterManager } from "../rulesAdapter";
 
 const HISTORY_LIMIT = 80;
 
@@ -204,7 +205,14 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
   },
 
   activateField() {
-    commitResult("Activate Field", resolveActivateField(get().field), set);
+    const field = get().field;
+    commitResult(
+      "Activate Field",
+      rulesAdapterManager.evaluateWithFallback(field, () =>
+        resolveActivateField(field),
+      ),
+      set,
+    );
   },
 
   applyCounters(groupId, counter, amount, scope, customQuantity, mode) {

@@ -32,6 +32,18 @@ Mitigation:
 - Label result source clearly.
 - Keep Lite helper engine local and optional.
 - When authoritative evaluation is available, route through a single adapter boundary rather than duplicated checks.
+- Keep adapter fallback diagnostics separate from user-facing claims.
+
+## Adapter Availability Drift
+
+Risk: Internal adapter status or diagnostics could be mistaken for a live BoardState connection.
+
+Mitigation:
+
+- Default status to `unavailable`.
+- Report every capability as unavailable until a real adapter registers it.
+- Use `Local Rules Engine`, `BoardState Not Connected`, or `Authoritative Rules Unavailable` if status is ever surfaced.
+- Never display connected, synced, authoritative, shared-session, or Advanced Mode language unless verified by the adapter.
 
 ## Duplicate Rules Logic
 
@@ -59,7 +71,7 @@ Risk: Scryfall card identity and cache data may not match canonical BoardState o
 
 Mitigation:
 
-- Preserve Scryfall IDs, Oracle IDs, selected printings, and image URLs in snapshots.
+- Preserve Scryfall IDs, Oracle IDs, and selected printings in snapshots.
 - Map to canonical identities in a serializer layer.
 - Do not make shared-session identity depend only on card names.
 

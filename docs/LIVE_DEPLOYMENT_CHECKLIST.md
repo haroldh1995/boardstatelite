@@ -66,6 +66,7 @@ Live checks:
 13. Confirm outside-tap popup cancellation closes without applying changes.
 14. Confirm a field save reloads after page refresh.
 15. Confirm there are no false claims of Hub, shared-session, sync, Advanced Mode, profile, friend, tournament, or notification integration.
+16. Confirm adapter diagnostics report BoardState authority as unavailable unless a real adapter is configured.
 
 ## Viewports
 

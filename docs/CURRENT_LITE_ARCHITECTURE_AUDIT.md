@@ -39,6 +39,7 @@ This audit describes the current Baord State Lite implementation before ecosyste
 - `src/domain/cards.ts`: card/group construction, characteristic parsing, support status detection, power/toughness recalculation, stack keys, split/merge helpers.
 - `src/domain/field.ts`: default field/player/settings/watchers, total calculation, visible totals, import sanitization, field normalization.
 - `src/domain/engine.ts`: Lite local helper resolver for Activate Field, counters, landfall, tracking state, removal, generic replacement, transform, restore, and life changes.
+- `src/rulesAdapter/*`: optional BoardState authority adapter boundary, snapshot serializer, capability/status model, result parser, version compatibility helpers, diagnostics, and fallback manager. Production status defaults to `unavailable`.
 - `src/state/useFieldStore.ts`: Zustand store, local actions, undo/redo, modal state, persistence commits.
 - `src/services/db.ts`: Dexie persistence and localStorage fallback.
 - `src/services/scryfall.ts`: Scryfall API mapping, search, card fetch, pending request de-duplication, cache calls.
@@ -159,6 +160,40 @@ Unsupported Oracle text is not guessed. Unsupported cards remain objects that ca
 
 Lite acts as a calculator when it assumes initiating conditions for ACTIVATE FIELD, summarizes opponent-only effects, and processes only explicitly modeled rules patterns. Future authoritative evaluation must be adapter-based and optional.
 
+## BoardState Rules Adapter Layer
+
+The adapter layer is intentionally separate from UI components and does not require original BoardState to exist.
+
+Modules:
+
+- `src/rulesAdapter/types.ts`: adapter statuses, capabilities, version metadata, canonical Lite snapshot types, future rules-result types, and adapter interface.
+- `src/rulesAdapter/capabilities.ts`: capability list and unavailable capability defaults.
+- `src/rulesAdapter/status.ts`: status values and status validation.
+- `src/rulesAdapter/serializer.ts`: canonical Lite snapshot creation and deterministic serialization.
+- `src/rulesAdapter/result.ts`: defensive parser for future BoardState rules-result payloads.
+- `src/rulesAdapter/manager.ts`: centralized status, capability, version, diagnostics, serialization, and fallback manager.
+- `src/rulesAdapter/index.ts`: public adapter exports.
+
+Current runtime flow:
+
+1. User presses ACTIVATE FIELD.
+2. Store asks `rulesAdapterManager.evaluateWithFallback`.
+3. Manager creates a Lite battlefield snapshot and deterministic serialized payload.
+4. Manager sees status `unavailable`.
+5. Manager records diagnostics and fallback reason.
+6. Existing Lite helper engine resolves the activation exactly as before.
+7. Existing summary, animations, undo/redo, and persistence behavior continue unchanged.
+
+Current statuses supported: `unavailable`, `disconnected`, `connecting`, `connected`, `error`, and `unsupportedVersion`.
+
+Current capabilities supported by the model: `evaluateSnapshot`, `sharedSession`, `advancedMode`, `multiplayerAuthority`, `dryRun`, `tutorialAuthority`, `rulesReplay`, and `deckValidation`. All capabilities report unavailable unless a future real adapter registers otherwise.
+
+The canonical snapshot includes player state, relevant totals, opponent placeholder values, all permanent/group state, selected card identity and printing data, token/generic flags, tracking and depower state, attachments, counters, power/toughness, transform state, status flags, stack membership, custom effects, preferences, app version, adapter version, snapshot version, serialization version, and field timestamp. It excludes transient UI selection and animation state and omits card image URLs because future rules evaluation should use identity and printing data, not UI imagery.
+
+Version metadata is prepared with Lite version `0.0.0`, adapter version `0.1.0`, snapshot version `1`, serialization version `1`, and minimum future BoardState version `0.1.0`. Version negotiation currently only updates diagnostics/status and does not create a network connection.
+
+Developer diagnostics are available through the adapter manager and a read-only global `__BAORD_STATE_LITE_RULES_ADAPTER__.getDiagnostics()` for manual verification. This is not a user-facing integration claim.
+
 ## Scryfall Integration
 
 - Search endpoint: `https://api.scryfall.com/cards/search`.
@@ -189,6 +224,8 @@ Configured test categories:
 
 Current coverage includes app load/startup, life increment/undo, popup outside cancellation, generic add, responsive smoke widths, Not Tracked UI flow, Anim Pakal/Cathars' Crusade, Doubling Season, landfall, placeholder replacement, transform, stack split/merge, import migration, wallpaper visibility, visual fixture, modal surfaces, and Transform All modal.
 
+Adapter coverage includes unavailable adapter creation, capability reporting, status transitions, version compatibility, deterministic snapshot serialization, omission of UI-only image data, Not Tracked/depower snapshot state, future result parsing, fallback through the Lite helper engine, Activate Field/Undo preservation, and saved-field import shape preservation.
+
 Known coverage gaps to preserve for future prompts:
 
 - No separate tutorial sprite tests because there is no tutorial sprite system.
@@ -211,4 +248,5 @@ Known coverage gaps to preserve for future prompts:
 - Stack keys must include fields that affect object identity; missing new fields can merge incompatible stacks.
 - Not Tracked must remain separate from Depower.
 - Lite helper rules must not conflict with future BoardState authoritative rules.
+- Adapter diagnostics must remain honest: status is unavailable until a real authority exists, and fallback must not be presented as authoritative.
 - User-facing copy must not claim Hub, shared sessions, sync, or Advanced Mode before those systems exist.

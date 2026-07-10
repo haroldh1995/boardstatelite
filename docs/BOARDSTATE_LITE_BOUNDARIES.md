@@ -75,7 +75,9 @@ Until those integrations actually exist, Lite must use honest wording such as `N
 
 ## Rules-Authority Boundary
 
-Lite currently contains a local helper engine. It is useful for supported physical-table calculations, but it is not the ecosystem-authoritative rules engine. Future prompts may add an adapter that can defer to original BoardState when available. That adapter must be optional and must default to unavailable or local-only behavior until a real BoardState authority is connected.
+Lite currently contains a local helper engine. It is useful for supported physical-table calculations, but it is not the ecosystem-authoritative rules engine. The BoardState rules adapter layer is now present as an optional boundary that can serialize Lite snapshots and report authority availability. It defaults to `unavailable`, records fallback diagnostics, and immediately routes gameplay through the existing Lite helper engine until a real BoardState authority is connected.
+
+The adapter must remain a communication boundary, not an imported Advanced rules engine. It may prepare snapshot and result contracts, capability discovery, version checks, and diagnostics. It must not fabricate authoritative results, block offline play, or require BoardState for current ACTIVATE FIELD behavior.
 
 ## Hub And Linked-App Honesty
 
