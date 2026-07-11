@@ -41,6 +41,7 @@ This audit describes the current Baord State Lite implementation before ecosyste
 - `src/domain/engine.ts`: Lite local helper resolver for Activate Field, counters, landfall, tracking state, removal, generic replacement, transform, restore, and life changes.
 - `src/rulesAdapter/*`: optional BoardState authority adapter boundary, snapshot serializer, capability/status model, result parser, version compatibility helpers, diagnostics, and fallback manager. Production status defaults to `unavailable`.
 - `src/sharedSession/*`: canonical local session metadata, stable session/object IDs, local-only authority/status model, deterministic session export/import helpers, diagnostics, and inert future synchronization hooks.
+- `src/gameModes/*`: Simple/Advanced mode metadata, capability negotiation, compatibility validation, canonical handoff snapshots, unavailable launch/return hooks, diagnostics, and mode persistence defaults.
 - `src/state/useFieldStore.ts`: Zustand store, local actions, undo/redo, modal state, persistence commits.
 - `src/services/db.ts`: Dexie persistence and localStorage fallback.
 - `src/services/scryfall.ts`: Scryfall API mapping, search, card fetch, pending request de-duplication, cache calls.
@@ -80,7 +81,7 @@ Persistence is local-first:
 - Field schema version: `schemaVersion: 1`.
 - Export shape: canonical `baord-state-lite-session` JSON envelope containing session metadata plus the current `FieldState`.
 - Import validation: `sanitizeImportedField` requires schema version 1, groups array, and player data; it sanitizes key text/numeric values and preserves unknown root/group payloads through spreads.
-- Current migration posture: non-destructive defaulting only. Missing `trackingEnabled` defaults to `true`; missing session metadata receives a Local Lite session with one local participant and stable object bindings.
+- Current migration posture: non-destructive defaulting only. Missing `trackingEnabled` defaults to `true`; missing session metadata receives a Local Lite session with one local participant and stable object bindings; missing mode metadata receives Simple Mode with Advanced unavailable.
 
 ## Canonical Shared Session Layer
 
@@ -104,6 +105,30 @@ Current session behavior:
 6. `connect`, `disconnect`, `synchronize`, `publishSnapshot`, and `receiveSnapshot` are inert hooks that return unavailable.
 
 Current supported session states are modeled, but runtime production status remains `localOnly` and authority remains `local-lite`.
+
+## Simple And Advanced Mode Layer
+
+The mode layer prepares future handoff to the original BoardState Advanced application without changing today's Lite runtime.
+
+Modules:
+
+- `src/gameModes/types.ts`: gameplay mode, capability, compatibility, locking, launch, handoff, return, diagnostics, and canonical handoff snapshot types.
+- `src/gameModes/capabilities.ts`: Simple Mode capability defaults and unavailable Advanced capability defaults.
+- `src/gameModes/state.ts`: default Simple Mode state, safe mode migration, compatibility metadata, and mode snapshots.
+- `src/gameModes/serializer.ts`: canonical handoff snapshot creation and deterministic serialization.
+- `src/gameModes/manager.ts`: centralized mode diagnostics, capability negotiation, session compatibility validation, unavailable Advanced handoff, unavailable return, and unavailable launch hooks.
+- `src/gameModes/index.ts`: public mode exports.
+
+Current runtime behavior:
+
+1. Every field has `field.mode.currentMode === "simple"`.
+2. Simple Mode reports life tracker, battlefield, counters, tokens, helper engine, and local persistence as available.
+3. Advanced Mode reports unavailable and all Advanced-only capabilities are false.
+4. Compatibility validation succeeds for the local Simple Mode session.
+5. Preparing a handoff builds a canonical snapshot but returns `advancedUnavailable`; no transfer, lock, launch, or sync occurs.
+6. Return and launch abstractions exist but return unavailable.
+
+The canonical handoff snapshot includes mode metadata, session metadata, Lite rules-adapter snapshot, compatibility metadata, current/local authority metadata, lock state, battlefield state, counters, statuses, attachments, tracking/depower state, token stacks, object identities, and version metadata. It excludes UI-only animation and selection state.
 
 ## Current Lite Gameplay Model
 
@@ -133,6 +158,7 @@ Current supported session states are modeled, but runtime production status rema
 | Custom player counters                            | `field.player.counters.custom`                                                        | Persisted/exported                        | Direct                                    | Medium: needs canonical naming                        |
 | Player statuses                                   | `field.player.statuses`                                                               | Persisted/exported                        | Direct                                    | Low                                                   |
 | Session identity                                  | `field.session`                                                                       | Persisted/exported                        | Normalized on field load/update           | Low: local-only metadata is additive                  |
+| Mode state                                        | `field.mode`                                                                          | Persisted/exported                        | Normalized on field load/update           | Low to medium: future handoff must stay honest        |
 | Participants                                      | `field.session.participants`                                                          | Persisted/exported                        | Normalized to one local participant today | Medium: future roles need authority mapping           |
 | Permanents and tokens                             | `field.groups` with `group.session.objectIds`                                         | Persisted/exported                        | Direct with normalized stack keys         | Low to medium: grouped objects now have canonical IDs |
 | Generic placeholders                              | `field.groups` where `isGeneric`                                                      | Persisted/exported                        | Direct                                    | Medium: no Oracle identity                            |
@@ -216,7 +242,7 @@ Current capabilities supported by the model: `evaluateSnapshot`, `sharedSession`
 
 The canonical snapshot includes player state, relevant totals, opponent placeholder values, all permanent/group state, selected card identity and printing data, token/generic flags, tracking and depower state, attachments, counters, power/toughness, transform state, status flags, stack membership, custom effects, preferences, app version, adapter version, snapshot version, serialization version, and field timestamp. It excludes transient UI selection and animation state and omits card image URLs because future rules evaluation should use identity and printing data, not UI imagery.
 
-The snapshot now also includes Local Session metadata, participant metadata, current authority/status metadata, synchronization version, and each permanent group's session/object ownership binding.
+The snapshot now also includes Local Session metadata, participant metadata, current authority/status metadata, synchronization version, Simple/Advanced mode metadata, compatibility metadata, and each permanent group's session/object ownership binding.
 
 Version metadata is prepared with Lite version `0.0.0`, adapter version `0.1.0`, snapshot version `1`, serialization version `1`, and minimum future BoardState version `0.1.0`. Version negotiation currently only updates diagnostics/status and does not create a network connection.
 
@@ -256,6 +282,8 @@ Adapter coverage includes unavailable adapter creation, capability reporting, st
 
 Shared-session coverage includes Local Session creation, session ID persistence through undo/redo, legacy save migration, canonical export/import, object ID preservation through stack split/merge, rules-adapter snapshot compatibility, and unavailable synchronization hooks.
 
+Mode coverage includes Simple Mode defaults, Advanced unavailable status, capability negotiation, compatibility validation, unavailable handoff/return/launch paths, canonical handoff snapshot completeness, export metadata, legacy mode migration, Activate Field preservation, undo preservation, and session identity preservation.
+
 Known coverage gaps to preserve for future prompts:
 
 - No separate tutorial sprite tests because there is no tutorial sprite system.
@@ -278,6 +306,7 @@ Known coverage gaps to preserve for future prompts:
 - Stack keys must include fields that affect object identity; missing new fields can merge incompatible stacks.
 - Canonical object IDs are preserved through current split/merge helpers, but future object-level operations must update the bindings with the same care.
 - Shared-session metadata is local-only today; user-facing copy must not present `readyForSharing` types as real synchronization before a real authority exists.
+- Mode metadata is local Simple Mode today; user-facing copy must not present Advanced as connected, active, transferred, synced, or authoritative before a real BoardState Advanced target exists.
 - Not Tracked must remain separate from Depower.
 - Lite helper rules must not conflict with future BoardState authoritative rules.
 - Adapter diagnostics must remain honest: status is unavailable until a real authority exists, and fallback must not be presented as authoritative.

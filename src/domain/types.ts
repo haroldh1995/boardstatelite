@@ -2,6 +2,7 @@ import type {
   ObjectSessionBinding,
   SharedSessionMetadata,
 } from "../sharedSession/types";
+import type { ModeState } from "../gameModes/types";
 
 export type Zone =
   | "battlefield"
@@ -278,6 +279,7 @@ export interface FieldState {
   schemaVersion: 1;
   id: string;
   session: SharedSessionMetadata;
+  mode: ModeState;
   name: string;
   createdAt: string;
   updatedAt: string;

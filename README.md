@@ -16,6 +16,10 @@ The app tracks your life total, player counters, relevant battlefield objects, g
 
 Unsupported cards can still be tracked as permanents, receive counters, count toward totals, be depowered, be transformed, and be removed, but their unsupported Oracle text is not guessed.
 
+## Mode And Session Status
+
+Baord State Lite currently runs in Simple Mode. It includes local-only session metadata and future handoff snapshots so a later BoardState Advanced app can receive and return a session, but Advanced Mode, shared sync, Hub integration, and authoritative BoardState control are not connected in this app today.
+
 ## Tracking Controls
 
 Stop Tracking Card is a user-controlled automation preference, separate from Depower. A not-tracked card stays visible, keeps its current counters and statuses, continues contributing to relevant totals, and remains an eligible recipient for effects from tracked cards. Its own supported abilities, replacement effects, static effects, background watcher responses, and attached card automation are ignored until Resume Tracking Card is used.
@@ -93,7 +97,7 @@ The app is installable as a PWA and caches the app shell, Scryfall card API resp
 - Local field data is saved in IndexedDB.
 - Import validates the expected schema and sanitizes labels.
 - Imported data is never executed as code.
-- Export creates a JSON backup of the current local field.
+- Export creates a JSON backup of the current local session, including Simple Mode and future compatibility metadata.
 
 ## Scryfall Attribution
 

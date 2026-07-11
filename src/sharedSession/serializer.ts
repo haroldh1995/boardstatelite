@@ -1,4 +1,5 @@
 import type { FieldState } from "../domain/types";
+import { normalizeModeState } from "../gameModes/state";
 import {
   SHARED_SESSION_COMPATIBILITY_VERSION,
   SHARED_SESSION_EXPORT_KIND,
@@ -10,6 +11,9 @@ export function createSessionExportEnvelope(
   field: FieldState,
   exportedAt = new Date().toISOString(),
 ): SharedSessionExportEnvelope {
+  const mode = normalizeModeState(field.mode, {
+    fallbackTimestamp: field.updatedAt,
+  });
   const exportedSession = {
     ...field.session,
     status: "localOnly" as const,
@@ -24,9 +28,22 @@ export function createSessionExportEnvelope(
     exportVersion: SHARED_SESSION_SERIALIZATION_VERSION,
     exportedAt,
     session: exportedSession,
+    mode,
+    authority: {
+      rules: exportedSession.currentRulesAuthority,
+      session: exportedSession.currentSessionAuthority,
+      mode: "local-lite",
+    },
+    capabilities: {
+      session: exportedSession.capabilities,
+      simpleMode: mode.simple.capabilities,
+      advancedMode: mode.advanced.capabilities,
+    },
+    compatibility: mode.compatibility,
     field: {
       ...field,
       session: exportedSession,
+      mode,
     },
     futureCompatibilityVersion: SHARED_SESSION_COMPATIBILITY_VERSION,
     notes: [
@@ -46,6 +63,7 @@ export function serializeSessionExport(field: FieldState): string {
 export function unwrapSessionImport(value: unknown): {
   field: unknown;
   session: unknown;
+  mode: unknown;
   importedFromSessionEnvelope: boolean;
   unknownEnvelope: Record<string, unknown> | null;
 } {
@@ -61,6 +79,7 @@ export function unwrapSessionImport(value: unknown): {
     return {
       field: envelope.field,
       session: envelope.session,
+      mode: envelope.mode,
       importedFromSessionEnvelope: true,
       unknownEnvelope: envelope,
     };
@@ -68,6 +87,7 @@ export function unwrapSessionImport(value: unknown): {
   return {
     field: value,
     session: null,
+    mode: null,
     importedFromSessionEnvelope: false,
     unknownEnvelope: null,
   };

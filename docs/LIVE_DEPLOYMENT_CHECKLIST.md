@@ -66,9 +66,11 @@ Live checks:
 13. Confirm outside-tap popup cancellation closes without applying changes.
 14. Confirm a field save reloads after page refresh.
 15. Confirm export JSON contains `kind: "baord-state-lite-session"` and a stable `BS-SESSION-*` Local Session ID.
-16. Confirm imported/exported sessions remain Local Lite and do not attempt reconnect or sync.
-17. Confirm there are no false claims of Hub, sync, multiplayer, Advanced Mode, profile, friend, tournament, or notification integration.
-18. Confirm adapter diagnostics report BoardState authority as unavailable unless a real adapter is configured.
+16. Confirm export JSON contains `mode.currentMode: "simple"` and Advanced Mode availability is unavailable.
+17. Confirm imported/exported sessions remain Local Lite and do not attempt reconnect or sync.
+18. Confirm there are no false claims of Hub, sync, multiplayer, Advanced Mode, profile, friend, tournament, or notification integration.
+19. Confirm adapter diagnostics report BoardState authority as unavailable unless a real adapter is configured.
+20. Confirm mode diagnostics report Simple Mode as current and Advanced Mode unavailable.
 
 ## Viewports
 
@@ -96,3 +98,4 @@ The live app must still behave as Lite:
 7. One-button ACTIVATE FIELD local helper automation.
 8. Undo/redo and local persistence.
 9. Local Session metadata remains invisible or honestly local-only; no cloud or multiplayer behavior is implied.
+10. Simple Mode remains the current mode; Advanced Mode is not shown as connected, active, transferred, or synced.

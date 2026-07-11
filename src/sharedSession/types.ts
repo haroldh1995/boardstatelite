@@ -104,6 +104,18 @@ export interface SharedSessionExportEnvelope {
   exportVersion: number;
   exportedAt: string;
   session: SharedSessionMetadata;
+  mode: FieldState["mode"];
+  authority: {
+    rules: SharedSessionMetadata["currentRulesAuthority"];
+    session: SharedSessionMetadata["currentSessionAuthority"];
+    mode: "local-lite" | "boardstate-advanced" | "unknown";
+  };
+  capabilities: {
+    session: SharedSessionMetadata["capabilities"];
+    simpleMode: FieldState["mode"]["simple"]["capabilities"];
+    advancedMode: FieldState["mode"]["advanced"]["capabilities"];
+  };
+  compatibility: FieldState["mode"]["compatibility"];
   field: FieldState;
   futureCompatibilityVersion: string;
   notes: string[];

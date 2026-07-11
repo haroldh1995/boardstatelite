@@ -163,12 +163,19 @@ Expected outputs:
 
 - Explicit export/handoff action.
 - Honest unavailable state.
+- Persisted Simple Mode metadata.
+- Unavailable Advanced Mode metadata.
+- Capability negotiation model.
+- Canonical handoff snapshot.
+- Unavailable launch and return abstractions.
 - Tests proving local Lite flow remains primary.
 
 Systems likely affected:
 
 - Settings/tools.
 - Snapshot serializer.
+- Field mode metadata.
+- Mode manager modules.
 - Documentation.
 
 Tests to preserve:

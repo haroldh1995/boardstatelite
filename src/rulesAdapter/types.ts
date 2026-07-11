@@ -14,6 +14,7 @@ import type {
   Zone,
 } from "../domain/types";
 import type { SharedSessionSnapshot } from "../sharedSession/types";
+import type { ModeSnapshot } from "../gameModes/types";
 
 export const RULES_ADAPTER_VERSION = "0.1.0";
 export const RULES_ADAPTER_SERIALIZATION_VERSION = 1;
@@ -79,6 +80,7 @@ export interface LiteFieldSnapshot {
     timestamp: string;
   };
   session: SharedSessionSnapshot;
+  mode: ModeSnapshot;
   player: {
     life: number;
     startingLife: number;

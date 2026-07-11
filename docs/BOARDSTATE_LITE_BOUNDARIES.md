@@ -16,6 +16,7 @@ Lite is responsible for:
 - A single ACTIVATE FIELD flow for current Lite-supported interactions.
 - Local persistence, local export/import, PWA installability, and offline use after data is cached.
 - Canonical Local Session IDs, object IDs, and local-only session export/import metadata for future ecosystem compatibility.
+- Explicit Simple Mode metadata and inert future Advanced Mode handoff contracts.
 - Clear support-status honesty for unsupported Oracle text.
 
 ## What Lite Is Not
@@ -94,6 +95,23 @@ Current shared-session support is limited to:
 - Inert synchronization hooks that honestly report unavailable.
 
 It is not multiplayer, cloud sync, Hub sync, or BoardState authority. Production UI must not claim connected, synced, shared, multiplayer-active, or BoardState-controlled behavior from this metadata alone.
+
+## Simple And Advanced Mode Boundary
+
+Lite is Simple Mode today. Simple Mode owns the current mobile-first local UI, local persistence, personal life tracker, battlefield organization, counters, tokens, generic placeholders, and helper-engine flow.
+
+Advanced Mode is represented only as future architecture. It remains unavailable until a real BoardState Advanced application is detected and negotiated through future prompts.
+
+Current mode support is limited to:
+
+- Persisted `field.mode.currentMode: "simple"`.
+- Available Simple Mode capability metadata.
+- Unavailable Advanced Mode capability metadata.
+- Canonical handoff snapshots for future use.
+- Compatibility validation that succeeds locally but stops before transfer.
+- Return and launch hooks that honestly report unavailable.
+
+Lite must not launch a fake Advanced app, claim a transfer occurred, claim authoritative rules are active, or expose unfinished Advanced controls.
 
 ## Hub And Linked-App Honesty
 

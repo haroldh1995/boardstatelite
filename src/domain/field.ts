@@ -12,6 +12,7 @@ import {
   normalizeSessionMetadata,
   unwrapSessionImport,
 } from "../sharedSession";
+import { createDefaultModeState, normalizeModeState } from "../gameModes/state";
 import type {
   FieldState,
   OpponentValues,
@@ -77,10 +78,12 @@ export const DEFAULT_PINNED_TOTALS: RelevantTotalKey[] = [
 export function createDefaultField(): FieldState {
   const now = new Date().toISOString();
   const session = createLocalSessionMetadata(now);
+  const mode = createDefaultModeState(now);
   const field: FieldState = {
     schemaVersion: 1,
     id: makeId("field"),
     session,
+    mode,
     name: "Baord State Lite Field",
     createdAt: now,
     updatedAt: now,
@@ -201,11 +204,15 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
       imported: unwrapped.importedFromSessionEnvelope,
     },
   );
+  const mode = normalizeModeState(candidate.mode ?? unwrapped.mode, {
+    fallbackTimestamp: updatedAt,
+  });
   return {
     ...defaults,
     ...candidate,
     id: typeof candidate.id === "string" ? candidate.id : defaults.id,
     session,
+    mode,
     name: sanitizeText(candidate.name, "Imported Baord State Lite Field"),
     player: {
       ...defaults.player,
@@ -345,9 +352,13 @@ export function normalizeField(field: FieldState): FieldState {
   const session = normalizeSessionMetadata(field.session, {
     fallbackTimestamp: updatedAt,
   });
+  const mode = normalizeModeState(field.mode, {
+    fallbackTimestamp: updatedAt,
+  });
   return {
     ...field,
     session,
+    mode,
     groups: mergeCompatibleStacks(
       field.groups.map((group, index) =>
         normalizeGroupShape(group, index, session),

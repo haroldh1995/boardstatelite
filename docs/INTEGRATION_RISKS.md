@@ -118,6 +118,27 @@ Mitigation:
 - Never show an action as available until a real destination exists.
 - Include source app and return target in any future link payload.
 
+## Mode Handoff Misrepresentation
+
+Risk: Simple/Advanced mode metadata could be mistaken for a working Advanced Mode transfer.
+
+Mitigation:
+
+- Keep `field.mode.currentMode` as `simple` in current runtime.
+- Keep Advanced availability as unavailable until a real BoardState Advanced destination exists.
+- Return explicit unavailable results from handoff, return, and launcher hooks.
+- Never display transferred, synced, Advanced active, or rules authority active unless verified by a real integration.
+
+## Session Locking Drift
+
+Risk: Future handoff locking states could block current local play or survive a failed transfer.
+
+Mitigation:
+
+- Normalize current runtime lock state to `unlocked`.
+- Treat transfer, returned, and preparing states as future-only until a real authority exists.
+- Test Activate Field, undo, redo, save, and import after mode metadata is added.
+
 ## Hub Status Misrepresentation
 
 Risk: UI could say connected, synced, Hub ready, tournament linked, or notifications enabled before those systems exist.

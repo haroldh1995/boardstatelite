@@ -1,5 +1,6 @@
 import { calculateTotals } from "../domain/field";
 import type { CardIdentity, FieldState, PermanentGroup } from "../domain/types";
+import { createModeSnapshot, normalizeModeState } from "../gameModes/state";
 import { createSessionSnapshot } from "../sharedSession";
 import {
   LITE_APP_VERSION,
@@ -13,6 +14,9 @@ import {
 } from "./types";
 
 export function createLiteFieldSnapshot(field: FieldState): LiteFieldSnapshot {
+  const mode = normalizeModeState(field.mode, {
+    fallbackTimestamp: field.updatedAt,
+  });
   const sortedGroups = [...field.groups].sort(
     (a, b) => a.order - b.order || a.id.localeCompare(b.id),
   );
@@ -30,6 +34,7 @@ export function createLiteFieldSnapshot(field: FieldState): LiteFieldSnapshot {
       timestamp: field.updatedAt,
     },
     session: createSessionSnapshot(field.session),
+    mode: createModeSnapshot(mode),
     player: {
       life: field.player.life,
       startingLife: field.player.startingLife,
