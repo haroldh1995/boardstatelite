@@ -13,6 +13,7 @@ import type {
   SupportStatus,
   Zone,
 } from "../domain/types";
+import type { SharedSessionSnapshot } from "../sharedSession/types";
 
 export const RULES_ADAPTER_VERSION = "0.1.0";
 export const RULES_ADAPTER_SERIALIZATION_VERSION = 1;
@@ -77,6 +78,7 @@ export interface LiteFieldSnapshot {
     rulesAdapterVersion: string;
     timestamp: string;
   };
+  session: SharedSessionSnapshot;
   player: {
     life: number;
     startingLife: number;
@@ -96,6 +98,11 @@ export interface LiteFieldSnapshot {
 
 export interface LitePermanentSnapshot {
   stableId: string;
+  sessionId: string;
+  objectId: string;
+  objectIds: string[];
+  ownerParticipantId: string;
+  controllerParticipantId: string;
   label: string;
   cardIdentity: LiteCardIdentitySnapshot | null;
   printing: {

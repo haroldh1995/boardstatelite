@@ -38,6 +38,7 @@ import { loadLastField, saveField } from "../services/db";
 import { createReferenceFixtureField } from "../dev/referenceFixture";
 import { isReferenceFixtureMode } from "../dev/referenceMode";
 import { rulesAdapterManager } from "../rulesAdapter";
+import { sharedSessionManager } from "../sharedSession";
 
 const HISTORY_LIMIT = 80;
 
@@ -497,7 +498,7 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
   },
 
   exportField() {
-    return JSON.stringify(get().field, null, 2);
+    return sharedSessionManager.export(get().field);
   },
 
   undo() {

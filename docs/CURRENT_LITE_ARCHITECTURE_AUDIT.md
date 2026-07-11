@@ -1,6 +1,6 @@
 # Current Lite Architecture Audit
 
-Audit date: 2026-07-09.
+Audit date: 2026-07-11.
 
 This audit describes the current Baord State Lite implementation before ecosystem integration work. The app is displayed as **Baord State Lite** and is deployed from `main` to GitHub Pages at `/boardstatelite/`.
 
@@ -40,6 +40,7 @@ This audit describes the current Baord State Lite implementation before ecosyste
 - `src/domain/field.ts`: default field/player/settings/watchers, total calculation, visible totals, import sanitization, field normalization.
 - `src/domain/engine.ts`: Lite local helper resolver for Activate Field, counters, landfall, tracking state, removal, generic replacement, transform, restore, and life changes.
 - `src/rulesAdapter/*`: optional BoardState authority adapter boundary, snapshot serializer, capability/status model, result parser, version compatibility helpers, diagnostics, and fallback manager. Production status defaults to `unavailable`.
+- `src/sharedSession/*`: canonical local session metadata, stable session/object IDs, local-only authority/status model, deterministic session export/import helpers, diagnostics, and inert future synchronization hooks.
 - `src/state/useFieldStore.ts`: Zustand store, local actions, undo/redo, modal state, persistence commits.
 - `src/services/db.ts`: Dexie persistence and localStorage fallback.
 - `src/services/scryfall.ts`: Scryfall API mapping, search, card fetch, pending request de-duplication, cache calls.
@@ -77,9 +78,32 @@ Persistence is local-first:
   - `baord-state-lite:search:<query>` fallback.
   - `baord-state-lite:card:<cardId>` fallback.
 - Field schema version: `schemaVersion: 1`.
-- Export shape: JSON serialization of the current `FieldState`.
+- Export shape: canonical `baord-state-lite-session` JSON envelope containing session metadata plus the current `FieldState`.
 - Import validation: `sanitizeImportedField` requires schema version 1, groups array, and player data; it sanitizes key text/numeric values and preserves unknown root/group payloads through spreads.
-- Current migration posture: non-destructive defaulting only. Missing `trackingEnabled` defaults to `true`.
+- Current migration posture: non-destructive defaulting only. Missing `trackingEnabled` defaults to `true`; missing session metadata receives a Local Lite session with one local participant and stable object bindings.
+
+## Canonical Shared Session Layer
+
+The shared-session layer is intentionally local-only today. It prepares identity and serialization contracts without enabling multiplayer, cloud sync, Hub status, or BoardState authority.
+
+Modules:
+
+- `src/sharedSession/types.ts`: session authority/status/capability types, participant model, metadata, object bindings, export envelope, diagnostics, and hook results.
+- `src/sharedSession/identity.ts`: canonical session IDs, participant IDs, object IDs, local participant lookup, and object-binding normalization.
+- `src/sharedSession/metadata.ts`: Local Lite session creation, safe metadata migration, participant normalization, and snapshot metadata.
+- `src/sharedSession/serializer.ts`: deterministic session export envelope creation and backward-compatible import unwrapping.
+- `src/sharedSession/manager.ts`: centralized session diagnostics, export, snapshot, lifecycle hooks, and unavailable synchronization responses.
+
+Current session behavior:
+
+1. New fields receive a stable `BS-SESSION-*` ID.
+2. Every normalized permanent group receives a session binding with object IDs for each object represented by the group quantity.
+3. Stack split/merge preserves object IDs instead of regenerating them.
+4. Undo/redo snapshots preserve session metadata and object bindings.
+5. Exports include session metadata; imports of both new envelopes and legacy raw fields remain local-only.
+6. `connect`, `disconnect`, `synchronize`, `publishSnapshot`, and `receiveSnapshot` are inert hooks that return unavailable.
+
+Current supported session states are modeled, but runtime production status remains `localOnly` and authority remains `local-lite`.
 
 ## Current Lite Gameplay Model
 
@@ -101,36 +125,38 @@ Persistence is local-first:
 
 ## Current State Ownership Matrix
 
-| State                                             | Owner                                                                                 | Persistence/export                        | Derived/recomputed                 | Future serialization risk                                        |
-| ------------------------------------------------- | ------------------------------------------------------------------------------------- | ----------------------------------------- | ---------------------------------- | ---------------------------------------------------------------- |
-| Life total                                        | `field.player.life`                                                                   | Persisted/exported                        | Direct                             | Low                                                              |
-| Starting life                                     | `field.player.startingLife` and settings                                              | Persisted/exported                        | Direct                             | Low                                                              |
-| Poison, energy, experience, rad, commander damage | `field.player.counters`                                                               | Persisted/exported                        | Direct                             | Low                                                              |
-| Custom player counters                            | `field.player.counters.custom`                                                        | Persisted/exported                        | Direct                             | Medium: needs canonical naming                                   |
-| Player statuses                                   | `field.player.statuses`                                                               | Persisted/exported                        | Direct                             | Low                                                              |
-| Permanents and tokens                             | `field.groups`                                                                        | Persisted/exported                        | Direct with normalized stack keys  | Medium: object identity and quantity stacks need adapter mapping |
-| Generic placeholders                              | `field.groups` where `isGeneric`                                                      | Persisted/exported                        | Direct                             | Medium: no Oracle identity                                       |
-| Attachments                                       | `attachments` and `attachedTo` on groups                                              | Persisted/exported                        | Direct                             | Medium: needs canonical relationship mapping                     |
-| Counters                                          | group `counters` record                                                               | Persisted/exported                        | Direct                             | Low to medium: custom counter names                              |
-| Base P/T overrides                                | group `pt`                                                                            | Persisted/exported                        | Recalculated by `recalculateStats` | Medium                                                           |
-| Current P/T                                       | group `pt.currentPower/currentToughness`                                              | Persisted/exported                        | Recomputed by normalization        | Medium                                                           |
-| Depower state                                     | `abilitiesActive`, `depowerMode`, `disabledAbilities`, `statuses.depowered`           | Persisted/exported                        | Direct                             | Medium: app/game distinction                                     |
-| Not Tracked state                                 | `trackingEnabled`                                                                     | Persisted/exported                        | Direct                             | Low: clearly an app preference                                   |
-| Transform state                                   | `statuses.transformed`, `originalIdentity`, `originalCharacteristics`                 | Persisted/exported                        | Direct                             | Medium                                                           |
-| Tapped/attacking/blocking/phased statuses         | group `statuses`                                                                      | Persisted/exported                        | Direct                             | Low                                                              |
-| Relevant totals                                   | `calculateTotals(field.groups)` plus `pinnedTotals`                                   | Pinned persisted/exported; values derived | Derived                            | Low                                                              |
-| Zone quantities                                   | generic groups in non-battlefield zones                                               | Persisted/exported                        | Derived into totals                | Medium                                                           |
-| Opponent placeholders                             | `field.opponentValues`                                                                | Persisted/exported                        | Direct                             | Medium                                                           |
-| Saved fields                                      | Dexie `fields` records                                                                | Persisted local only                      | Direct                             | Medium: future shared sessions must not overwrite                |
-| Field templates                                   | No separate template system currently                                                 | Not present                               | Not present                        | N/A                                                              |
-| Undo history                                      | `undoStack` in Zustand memory                                                         | Not persisted/exported today              | Snapshot-owned                     | High: shape must remain compatible during a session              |
-| Redo history                                      | `redoStack` in Zustand memory                                                         | Not persisted/exported today              | Snapshot-owned                     | High                                                             |
-| Tutorial progress                                 | Startup visible state in store only                                                   | Not persisted as never-show-again         | UI-owned                           | Low                                                              |
-| Animation settings                                | `field.settings.animationSpeed` and `reducedMotion`                                   | Persisted/exported                        | Direct                             | Low                                                              |
-| Accessibility settings                            | Reduced motion/card size settings                                                     | Persisted/exported                        | Direct                             | Medium: incomplete settings surface                              |
-| PWA cache state                                   | browser/service worker caches                                                         | Browser-owned                             | External                           | Medium                                                           |
-| Scryfall cache state                              | Dexie `searchCache`, `cardCache`, localStorage fallback, service worker runtime cache | Local-only                                | External to field                  | Medium                                                           |
-| Export/import data                                | `FieldState` JSON                                                                     | User controlled                           | Sanitized on import                | Medium                                                           |
+| State                                             | Owner                                                                                 | Persistence/export                        | Derived/recomputed                        | Future serialization risk                             |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------- | ----------------------------------------- | ----------------------------------------- | ----------------------------------------------------- |
+| Life total                                        | `field.player.life`                                                                   | Persisted/exported                        | Direct                                    | Low                                                   |
+| Starting life                                     | `field.player.startingLife` and settings                                              | Persisted/exported                        | Direct                                    | Low                                                   |
+| Poison, energy, experience, rad, commander damage | `field.player.counters`                                                               | Persisted/exported                        | Direct                                    | Low                                                   |
+| Custom player counters                            | `field.player.counters.custom`                                                        | Persisted/exported                        | Direct                                    | Medium: needs canonical naming                        |
+| Player statuses                                   | `field.player.statuses`                                                               | Persisted/exported                        | Direct                                    | Low                                                   |
+| Session identity                                  | `field.session`                                                                       | Persisted/exported                        | Normalized on field load/update           | Low: local-only metadata is additive                  |
+| Participants                                      | `field.session.participants`                                                          | Persisted/exported                        | Normalized to one local participant today | Medium: future roles need authority mapping           |
+| Permanents and tokens                             | `field.groups` with `group.session.objectIds`                                         | Persisted/exported                        | Direct with normalized stack keys         | Low to medium: grouped objects now have canonical IDs |
+| Generic placeholders                              | `field.groups` where `isGeneric`                                                      | Persisted/exported                        | Direct                                    | Medium: no Oracle identity                            |
+| Attachments                                       | `attachments` and `attachedTo` on groups                                              | Persisted/exported                        | Direct                                    | Medium: needs canonical relationship mapping          |
+| Counters                                          | group `counters` record                                                               | Persisted/exported                        | Direct                                    | Low to medium: custom counter names                   |
+| Base P/T overrides                                | group `pt`                                                                            | Persisted/exported                        | Recalculated by `recalculateStats`        | Medium                                                |
+| Current P/T                                       | group `pt.currentPower/currentToughness`                                              | Persisted/exported                        | Recomputed by normalization               | Medium                                                |
+| Depower state                                     | `abilitiesActive`, `depowerMode`, `disabledAbilities`, `statuses.depowered`           | Persisted/exported                        | Direct                                    | Medium: app/game distinction                          |
+| Not Tracked state                                 | `trackingEnabled`                                                                     | Persisted/exported                        | Direct                                    | Low: clearly an app preference                        |
+| Transform state                                   | `statuses.transformed`, `originalIdentity`, `originalCharacteristics`                 | Persisted/exported                        | Direct                                    | Medium                                                |
+| Tapped/attacking/blocking/phased statuses         | group `statuses`                                                                      | Persisted/exported                        | Direct                                    | Low                                                   |
+| Relevant totals                                   | `calculateTotals(field.groups)` plus `pinnedTotals`                                   | Pinned persisted/exported; values derived | Derived                                   | Low                                                   |
+| Zone quantities                                   | generic groups in non-battlefield zones                                               | Persisted/exported                        | Derived into totals                       | Medium                                                |
+| Opponent placeholders                             | `field.opponentValues`                                                                | Persisted/exported                        | Direct                                    | Medium                                                |
+| Saved fields                                      | Dexie `fields` records                                                                | Persisted local only                      | Direct                                    | Medium: future shared sessions must not overwrite     |
+| Field templates                                   | No separate template system currently                                                 | Not present                               | Not present                               | N/A                                                   |
+| Undo history                                      | `undoStack` in Zustand memory                                                         | Not persisted/exported today              | Snapshot-owned                            | High: shape must remain compatible during a session   |
+| Redo history                                      | `redoStack` in Zustand memory                                                         | Not persisted/exported today              | Snapshot-owned                            | High                                                  |
+| Tutorial progress                                 | Startup visible state in store only                                                   | Not persisted as never-show-again         | UI-owned                                  | Low                                                   |
+| Animation settings                                | `field.settings.animationSpeed` and `reducedMotion`                                   | Persisted/exported                        | Direct                                    | Low                                                   |
+| Accessibility settings                            | Reduced motion/card size settings                                                     | Persisted/exported                        | Direct                                    | Medium: incomplete settings surface                   |
+| PWA cache state                                   | browser/service worker caches                                                         | Browser-owned                             | External                                  | Medium                                                |
+| Scryfall cache state                              | Dexie `searchCache`, `cardCache`, localStorage fallback, service worker runtime cache | Local-only                                | External to field                         | Medium                                                |
+| Export/import data                                | Session envelope with `FieldState` fallback support                                   | User controlled                           | Sanitized on import                       | Medium                                                |
 
 ## Rules And Automation Boundary
 
@@ -190,6 +216,8 @@ Current capabilities supported by the model: `evaluateSnapshot`, `sharedSession`
 
 The canonical snapshot includes player state, relevant totals, opponent placeholder values, all permanent/group state, selected card identity and printing data, token/generic flags, tracking and depower state, attachments, counters, power/toughness, transform state, status flags, stack membership, custom effects, preferences, app version, adapter version, snapshot version, serialization version, and field timestamp. It excludes transient UI selection and animation state and omits card image URLs because future rules evaluation should use identity and printing data, not UI imagery.
 
+The snapshot now also includes Local Session metadata, participant metadata, current authority/status metadata, synchronization version, and each permanent group's session/object ownership binding.
+
 Version metadata is prepared with Lite version `0.0.0`, adapter version `0.1.0`, snapshot version `1`, serialization version `1`, and minimum future BoardState version `0.1.0`. Version negotiation currently only updates diagnostics/status and does not create a network connection.
 
 Developer diagnostics are available through the adapter manager and a read-only global `__BAORD_STATE_LITE_RULES_ADAPTER__.getDiagnostics()` for manual verification. This is not a user-facing integration claim.
@@ -226,6 +254,8 @@ Current coverage includes app load/startup, life increment/undo, popup outside c
 
 Adapter coverage includes unavailable adapter creation, capability reporting, status transitions, version compatibility, deterministic snapshot serialization, omission of UI-only image data, Not Tracked/depower snapshot state, future result parsing, fallback through the Lite helper engine, Activate Field/Undo preservation, and saved-field import shape preservation.
 
+Shared-session coverage includes Local Session creation, session ID persistence through undo/redo, legacy save migration, canonical export/import, object ID preservation through stack split/merge, rules-adapter snapshot compatibility, and unavailable synchronization hooks.
+
 Known coverage gaps to preserve for future prompts:
 
 - No separate tutorial sprite tests because there is no tutorial sprite system.
@@ -246,6 +276,8 @@ Known coverage gaps to preserve for future prompts:
 - Unknown saved data is currently preserved by spreads, but typed code can accidentally drop it if future transformations narrow the shape.
 - Undo/redo snapshots are in-memory and can become incompatible if runtime shape changes during a session.
 - Stack keys must include fields that affect object identity; missing new fields can merge incompatible stacks.
+- Canonical object IDs are preserved through current split/merge helpers, but future object-level operations must update the bindings with the same care.
+- Shared-session metadata is local-only today; user-facing copy must not present `readyForSharing` types as real synchronization before a real authority exists.
 - Not Tracked must remain separate from Depower.
 - Lite helper rules must not conflict with future BoardState authoritative rules.
 - Adapter diagnostics must remain honest: status is unavailable until a real authority exists, and fallback must not be presented as authoritative.

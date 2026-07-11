@@ -415,6 +415,7 @@ export function mergeCompatibleStacks(
     merged.set(group.stackKey, {
       ...existing,
       quantity: existing.quantity + group.quantity,
+      session: mergeSessionBindings(existing, group),
       order: Math.min(existing.order, group.order),
     });
   }
@@ -438,18 +439,59 @@ export function splitGroupForQuantity(
     return { groups, targetId: group.id };
   }
   const splitId = makeId("group");
+  const remainingQuantity = group.quantity - targetQuantity;
+  const remainingSession = group.session
+    ? {
+        ...group.session,
+        objectIds: group.session.objectIds.slice(0, remainingQuantity),
+        objectId: group.session.objectIds[0] ?? group.session.objectId,
+      }
+    : undefined;
+  const splitObjectIds = group.session
+    ? group.session.objectIds.slice(remainingQuantity, group.quantity)
+    : [];
+  const splitSession = group.session
+    ? {
+        ...group.session,
+        objectIds: splitObjectIds,
+        objectId: splitObjectIds[0] ?? group.session.objectId,
+      }
+    : undefined;
   const nextGroups = groups.map((entry) =>
     entry.id === groupId
-      ? { ...entry, quantity: entry.quantity - targetQuantity }
+      ? {
+          ...entry,
+          quantity: remainingQuantity,
+          session: remainingSession,
+        }
       : entry,
   );
   nextGroups.push({
     ...group,
     id: splitId,
     quantity: targetQuantity,
+    session: splitSession,
     order: group.order + 0.01,
   });
   return { groups: nextGroups, targetId: splitId };
+}
+
+function mergeSessionBindings(
+  existing: PermanentGroup,
+  incoming: PermanentGroup,
+): PermanentGroup["session"] {
+  if (!existing.session && !incoming.session) return undefined;
+  if (!existing.session) return incoming.session;
+  if (!incoming.session) return existing.session;
+  const objectIds = [
+    ...existing.session.objectIds,
+    ...incoming.session.objectIds,
+  ];
+  return {
+    ...existing.session,
+    objectIds,
+    objectId: objectIds[0] ?? existing.session.objectId,
+  };
 }
 
 function defaultGenericTypes(

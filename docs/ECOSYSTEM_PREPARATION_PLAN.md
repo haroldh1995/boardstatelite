@@ -115,13 +115,20 @@ Expected outputs:
 
 - Additive session metadata.
 - Local-only status.
-- Export/import compatibility.
+- Stable canonical session IDs.
+- Stable grouped-object IDs.
+- Single local participant metadata.
+- Session-aware rules-adapter snapshots.
+- Canonical session export/import compatibility.
+- Inert future synchronization hooks that report unavailable.
 
 Systems likely affected:
 
 - Field types.
 - Persistence sanitizer.
 - Export/import.
+- Rules-adapter snapshots.
+- Stack split/merge helpers.
 - Settings/status surfaces.
 
 Tests to preserve:

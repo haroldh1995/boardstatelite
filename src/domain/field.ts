@@ -5,6 +5,13 @@ import {
   recalculateStats,
   withStackKey,
 } from "./cards";
+import {
+  createLocalSessionMetadata,
+  createObjectBinding,
+  localParticipantId,
+  normalizeSessionMetadata,
+  unwrapSessionImport,
+} from "../sharedSession";
 import type {
   FieldState,
   OpponentValues,
@@ -18,6 +25,7 @@ import type {
   WatcherPreferences,
   Zone,
 } from "./types";
+import type { SharedSessionMetadata } from "../sharedSession/types";
 
 export const TOTAL_LABELS: Record<RelevantTotalKey, string> = {
   lands: "Lands",
@@ -68,9 +76,11 @@ export const DEFAULT_PINNED_TOTALS: RelevantTotalKey[] = [
 
 export function createDefaultField(): FieldState {
   const now = new Date().toISOString();
-  return {
+  const session = createLocalSessionMetadata(now);
+  const field: FieldState = {
     schemaVersion: 1,
     id: makeId("field"),
+    session,
     name: "Baord State Lite Field",
     createdAt: now,
     updatedAt: now,
@@ -92,6 +102,12 @@ export function createDefaultField(): FieldState {
     optionalPreferences: {},
     recentSearches: [],
     recentCards: [],
+  };
+  return {
+    ...field,
+    groups: field.groups.map((group, index) =>
+      normalizeGroupShape(group, index, session),
+    ),
   };
 }
 
@@ -164,10 +180,11 @@ export function createDefaultWatcherPreferences(): WatcherPreferences {
 }
 
 export function sanitizeImportedField(value: unknown): FieldState | null {
-  if (!value || typeof value !== "object") {
+  const unwrapped = unwrapSessionImport(value);
+  if (!unwrapped.field || typeof unwrapped.field !== "object") {
     return null;
   }
-  const candidate = value as Partial<FieldState>;
+  const candidate = unwrapped.field as Partial<FieldState>;
   if (
     candidate.schemaVersion !== 1 ||
     !Array.isArray(candidate.groups) ||
@@ -176,10 +193,19 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
     return null;
   }
   const defaults = createDefaultField();
+  const updatedAt = new Date().toISOString();
+  const session = normalizeSessionMetadata(
+    candidate.session ?? unwrapped.session,
+    {
+      fallbackTimestamp: updatedAt,
+      imported: unwrapped.importedFromSessionEnvelope,
+    },
+  );
   return {
     ...defaults,
     ...candidate,
     id: typeof candidate.id === "string" ? candidate.id : defaults.id,
+    session,
     name: sanitizeText(candidate.name, "Imported Baord State Lite Field"),
     player: {
       ...defaults.player,
@@ -210,7 +236,7 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
       .filter((group): group is PermanentGroup =>
         Boolean(group && typeof group.id === "string"),
       )
-      .map((group, index) => normalizeGroupShape(group, index)),
+      .map((group, index) => normalizeGroupShape(group, index, session)),
     pinnedTotals: Array.isArray(candidate.pinnedTotals)
       ? candidate.pinnedTotals
       : defaults.pinnedTotals,
@@ -222,7 +248,7 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
     recentCards: Array.isArray(candidate.recentCards)
       ? candidate.recentCards.slice(0, 20)
       : [],
-    updatedAt: new Date().toISOString(),
+    updatedAt,
   };
 }
 
@@ -315,12 +341,19 @@ export function calculateTotals(
 }
 
 export function normalizeField(field: FieldState): FieldState {
+  const updatedAt = new Date().toISOString();
+  const session = normalizeSessionMetadata(field.session, {
+    fallbackTimestamp: updatedAt,
+  });
   return {
     ...field,
+    session,
     groups: mergeCompatibleStacks(
-      field.groups.map((group, index) => normalizeGroupShape(group, index)),
+      field.groups.map((group, index) =>
+        normalizeGroupShape(group, index, session),
+      ),
     ),
-    updatedAt: new Date().toISOString(),
+    updatedAt,
   };
 }
 
@@ -352,14 +385,25 @@ function sanitizeNumberRecord(value: unknown): Record<string, number> {
 function normalizeGroupShape(
   group: PermanentGroup,
   index: number,
+  session: SharedSessionMetadata,
 ): PermanentGroup {
+  const quantity = clampNumber(group.quantity, 1, 999999999, 1);
+  const participantId = localParticipantId(session);
   return withStackKey(
     recalculateStats({
       ...group,
       label: sanitizeText(group.label, "Imported object"),
       notes: sanitizeText(group.notes, ""),
-      quantity: clampNumber(group.quantity, 1, 999999999, 1),
+      quantity,
       order: Number.isFinite(group.order) ? group.order : index,
+      session: createObjectBinding({
+        sessionId: session.id,
+        groupId: group.id,
+        quantity,
+        ownerParticipantId: participantId,
+        controllerParticipantId: participantId,
+        existing: group.session,
+      }),
       trackingEnabled:
         typeof group.trackingEnabled === "boolean"
           ? group.trackingEnabled

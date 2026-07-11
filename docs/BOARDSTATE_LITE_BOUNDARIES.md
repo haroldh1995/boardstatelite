@@ -15,6 +15,7 @@ Lite is responsible for:
 - Local helper automation for supported triggers, replacement effects, counters, tokens, and life changes.
 - A single ACTIVATE FIELD flow for current Lite-supported interactions.
 - Local persistence, local export/import, PWA installability, and offline use after data is cached.
+- Canonical Local Session IDs, object IDs, and local-only session export/import metadata for future ecosystem compatibility.
 - Clear support-status honesty for unsupported Oracle text.
 
 ## What Lite Is Not
@@ -78,6 +79,21 @@ Until those integrations actually exist, Lite must use honest wording such as `N
 Lite currently contains a local helper engine. It is useful for supported physical-table calculations, but it is not the ecosystem-authoritative rules engine. The BoardState rules adapter layer is now present as an optional boundary that can serialize Lite snapshots and report authority availability. It defaults to `unavailable`, records fallback diagnostics, and immediately routes gameplay through the existing Lite helper engine until a real BoardState authority is connected.
 
 The adapter must remain a communication boundary, not an imported Advanced rules engine. It may prepare snapshot and result contracts, capability discovery, version checks, and diagnostics. It must not fabricate authoritative results, block offline play, or require BoardState for current ACTIVATE FIELD behavior.
+
+## Shared-Session Boundary
+
+Lite now assigns every field a canonical shared-session identity so future ecosystem apps can reference the same game session. The current runtime status is always a Local Session controlled by Local Lite unless a real future authority is connected.
+
+Current shared-session support is limited to:
+
+- Stable `BS-SESSION-*` session IDs.
+- Stable object IDs for grouped battlefield objects.
+- Single local participant metadata.
+- Local-only authority/status metadata.
+- Session-aware snapshot/export/import contracts.
+- Inert synchronization hooks that honestly report unavailable.
+
+It is not multiplayer, cloud sync, Hub sync, or BoardState authority. Production UI must not claim connected, synced, shared, multiplayer-active, or BoardState-controlled behavior from this metadata alone.
 
 ## Hub And Linked-App Honesty
 

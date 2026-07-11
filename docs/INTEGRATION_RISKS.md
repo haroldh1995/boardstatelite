@@ -10,7 +10,19 @@ Mitigation:
 
 - Add explicit serializers instead of exposing raw store state as the final ecosystem contract.
 - Preserve group quantity and stack-split metadata.
+- Preserve `group.session.objectIds` through stack split/merge and export/import.
 - Keep unknown legacy fields during import.
+
+## Canonical Session Identity Drift
+
+Risk: A local field ID, shared session ID, and future BoardState session ID could be confused or regenerated at different times.
+
+Mitigation:
+
+- Treat `field.session.id` as the canonical session identity.
+- Do not regenerate it during save/load, undo/redo, export/import, or local field edits.
+- Keep `field.id` as Lite's local field record ID.
+- Force current runtime authority to Local Lite unless a real future authority verifies otherwise.
 
 ## Save Migration Risk
 
@@ -22,6 +34,7 @@ Mitigation:
 - Default missing fields safely.
 - Never wipe IndexedDB/localStorage during migration.
 - Test older saved field shapes.
+- Default missing session metadata and object bindings additively.
 
 ## Rules-Authority Conflict
 
@@ -84,6 +97,7 @@ Mitigation:
 - Keep local-only mode as the default fallback.
 - Display honest unavailable/offline status.
 - Queue no destructive updates without a real authority contract.
+- Keep future synchronization hooks inert until real transport and authority contracts exist.
 
 ## Deployment Path Mismatch
 
@@ -122,6 +136,7 @@ Mitigation:
 - Treat original BoardState as authoritative for shared sessions.
 - Clearly mark local pending edits.
 - Avoid applying authoritative and local helper results to the same event without reconciliation.
+- Keep current `currentSessionAuthority` and `currentRulesAuthority` values as `local-lite` in Lite-only runtime.
 
 ## Undo/Redo Snapshot Incompatibility
 

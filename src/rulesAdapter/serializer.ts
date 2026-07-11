@@ -1,5 +1,6 @@
 import { calculateTotals } from "../domain/field";
 import type { CardIdentity, FieldState, PermanentGroup } from "../domain/types";
+import { createSessionSnapshot } from "../sharedSession";
 import {
   LITE_APP_VERSION,
   LITE_SNAPSHOT_VERSION,
@@ -28,6 +29,7 @@ export function createLiteFieldSnapshot(field: FieldState): LiteFieldSnapshot {
       rulesAdapterVersion: RULES_ADAPTER_VERSION,
       timestamp: field.updatedAt,
     },
+    session: createSessionSnapshot(field.session),
     player: {
       life: field.player.life,
       startingLife: field.player.startingLife,
@@ -42,7 +44,9 @@ export function createLiteFieldSnapshot(field: FieldState): LiteFieldSnapshot {
       ...field.opponentValues,
       custom: sortNumberRecord(field.opponentValues.custom),
     },
-    battlefield: sortedGroups.map(snapshotPermanent),
+    battlefield: sortedGroups.map((group) =>
+      snapshotPermanent(group, field.session.id),
+    ),
     customEffects: [...field.customEffects].sort((a, b) =>
       a.id.localeCompare(b.id),
     ),
@@ -68,9 +72,18 @@ export function snapshotHash(serializedSnapshot: string): string {
   return hash.toString(16).padStart(8, "0");
 }
 
-function snapshotPermanent(group: PermanentGroup): LitePermanentSnapshot {
+function snapshotPermanent(
+  group: PermanentGroup,
+  fallbackSessionId: string,
+): LitePermanentSnapshot {
+  const objectIds = group.session?.objectIds ?? [group.id];
   return {
     stableId: group.id,
+    sessionId: group.session?.sessionId ?? fallbackSessionId,
+    objectId: group.session?.objectId ?? objectIds[0] ?? group.id,
+    objectIds,
+    ownerParticipantId: group.session?.ownerParticipantId ?? "local",
+    controllerParticipantId: group.session?.controllerParticipantId ?? "local",
     label: group.label,
     cardIdentity: group.identity ? snapshotCardIdentity(group.identity) : null,
     printing: {

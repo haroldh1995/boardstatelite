@@ -1,3 +1,8 @@
+import type {
+  ObjectSessionBinding,
+  SharedSessionMetadata,
+} from "../sharedSession/types";
+
 export type Zone =
   | "battlefield"
   | "hand"
@@ -149,6 +154,7 @@ export interface PowerToughnessState {
 
 export interface PermanentGroup {
   id: string;
+  session?: ObjectSessionBinding;
   quantity: number;
   zone: Zone;
   owner: Owner;
@@ -271,6 +277,7 @@ export type ValueExpression =
 export interface FieldState {
   schemaVersion: 1;
   id: string;
+  session: SharedSessionMetadata;
   name: string;
   createdAt: string;
   updatedAt: string;
