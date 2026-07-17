@@ -934,6 +934,23 @@ function SummarySheet() {
           </p>
         </div>
       )}
+      {result.rendering &&
+        (result.rendering.warnings.length > 0 ||
+          result.rendering.unsupportedInteractions.length > 0 ||
+          result.rendering.judgeNotes.length > 0) && (
+          <div className="warning-block">
+            <strong>Rules notes</strong>
+            {[
+              ...result.rendering.warnings,
+              ...result.rendering.unsupportedInteractions,
+              ...result.rendering.judgeNotes,
+            ]
+              .slice(0, 3)
+              .map((entry) => (
+                <p key={entry}>{entry}</p>
+              ))}
+          </div>
+        )}
       <div className="modal-actions">
         <button type="button" onClick={() => openModal({ kind: "details" })}>
           View Details
@@ -956,6 +973,17 @@ function DetailsSheet() {
     <div>
       <h2 id="modal-title">Resolution Details</h2>
       <ol className="details-list">
+        {result.rendering && (
+          <li>
+            <strong>Rendering source</strong>
+            <span>
+              {result.rendering.authorityLabel}
+              {result.rendering.rulesVersion
+                ? ` (${result.rendering.rulesVersion})`
+                : ""}
+            </span>
+          </li>
+        )}
         {result.details.map((entry) => (
           <li key={entry.id}>
             <strong>{entry.label}</strong>

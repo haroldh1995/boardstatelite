@@ -68,6 +68,18 @@ Mitigation:
 - Add adapter calls for authoritative evaluation instead of importing Advanced systems.
 - Document which logic remains local helper logic.
 
+## Rules Result Rendering Overreach
+
+Risk: Lite could start showing raw Advanced stack output, dense judge data, or misleading authority labels.
+
+Mitigation:
+
+- Route all results through the compact rules-result renderer.
+- Keep raw authority payloads behind validation and conversion.
+- Display warnings and unsupported interactions concisely.
+- Keep source labels honest: Local Helper Engine today, BoardState Authority only for real future payloads.
+- Do not persist temporary animation queues or replay UI state.
+
 ## Lite UI Bloat
 
 Risk: Hub, shared-session, Advanced Mode, and rules-result UI could make Lite slow and cluttered.
@@ -77,6 +89,7 @@ Mitigation:
 - Use compact status surfaces.
 - Keep advanced details behind explicit actions.
 - Preserve current main-screen section order and bottom dock.
+- Keep rules result details compact and summary-first.
 
 ## Scryfall Cache Coupling
 

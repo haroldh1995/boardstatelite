@@ -400,6 +400,28 @@ export interface ResolutionResult {
   events: GameEvent[];
   changedGroupIds: string[];
   loopDetected: boolean;
+  rendering?: {
+    source: "lite-helper" | "boardstate-authority";
+    authorityLabel: string;
+    rulesVersion: string | null;
+    validationStatus: "valid" | "invalid" | "recovered";
+    animationMode:
+      | "instant"
+      | "animated"
+      | "reduced-motion"
+      | "silent"
+      | "future-replay";
+    warnings: string[];
+    unsupportedInteractions: string[];
+    judgeNotes: string[];
+    replayMarkers: {
+      id: string;
+      timestamp: string;
+      label: string;
+      description: string;
+    }[];
+  };
+  accessibilityAnnouncements?: string[];
 }
 
 export interface HistoryEntry {

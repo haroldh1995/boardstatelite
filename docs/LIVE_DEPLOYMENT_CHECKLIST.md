@@ -73,6 +73,8 @@ Live checks:
 20. Confirm adapter diagnostics report BoardState authority as unavailable unless a real adapter is configured.
 21. Confirm mode diagnostics report Simple Mode as current and Advanced Mode unavailable.
 22. Confirm multiplayer diagnostics report single local participant and multiplayer unavailable.
+23. Confirm rules-renderer diagnostics report Local Helper Engine as the active rendering source after ACTIVATE FIELD.
+24. Confirm resolution details remain compact and do not claim BoardState authority unless a real adapter supplied a result.
 
 ## Viewports
 
@@ -102,3 +104,4 @@ The live app must still behave as Lite:
 9. Local Session metadata remains invisible or honestly local-only; no cloud or multiplayer behavior is implied.
 10. Simple Mode remains the current mode; Advanced Mode is not shown as connected, active, transferred, or synced.
 11. Multiplayer metadata remains single-participant and local-only; no lobby, invite, chat, shared battlefield, judge, or player-joined state is exposed.
+12. Rules results render through the compact Lite renderer; no raw Advanced stack UI or fake authority appears.

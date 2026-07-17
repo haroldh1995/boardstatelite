@@ -20,6 +20,10 @@ Unsupported cards can still be tracked as permanents, receive counters, count to
 
 Baord State Lite currently runs in Simple Mode with one local BoardState Lite participant. It includes local-only session metadata, future handoff snapshots, and mixed Lite / Advanced participant metadata so a later BoardState Advanced app can receive, return, or share a session, but Advanced Mode, multiplayer, shared sync, Hub integration, and authoritative BoardState control are not connected in this app today.
 
+## Rules Result Rendering
+
+Baord State Lite routes local helper results through a compact rules-result rendering layer before updating summaries, details, animation queues, and accessibility announcements. The active production source remains the Local Helper Engine. The renderer can validate and display future BoardState authoritative results, warnings, unsupported-interaction notices, judge notes, and replay markers without importing Advanced Mode or claiming BoardState is connected.
+
 ## Tracking Controls
 
 Stop Tracking Card is a user-controlled automation preference, separate from Depower. A not-tracked card stays visible, keeps its current counters and statuses, continues contributing to relevant totals, and remains an eligible recipient for effects from tracked cards. Its own supported abilities, replacement effects, static effects, background watcher responses, and attached card automation are ignored until Resume Tracking Card is used.

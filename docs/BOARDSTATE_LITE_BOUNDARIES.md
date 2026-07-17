@@ -18,6 +18,7 @@ Lite is responsible for:
 - Canonical Local Session IDs, object IDs, and local-only session export/import metadata for future ecosystem compatibility.
 - Explicit Simple Mode metadata and inert future Advanced Mode handoff contracts.
 - Single local BoardState Lite participant metadata and inert future mixed Lite / Advanced multiplayer contracts.
+- Compact rules-result rendering for local helper output and future BoardState authority payloads.
 - Clear support-status honesty for unsupported Oracle text.
 
 ## What Lite Is Not
@@ -43,7 +44,7 @@ The future relationship should be adapter-based:
 
 - Lite may send a serialized Lite field snapshot to original BoardState.
 - Original BoardState may return authoritative rules results.
-- Lite may display compact returned results without importing heavy Advanced UI or rules authority.
+- Lite may display compact returned results through the rules-result renderer without importing heavy Advanced UI or rules authority.
 - Lite may hand off a Simple Mode session into BoardState Advanced Mode when that product path exists.
 - Lite may accept a compatible return snapshot from Advanced Mode when that path exists.
 
@@ -81,6 +82,8 @@ Until those integrations actually exist, Lite must use honest wording such as `N
 Lite currently contains a local helper engine. It is useful for supported physical-table calculations, but it is not the ecosystem-authoritative rules engine. The BoardState rules adapter layer is now present as an optional boundary that can serialize Lite snapshots and report authority availability. It defaults to `unavailable`, records fallback diagnostics, and immediately routes gameplay through the existing Lite helper engine until a real BoardState authority is connected.
 
 The adapter must remain a communication boundary, not an imported Advanced rules engine. It may prepare snapshot and result contracts, capability discovery, version checks, and diagnostics. It must not fabricate authoritative results, block offline play, or require BoardState for current ACTIVATE FIELD behavior.
+
+The rules-result renderer is also a boundary, not an authority. It validates structured results, resolves object references, queues compact animation/notification/accessibility output, and applies supported result changes. Current production rendering source is the Local Helper Engine. Future BoardState authority results may be rendered only when a real adapter provides them; Lite must not fabricate authority or expose raw Advanced stack data.
 
 ## Shared-Session Boundary
 

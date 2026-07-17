@@ -258,7 +258,12 @@ Expected inputs:
 Expected outputs:
 
 - Compact result display.
-- Clear source labels such as local helper or BoardState authority.
+- Canonical rules-result schema.
+- Validation and object resolution.
+- Current Lite helper output routed through the renderer.
+- Compact source labels such as Local Helper Engine or future BoardState Authority in details/diagnostics.
+- Warnings, unsupported-interaction notices, future judge notes, and replay markers.
+- Animation queue and accessibility announcement preparation.
 - Accessibility-friendly details.
 
 Systems likely affected:
@@ -266,6 +271,8 @@ Systems likely affected:
 - Resolution summary.
 - Details modal.
 - Store result types.
+- Rules-result renderer modules.
+- Adapter result conversion.
 - Tests and visual snapshots.
 
 Tests to preserve:
@@ -273,6 +280,7 @@ Tests to preserve:
 - Summary modal.
 - Outside-tap cancellation.
 - Mobile visual layouts.
+- Activate Field, undo, persistence, Scryfall identity, and local-only fallback.
 
 ## 7. Add Hub-Ready Profile, Friend, Tournament, Notification, And App-Link Adapters
 

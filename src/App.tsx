@@ -13,6 +13,9 @@ function App() {
   const initialize = useFieldStore((state) => state.initialize);
   const hydrated = useFieldStore((state) => state.hydrated);
   const fieldName = useFieldStore((state) => state.field.name);
+  const announcements = useFieldStore(
+    (state) => state.lastResult?.accessibilityAnnouncements?.join(" ") ?? "",
+  );
   const referenceMode = isReferenceFixtureMode();
   const { needRefresh, updateServiceWorker } = useRegisterSW({
     onRegisteredSW() {
@@ -55,6 +58,9 @@ function App() {
           <Battlefield />
           <BottomDock />
           <ModalRoot />
+          <div className="sr-only" aria-live="polite" aria-atomic="true">
+            {announcements}
+          </div>
         </>
       )}
     </div>

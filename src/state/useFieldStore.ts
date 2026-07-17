@@ -38,6 +38,7 @@ import { loadLastField, saveField } from "../services/db";
 import { createReferenceFixtureField } from "../dev/referenceFixture";
 import { isReferenceFixtureMode } from "../dev/referenceMode";
 import { rulesAdapterManager } from "../rulesAdapter";
+import { rulesResultRenderer } from "../rulesResult";
 import { sharedSessionManager } from "../sharedSession";
 
 const HISTORY_LIMIT = 80;
@@ -535,13 +536,14 @@ function commitResult(
   showSummary = true,
 ): void {
   const before = useFieldStore.getState().field;
+  const rendered = rulesResultRenderer.renderLiteHelperResult(before, result);
   commitField(
     label,
     before,
-    result.field,
-    result.summary,
+    rendered.result.field,
+    rendered.result.summary,
     set,
-    showSummary ? result : null,
+    showSummary ? rendered.result : null,
   );
 }
 

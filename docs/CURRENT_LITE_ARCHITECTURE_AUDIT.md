@@ -40,6 +40,7 @@ This audit describes the current Baord State Lite implementation before ecosyste
 - `src/domain/field.ts`: default field/player/settings/watchers, total calculation, visible totals, import sanitization, field normalization.
 - `src/domain/engine.ts`: Lite local helper resolver for Activate Field, counters, landfall, tracking state, removal, generic replacement, transform, restore, and life changes.
 - `src/rulesAdapter/*`: optional BoardState authority adapter boundary, snapshot serializer, capability/status model, result parser, version compatibility helpers, diagnostics, and fallback manager. Production status defaults to `unavailable`.
+- `src/rulesResult/*`: rules-result renderer, canonical result conversion, validation, object resolution, compact notifications, animation queue preparation, accessibility announcements, and developer diagnostics.
 - `src/sharedSession/*`: canonical local session metadata, stable session/object IDs, local-only authority/status model, deterministic session export/import helpers, diagnostics, and inert future synchronization hooks.
 - `src/gameModes/*`: Simple/Advanced mode metadata, capability negotiation, compatibility validation, canonical handoff snapshots, unavailable launch/return hooks, diagnostics, and mode persistence defaults.
 - `src/multiplayer/*`: mixed Lite / Advanced participant registry, authority ownership, local-only visibility/synchronization metadata, unavailable discovery/synchronization/conflict hooks, diagnostics, and snapshot metadata.
@@ -258,7 +259,9 @@ Current runtime flow:
 4. Manager sees status `unavailable`.
 5. Manager records diagnostics and fallback reason.
 6. Existing Lite helper engine resolves the activation exactly as before.
-7. Existing summary, animations, undo/redo, and persistence behavior continue unchanged.
+7. The helper output is converted to a canonical rules result and passed through `rulesResultRenderer`.
+8. Renderer validation, compact summary/details, accessibility announcements, and animation queue metadata are prepared.
+9. Existing summary, animations, undo/redo, and persistence behavior continue unchanged.
 
 Current statuses supported: `unavailable`, `disconnected`, `connecting`, `connected`, `error`, and `unsupportedVersion`.
 
@@ -271,6 +274,29 @@ The snapshot now also includes Local Session metadata, participant metadata, cur
 Version metadata is prepared with Lite version `0.0.0`, adapter version `0.1.0`, snapshot version `1`, serialization version `1`, and minimum future BoardState version `0.1.0`. Version negotiation currently only updates diagnostics/status and does not create a network connection.
 
 Developer diagnostics are available through the adapter manager and a read-only global `__BAORD_STATE_LITE_RULES_ADAPTER__.getDiagnostics()` for manual verification. This is not a user-facing integration claim.
+
+## Rules Result Renderer Layer
+
+The renderer layer displays rules results without making Lite an authority or importing Advanced gameplay UI.
+
+Modules:
+
+- `src/rulesResult/types.ts`: canonical result schema, change records, rendering modes, notifications, animations, replay markers, validation, and diagnostics types.
+- `src/rulesResult/conversion.ts`: conversion from Lite helper `ResolutionResult` and future BoardState adapter evaluations into canonical rules results.
+- `src/rulesResult/objectResolver.ts`: maps stable group IDs, object IDs, stack keys, and attachment references to current Lite battlefield groups.
+- `src/rulesResult/validation.ts`: rejects malformed results, unknown object references, unknown schema/source values, mismatched field/session IDs, invalid amounts, and missing authority versions.
+- `src/rulesResult/renderer.ts`: central rendering pipeline for validation, supported battlefield updates, notifications, animation queues, summary decoration, accessibility announcements, and diagnostics.
+
+Current renderer behavior:
+
+1. Local helper outputs are canonicalized before store commits.
+2. Invalid external results are recovered safely with the battlefield unchanged.
+3. Supported future changes include life, player counters, counters, token creation/removal, generic permanent creation/removal, zones, attachments, statuses, transforms, depower, tracking, and power/toughness updates.
+4. Temporary animation queues and notifications are not persisted in saved fields or exports.
+5. Details can show the rendering source as `Local Helper Engine`; no user-facing surface claims BoardState authority is connected.
+6. Developer diagnostics are available through `__BAORD_STATE_LITE_RULES_RENDERER__.getDiagnostics()`.
+
+The renderer supports instant, animated, reduced-motion, silent, and future replay modes. It prepares replay markers and judge notes for future use but does not implement replay playback or judge workflows.
 
 ## Scryfall Integration
 
@@ -310,6 +336,8 @@ Mode coverage includes Simple Mode defaults, Advanced unavailable status, capabi
 
 Multiplayer coverage includes local participant creation, participant persistence, ownership mapping, Local Lite authority metadata, unavailable multiplayer capability negotiation, compatibility defaults, object visibility/synchronization metadata, rules-adapter snapshot metadata, synchronization/discovery/conflict stubs, export/import metadata, Activate Field preservation, and Scryfall identity snapshot preservation.
 
+Rules-result renderer coverage includes canonical helper conversion, validation failures, unknown object rejection, authoritative result rendering, life/counter/token/status/transform/depower/tracking updates, warnings, unsupported interactions, judge notes, replay markers, reduced-motion mode, accessibility announcements, store Activate Field preservation, undo preservation, export-shape preservation, and Scryfall identity preservation.
+
 Known coverage gaps to preserve for future prompts:
 
 - No separate tutorial sprite tests because there is no tutorial sprite system.
@@ -337,4 +365,5 @@ Known coverage gaps to preserve for future prompts:
 - Not Tracked must remain separate from Depower.
 - Lite helper rules must not conflict with future BoardState authoritative rules.
 - Adapter diagnostics must remain honest: status is unavailable until a real authority exists, and fallback must not be presented as authoritative.
+- Rules-result rendering must stay compact and must not expose raw Advanced engine output or present local helper output as BoardState authority.
 - User-facing copy must not claim Hub, shared sessions, sync, or Advanced Mode before those systems exist.
