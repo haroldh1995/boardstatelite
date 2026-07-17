@@ -28,6 +28,13 @@ export {
 } from "./serializer";
 export type {
   ObjectSessionBinding,
+  ObjectAuthoritySource,
+  ObjectSynchronizationState,
+  ObjectVisibility,
+  ParticipantApplicationType,
+  ParticipantAuthorityLevel,
+  ParticipantCompatibilityStatus,
+  ParticipantConnectionState,
   ParticipantRole,
   SessionAuthority,
   SessionCapability,

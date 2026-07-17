@@ -9,6 +9,12 @@ export const SESSION_CAPABILITIES = [
   "replay",
   "advancedMode",
   "hubNotifications",
+  "judgeActions",
+  "notifications",
+  "sharedChat",
+  "dryRun",
+  "tutorial",
+  "deckValidation",
 ] as const satisfies readonly SessionCapability[];
 
 export function createDisabledSessionCapabilities(): SessionCapabilityMap {

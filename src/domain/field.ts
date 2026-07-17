@@ -13,6 +13,10 @@ import {
   unwrapSessionImport,
 } from "../sharedSession";
 import { createDefaultModeState, normalizeModeState } from "../gameModes/state";
+import {
+  createDefaultMultiplayerState,
+  normalizeMultiplayerState,
+} from "../multiplayer/state";
 import type {
   FieldState,
   OpponentValues,
@@ -84,6 +88,7 @@ export function createDefaultField(): FieldState {
     id: makeId("field"),
     session,
     mode,
+    multiplayer: createDefaultMultiplayerState(session, now),
     name: "Baord State Lite Field",
     createdAt: now,
     updatedAt: now,
@@ -106,11 +111,23 @@ export function createDefaultField(): FieldState {
     recentSearches: [],
     recentCards: [],
   };
+  const groups = field.groups.map((group, index) =>
+    normalizeGroupShape(group, index, session),
+  );
+  const objectIds = collectObjectIds(groups);
+  const sessionWithOwnership = assignLocalParticipantOwnership(
+    session,
+    objectIds,
+  );
   return {
     ...field,
-    groups: field.groups.map((group, index) =>
-      normalizeGroupShape(group, index, session),
+    session: sessionWithOwnership,
+    multiplayer: createDefaultMultiplayerState(
+      sessionWithOwnership,
+      now,
+      objectIds,
     ),
+    groups,
   };
 }
 
@@ -207,12 +224,31 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
   const mode = normalizeModeState(candidate.mode ?? unwrapped.mode, {
     fallbackTimestamp: updatedAt,
   });
+  const groups = candidate.groups
+    .filter((group): group is PermanentGroup =>
+      Boolean(group && typeof group.id === "string"),
+    )
+    .map((group, index) => normalizeGroupShape(group, index, session));
+  const objectIds = collectObjectIds(groups);
+  const sessionWithOwnership = assignLocalParticipantOwnership(
+    session,
+    objectIds,
+  );
+  const multiplayer = normalizeMultiplayerState(
+    candidate.multiplayer ?? unwrapped.multiplayer,
+    {
+      session: sessionWithOwnership,
+      fallbackTimestamp: updatedAt,
+      objectIds,
+    },
+  );
   return {
     ...defaults,
     ...candidate,
     id: typeof candidate.id === "string" ? candidate.id : defaults.id,
-    session,
+    session: sessionWithOwnership,
     mode,
+    multiplayer,
     name: sanitizeText(candidate.name, "Imported Baord State Lite Field"),
     player: {
       ...defaults.player,
@@ -239,11 +275,7 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
       ...candidate.opponentValues,
       custom: sanitizeNumberRecord(candidate.opponentValues?.custom),
     },
-    groups: candidate.groups
-      .filter((group): group is PermanentGroup =>
-        Boolean(group && typeof group.id === "string"),
-      )
-      .map((group, index) => normalizeGroupShape(group, index, session)),
+    groups,
     pinnedTotals: Array.isArray(candidate.pinnedTotals)
       ? candidate.pinnedTotals
       : defaults.pinnedTotals,
@@ -355,15 +387,27 @@ export function normalizeField(field: FieldState): FieldState {
   const mode = normalizeModeState(field.mode, {
     fallbackTimestamp: updatedAt,
   });
+  const groups = mergeCompatibleStacks(
+    field.groups.map((group, index) =>
+      normalizeGroupShape(group, index, session),
+    ),
+  );
+  const objectIds = collectObjectIds(groups);
+  const sessionWithOwnership = assignLocalParticipantOwnership(
+    session,
+    objectIds,
+  );
+  const multiplayer = normalizeMultiplayerState(field.multiplayer, {
+    session: sessionWithOwnership,
+    fallbackTimestamp: updatedAt,
+    objectIds,
+  });
   return {
     ...field,
-    session,
+    session: sessionWithOwnership,
     mode,
-    groups: mergeCompatibleStacks(
-      field.groups.map((group, index) =>
-        normalizeGroupShape(group, index, session),
-      ),
-    ),
+    multiplayer,
+    groups,
     updatedAt,
   };
 }
@@ -421,6 +465,35 @@ function normalizeGroupShape(
           : true,
     }),
   );
+}
+
+function collectObjectIds(groups: PermanentGroup[]): string[] {
+  return groups.flatMap((group) => group.session?.objectIds ?? [group.id]);
+}
+
+function assignLocalParticipantOwnership(
+  session: SharedSessionMetadata,
+  objectIds: string[],
+): SharedSessionMetadata {
+  const participantId = localParticipantId(session);
+  return {
+    ...session,
+    participants: session.participants.map((participant) =>
+      participant.id === participantId
+        ? {
+            ...participant,
+            applicationType: "boardstate-lite",
+            authorityLevel: "local-lite",
+            connectionState: "local",
+            compatibilityStatus: "compatible",
+            ownership: {
+              ownsLocalBattlefield: true,
+              objectIds,
+            },
+          }
+        : participant,
+    ),
+  };
 }
 
 export function clampNumber(

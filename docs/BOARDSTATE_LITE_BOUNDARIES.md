@@ -17,6 +17,7 @@ Lite is responsible for:
 - Local persistence, local export/import, PWA installability, and offline use after data is cached.
 - Canonical Local Session IDs, object IDs, and local-only session export/import metadata for future ecosystem compatibility.
 - Explicit Simple Mode metadata and inert future Advanced Mode handoff contracts.
+- Single local BoardState Lite participant metadata and inert future mixed Lite / Advanced multiplayer contracts.
 - Clear support-status honesty for unsupported Oracle text.
 
 ## What Lite Is Not
@@ -112,6 +113,21 @@ Current mode support is limited to:
 - Return and launch hooks that honestly report unavailable.
 
 Lite must not launch a fake Advanced app, claim a transfer occurred, claim authoritative rules are active, or expose unfinished Advanced controls.
+
+## Mixed Lite / Advanced Multiplayer Boundary
+
+Lite now has architecture for future mixed sessions where BoardState Lite and BoardState Advanced clients can reference the same canonical game session. Today it remains single-participant and local-only.
+
+Current multiplayer support is limited to:
+
+- One local BoardState Lite participant.
+- Local Lite authority metadata.
+- Local-only object visibility, synchronization, and authority-source metadata.
+- Participant registry and capability metadata.
+- Conflict, discovery, heartbeat, publish, receive, reconnect, and resynchronize hooks that report unavailable.
+- Snapshots and exports that include participant and ownership metadata.
+
+Lite must not expose lobbies, invite buttons, fake player lists, chat, connected judges, shared battlefield controls, or multiplayer status as active. Original BoardState Advanced remains the future session/rules/multiplayer authority.
 
 ## Hub And Linked-App Honesty
 

@@ -159,6 +159,27 @@ Mitigation:
 - Avoid applying authoritative and local helper results to the same event without reconciliation.
 - Keep current `currentSessionAuthority` and `currentRulesAuthority` values as `local-lite` in Lite-only runtime.
 
+## Participant Registry Drift
+
+Risk: Future remote participants could be persisted as if they are connected in the current local-only runtime.
+
+Mitigation:
+
+- Normalize current runtime to one local BoardState Lite participant.
+- Keep connection state as `local`.
+- Keep multiplayer status as `localOnly`.
+- Preserve architecture for future participants through typed registries and snapshots, not fake UI.
+
+## Visibility And Synchronization Leakage
+
+Risk: Future private/shared/hidden/public object visibility or sync states could imply active sharing before networking exists.
+
+Mitigation:
+
+- Normalize current object visibility and synchronization state to `localOnly`.
+- Store authority source as `local-lite`.
+- Keep publish, receive, merge, heartbeat, reconnect, resynchronize, discovery, and conflict hooks unavailable until a real authority exists.
+
 ## Undo/Redo Snapshot Incompatibility
 
 Risk: Current undo/redo stores full in-memory `FieldState` snapshots. Runtime shape changes can break undo within active sessions.

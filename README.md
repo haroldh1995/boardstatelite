@@ -18,7 +18,7 @@ Unsupported cards can still be tracked as permanents, receive counters, count to
 
 ## Mode And Session Status
 
-Baord State Lite currently runs in Simple Mode. It includes local-only session metadata and future handoff snapshots so a later BoardState Advanced app can receive and return a session, but Advanced Mode, shared sync, Hub integration, and authoritative BoardState control are not connected in this app today.
+Baord State Lite currently runs in Simple Mode with one local BoardState Lite participant. It includes local-only session metadata, future handoff snapshots, and mixed Lite / Advanced participant metadata so a later BoardState Advanced app can receive, return, or share a session, but Advanced Mode, multiplayer, shared sync, Hub integration, and authoritative BoardState control are not connected in this app today.
 
 ## Tracking Controls
 

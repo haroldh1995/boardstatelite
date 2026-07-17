@@ -144,6 +144,7 @@ describe("Simple and Advanced mode architecture", () => {
       rules: "local-lite",
       session: "local-lite",
       mode: "local-lite",
+      multiplayer: "local-lite",
     });
     expect(envelope.capabilities.simpleMode.lifeTracker).toBe(true);
     expect(envelope.capabilities.advancedMode.fullRulesAuthority).toBe(false);

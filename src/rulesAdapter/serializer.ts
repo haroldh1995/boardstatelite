@@ -1,6 +1,10 @@
 import { calculateTotals } from "../domain/field";
 import type { CardIdentity, FieldState, PermanentGroup } from "../domain/types";
 import { createModeSnapshot, normalizeModeState } from "../gameModes/state";
+import {
+  createMultiplayerSnapshot,
+  normalizeMultiplayerState,
+} from "../multiplayer/state";
 import { createSessionSnapshot } from "../sharedSession";
 import {
   LITE_APP_VERSION,
@@ -16,6 +20,14 @@ import {
 export function createLiteFieldSnapshot(field: FieldState): LiteFieldSnapshot {
   const mode = normalizeModeState(field.mode, {
     fallbackTimestamp: field.updatedAt,
+  });
+  const objectIds = field.groups.flatMap(
+    (group) => group.session?.objectIds ?? [group.id],
+  );
+  const multiplayer = normalizeMultiplayerState(field.multiplayer, {
+    session: field.session,
+    fallbackTimestamp: field.updatedAt,
+    objectIds,
   });
   const sortedGroups = [...field.groups].sort(
     (a, b) => a.order - b.order || a.id.localeCompare(b.id),
@@ -35,6 +47,7 @@ export function createLiteFieldSnapshot(field: FieldState): LiteFieldSnapshot {
     },
     session: createSessionSnapshot(field.session),
     mode: createModeSnapshot(mode),
+    multiplayer: createMultiplayerSnapshot(multiplayer),
     player: {
       life: field.player.life,
       startingLife: field.player.startingLife,
@@ -89,6 +102,9 @@ function snapshotPermanent(
     objectIds,
     ownerParticipantId: group.session?.ownerParticipantId ?? "local",
     controllerParticipantId: group.session?.controllerParticipantId ?? "local",
+    visibility: group.session?.visibility ?? "localOnly",
+    synchronizationState: group.session?.synchronizationState ?? "localOnly",
+    authoritySource: group.session?.authoritySource ?? "local-lite",
     label: group.label,
     cardIdentity: group.identity ? snapshotCardIdentity(group.identity) : null,
     printing: {

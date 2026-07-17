@@ -42,6 +42,7 @@ This audit describes the current Baord State Lite implementation before ecosyste
 - `src/rulesAdapter/*`: optional BoardState authority adapter boundary, snapshot serializer, capability/status model, result parser, version compatibility helpers, diagnostics, and fallback manager. Production status defaults to `unavailable`.
 - `src/sharedSession/*`: canonical local session metadata, stable session/object IDs, local-only authority/status model, deterministic session export/import helpers, diagnostics, and inert future synchronization hooks.
 - `src/gameModes/*`: Simple/Advanced mode metadata, capability negotiation, compatibility validation, canonical handoff snapshots, unavailable launch/return hooks, diagnostics, and mode persistence defaults.
+- `src/multiplayer/*`: mixed Lite / Advanced participant registry, authority ownership, local-only visibility/synchronization metadata, unavailable discovery/synchronization/conflict hooks, diagnostics, and snapshot metadata.
 - `src/state/useFieldStore.ts`: Zustand store, local actions, undo/redo, modal state, persistence commits.
 - `src/services/db.ts`: Dexie persistence and localStorage fallback.
 - `src/services/scryfall.ts`: Scryfall API mapping, search, card fetch, pending request de-duplication, cache calls.
@@ -81,7 +82,7 @@ Persistence is local-first:
 - Field schema version: `schemaVersion: 1`.
 - Export shape: canonical `baord-state-lite-session` JSON envelope containing session metadata plus the current `FieldState`.
 - Import validation: `sanitizeImportedField` requires schema version 1, groups array, and player data; it sanitizes key text/numeric values and preserves unknown root/group payloads through spreads.
-- Current migration posture: non-destructive defaulting only. Missing `trackingEnabled` defaults to `true`; missing session metadata receives a Local Lite session with one local participant and stable object bindings; missing mode metadata receives Simple Mode with Advanced unavailable.
+- Current migration posture: non-destructive defaulting only. Missing `trackingEnabled` defaults to `true`; missing session metadata receives a Local Lite session with one local participant and stable object bindings; missing mode metadata receives Simple Mode with Advanced unavailable; missing multiplayer metadata receives one local BoardState Lite participant and Local Lite authority.
 
 ## Canonical Shared Session Layer
 
@@ -130,6 +131,28 @@ Current runtime behavior:
 
 The canonical handoff snapshot includes mode metadata, session metadata, Lite rules-adapter snapshot, compatibility metadata, current/local authority metadata, lock state, battlefield state, counters, statuses, attachments, tracking/depower state, token stacks, object identities, and version metadata. It excludes UI-only animation and selection state.
 
+## Mixed Lite / Advanced Multiplayer Layer
+
+The multiplayer layer prepares future mixed Lite / Advanced participation without adding networking, matchmaking, lobbies, chat, invitations, or fake remote players.
+
+Modules:
+
+- `src/multiplayer/types.ts`: participant registry, authority ownership, compatibility, synchronization, conflict, discovery, battlefield participation, diagnostics, and unavailable result types.
+- `src/multiplayer/state.ts`: local-only multiplayer defaults, participant normalization, compatibility metadata, local battlefield participation, and multiplayer snapshots.
+- `src/multiplayer/manager.ts`: centralized participant diagnostics plus inert join, leave, publish, receive, merge, conflict, reconnect, heartbeat, capability exchange, version exchange, and discovery hooks.
+- `src/multiplayer/index.ts`: public multiplayer exports.
+
+Current runtime behavior:
+
+1. Every field has `field.multiplayer.status === "localOnly"`.
+2. The participant registry contains exactly one local BoardState Lite participant.
+3. Authority is Local Lite for local, rules, and session authority; judge authority is unknown.
+4. Multiplayer capabilities such as shared battlefield, rules authority, judge actions, chat, notifications, dry run, tutorial, replay, and deck validation are unavailable.
+5. Every battlefield group has local-only visibility, local-only synchronization state, and Local Lite authority source metadata.
+6. Synchronization, discovery, and conflict hooks exist but return unavailable.
+
+This layer is a data and integration boundary only. It does not make Lite a multiplayer authority.
+
 ## Current Lite Gameplay Model
 
 - The app tracks only the user's personal life total and personal battlefield-relevant state.
@@ -159,6 +182,7 @@ The canonical handoff snapshot includes mode metadata, session metadata, Lite ru
 | Player statuses                                   | `field.player.statuses`                                                               | Persisted/exported                        | Direct                                    | Low                                                   |
 | Session identity                                  | `field.session`                                                                       | Persisted/exported                        | Normalized on field load/update           | Low: local-only metadata is additive                  |
 | Mode state                                        | `field.mode`                                                                          | Persisted/exported                        | Normalized on field load/update           | Low to medium: future handoff must stay honest        |
+| Multiplayer participation                         | `field.multiplayer`                                                                   | Persisted/exported                        | Normalized on field load/update           | Medium: future authority must reconcile participants  |
 | Participants                                      | `field.session.participants`                                                          | Persisted/exported                        | Normalized to one local participant today | Medium: future roles need authority mapping           |
 | Permanents and tokens                             | `field.groups` with `group.session.objectIds`                                         | Persisted/exported                        | Direct with normalized stack keys         | Low to medium: grouped objects now have canonical IDs |
 | Generic placeholders                              | `field.groups` where `isGeneric`                                                      | Persisted/exported                        | Direct                                    | Medium: no Oracle identity                            |
@@ -242,7 +266,7 @@ Current capabilities supported by the model: `evaluateSnapshot`, `sharedSession`
 
 The canonical snapshot includes player state, relevant totals, opponent placeholder values, all permanent/group state, selected card identity and printing data, token/generic flags, tracking and depower state, attachments, counters, power/toughness, transform state, status flags, stack membership, custom effects, preferences, app version, adapter version, snapshot version, serialization version, and field timestamp. It excludes transient UI selection and animation state and omits card image URLs because future rules evaluation should use identity and printing data, not UI imagery.
 
-The snapshot now also includes Local Session metadata, participant metadata, current authority/status metadata, synchronization version, Simple/Advanced mode metadata, compatibility metadata, and each permanent group's session/object ownership binding.
+The snapshot now also includes Local Session metadata, participant metadata, current authority/status metadata, synchronization version, Simple/Advanced mode metadata, multiplayer participant metadata, compatibility metadata, object visibility/synchronization metadata, and each permanent group's session/object ownership binding.
 
 Version metadata is prepared with Lite version `0.0.0`, adapter version `0.1.0`, snapshot version `1`, serialization version `1`, and minimum future BoardState version `0.1.0`. Version negotiation currently only updates diagnostics/status and does not create a network connection.
 
@@ -284,6 +308,8 @@ Shared-session coverage includes Local Session creation, session ID persistence 
 
 Mode coverage includes Simple Mode defaults, Advanced unavailable status, capability negotiation, compatibility validation, unavailable handoff/return/launch paths, canonical handoff snapshot completeness, export metadata, legacy mode migration, Activate Field preservation, undo preservation, and session identity preservation.
 
+Multiplayer coverage includes local participant creation, participant persistence, ownership mapping, Local Lite authority metadata, unavailable multiplayer capability negotiation, compatibility defaults, object visibility/synchronization metadata, rules-adapter snapshot metadata, synchronization/discovery/conflict stubs, export/import metadata, Activate Field preservation, and Scryfall identity snapshot preservation.
+
 Known coverage gaps to preserve for future prompts:
 
 - No separate tutorial sprite tests because there is no tutorial sprite system.
@@ -307,6 +333,7 @@ Known coverage gaps to preserve for future prompts:
 - Canonical object IDs are preserved through current split/merge helpers, but future object-level operations must update the bindings with the same care.
 - Shared-session metadata is local-only today; user-facing copy must not present `readyForSharing` types as real synchronization before a real authority exists.
 - Mode metadata is local Simple Mode today; user-facing copy must not present Advanced as connected, active, transferred, synced, or authoritative before a real BoardState Advanced target exists.
+- Multiplayer metadata is single-participant and local-only today; user-facing copy must not present players joined, lobbies, shared battlefields, judge connections, or synchronization before real authority exists.
 - Not Tracked must remain separate from Depower.
 - Lite helper rules must not conflict with future BoardState authoritative rules.
 - Adapter diagnostics must remain honest: status is unavailable until a real authority exists, and fallback must not be presented as authoritative.

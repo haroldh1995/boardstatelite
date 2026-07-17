@@ -8,6 +8,7 @@ export const SHARED_SESSION_EXPORT_KIND = "baord-state-lite-session";
 export type SessionAuthority =
   | "local-lite"
   | "boardstate-authority"
+  | "judge-authority"
   | "unknown";
 
 export type SessionStatus =
@@ -35,9 +36,53 @@ export type SessionCapability =
   | "spectator"
   | "replay"
   | "advancedMode"
-  | "hubNotifications";
+  | "hubNotifications"
+  | "judgeActions"
+  | "notifications"
+  | "sharedChat"
+  | "dryRun"
+  | "tutorial"
+  | "deckValidation";
 
 export type SessionCapabilityMap = Record<SessionCapability, boolean>;
+
+export type ParticipantApplicationType =
+  | "boardstate-lite"
+  | "boardstate-advanced"
+  | "unknown";
+
+export type ParticipantAuthorityLevel = SessionAuthority;
+
+export type ParticipantConnectionState =
+  | "local"
+  | "unavailable"
+  | "connecting"
+  | "connected"
+  | "disconnected"
+  | "error";
+
+export type ParticipantCompatibilityStatus =
+  | "compatible"
+  | "incompatible"
+  | "unsupportedVersion"
+  | "unknown";
+
+export type ObjectVisibility =
+  | "localOnly"
+  | "private"
+  | "shared"
+  | "hidden"
+  | "public";
+
+export type ObjectSynchronizationState =
+  | "localOnly"
+  | "clean"
+  | "dirty"
+  | "pending"
+  | "conflicted"
+  | "unknown";
+
+export type ObjectAuthoritySource = SessionAuthority;
 
 export interface SessionParticipant {
   id: string;
@@ -45,6 +90,16 @@ export interface SessionParticipant {
   label: string;
   local: boolean;
   connected: boolean;
+  applicationType: ParticipantApplicationType;
+  capabilities: SessionCapabilityMap;
+  authorityLevel: ParticipantAuthorityLevel;
+  connectionState: ParticipantConnectionState;
+  version: string;
+  compatibilityStatus: ParticipantCompatibilityStatus;
+  ownership: {
+    ownsLocalBattlefield: boolean;
+    objectIds: string[];
+  };
 }
 
 export interface SessionImportExportState {
@@ -79,6 +134,9 @@ export interface ObjectSessionBinding {
   objectIds: string[];
   ownerParticipantId: string;
   controllerParticipantId: string;
+  visibility: ObjectVisibility;
+  synchronizationState: ObjectSynchronizationState;
+  authoritySource: ObjectAuthoritySource;
 }
 
 export interface SessionObjectSnapshot extends ObjectSessionBinding {
@@ -105,15 +163,22 @@ export interface SharedSessionExportEnvelope {
   exportedAt: string;
   session: SharedSessionMetadata;
   mode: FieldState["mode"];
+  multiplayer: FieldState["multiplayer"];
   authority: {
     rules: SharedSessionMetadata["currentRulesAuthority"];
     session: SharedSessionMetadata["currentSessionAuthority"];
     mode: "local-lite" | "boardstate-advanced" | "unknown";
+    multiplayer:
+      | "local-lite"
+      | "boardstate-authority"
+      | "judge-authority"
+      | "unknown";
   };
   capabilities: {
     session: SharedSessionMetadata["capabilities"];
     simpleMode: FieldState["mode"]["simple"]["capabilities"];
     advancedMode: FieldState["mode"]["advanced"]["capabilities"];
+    multiplayer: FieldState["multiplayer"]["capabilities"];
   };
   compatibility: FieldState["mode"]["compatibility"];
   field: FieldState;

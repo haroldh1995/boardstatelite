@@ -3,6 +3,7 @@ import type {
   SharedSessionMetadata,
 } from "../sharedSession/types";
 import type { ModeState } from "../gameModes/types";
+import type { MultiplayerState } from "../multiplayer/types";
 
 export type Zone =
   | "battlefield"
@@ -280,6 +281,7 @@ export interface FieldState {
   id: string;
   session: SharedSessionMetadata;
   mode: ModeState;
+  multiplayer: MultiplayerState;
   name: string;
   createdAt: string;
   updatedAt: string;

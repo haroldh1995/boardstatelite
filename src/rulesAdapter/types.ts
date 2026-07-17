@@ -14,7 +14,13 @@ import type {
   Zone,
 } from "../domain/types";
 import type { SharedSessionSnapshot } from "../sharedSession/types";
+import type {
+  ObjectAuthoritySource,
+  ObjectSynchronizationState,
+  ObjectVisibility,
+} from "../sharedSession/types";
 import type { ModeSnapshot } from "../gameModes/types";
+import type { MultiplayerSnapshot } from "../multiplayer/types";
 
 export const RULES_ADAPTER_VERSION = "0.1.0";
 export const RULES_ADAPTER_SERIALIZATION_VERSION = 1;
@@ -81,6 +87,7 @@ export interface LiteFieldSnapshot {
   };
   session: SharedSessionSnapshot;
   mode: ModeSnapshot;
+  multiplayer: MultiplayerSnapshot;
   player: {
     life: number;
     startingLife: number;
@@ -105,6 +112,9 @@ export interface LitePermanentSnapshot {
   objectIds: string[];
   ownerParticipantId: string;
   controllerParticipantId: string;
+  visibility: ObjectVisibility;
+  synchronizationState: ObjectSynchronizationState;
+  authoritySource: ObjectAuthoritySource;
   label: string;
   cardIdentity: LiteCardIdentitySnapshot | null;
   printing: {

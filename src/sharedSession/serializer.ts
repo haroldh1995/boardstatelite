@@ -1,5 +1,6 @@
 import type { FieldState } from "../domain/types";
 import { normalizeModeState } from "../gameModes/state";
+import { normalizeMultiplayerState } from "../multiplayer/state";
 import {
   SHARED_SESSION_COMPATIBILITY_VERSION,
   SHARED_SESSION_EXPORT_KIND,
@@ -13,6 +14,14 @@ export function createSessionExportEnvelope(
 ): SharedSessionExportEnvelope {
   const mode = normalizeModeState(field.mode, {
     fallbackTimestamp: field.updatedAt,
+  });
+  const objectIds = field.groups.flatMap(
+    (group) => group.session?.objectIds ?? [group.id],
+  );
+  const multiplayer = normalizeMultiplayerState(field.multiplayer, {
+    session: field.session,
+    fallbackTimestamp: field.updatedAt,
+    objectIds,
   });
   const exportedSession = {
     ...field.session,
@@ -29,21 +38,25 @@ export function createSessionExportEnvelope(
     exportedAt,
     session: exportedSession,
     mode,
+    multiplayer,
     authority: {
       rules: exportedSession.currentRulesAuthority,
       session: exportedSession.currentSessionAuthority,
       mode: "local-lite",
+      multiplayer: "local-lite",
     },
     capabilities: {
       session: exportedSession.capabilities,
       simpleMode: mode.simple.capabilities,
       advancedMode: mode.advanced.capabilities,
+      multiplayer: multiplayer.capabilities,
     },
     compatibility: mode.compatibility,
     field: {
       ...field,
       session: exportedSession,
       mode,
+      multiplayer,
     },
     futureCompatibilityVersion: SHARED_SESSION_COMPATIBILITY_VERSION,
     notes: [
@@ -64,6 +77,7 @@ export function unwrapSessionImport(value: unknown): {
   field: unknown;
   session: unknown;
   mode: unknown;
+  multiplayer: unknown;
   importedFromSessionEnvelope: boolean;
   unknownEnvelope: Record<string, unknown> | null;
 } {
@@ -80,6 +94,7 @@ export function unwrapSessionImport(value: unknown): {
       field: envelope.field,
       session: envelope.session,
       mode: envelope.mode,
+      multiplayer: envelope.multiplayer,
       importedFromSessionEnvelope: true,
       unknownEnvelope: envelope,
     };
@@ -88,6 +103,7 @@ export function unwrapSessionImport(value: unknown): {
     field: value,
     session: null,
     mode: null,
+    multiplayer: null,
     importedFromSessionEnvelope: false,
     unknownEnvelope: null,
   };

@@ -1,10 +1,11 @@
 import { RULES_ADAPTER_VERSION } from "../rulesAdapter/types";
-import {
-  createDisabledSessionCapabilities,
-  normalizeSessionCapabilities,
-} from "./capabilities";
+import { createDisabledSessionCapabilities } from "./capabilities";
 import { createParticipantId, createSessionId } from "./identity";
 import type {
+  ParticipantApplicationType,
+  ParticipantAuthorityLevel,
+  ParticipantCompatibilityStatus,
+  ParticipantConnectionState,
   ParticipantRole,
   SessionParticipant,
   SharedSessionMetadata,
@@ -105,7 +106,7 @@ export function normalizeSessionMetadata(
         ? candidate.synchronizationVersion
         : 1,
     participants,
-    capabilities: normalizeSessionCapabilities(candidate.capabilities),
+    capabilities: createDisabledSessionCapabilities(),
   };
   return markImported(normalized, options);
 }
@@ -132,44 +133,91 @@ function createLocalParticipant(): SessionParticipant {
     label: "Local Lite Player",
     local: true,
     connected: true,
+    applicationType: "boardstate-lite",
+    capabilities: createDisabledSessionCapabilities(),
+    authorityLevel: "local-lite",
+    connectionState: "local",
+    version: LITE_APP_VERSION,
+    compatibilityStatus: "compatible",
+    ownership: {
+      ownsLocalBattlefield: true,
+      objectIds: [],
+    },
   };
 }
 
 function normalizeParticipants(value: unknown): SessionParticipant[] {
   if (!Array.isArray(value) || value.length === 0)
     return [createLocalParticipant()];
-  const participants: SessionParticipant[] = value
-    .filter((entry): entry is Partial<SessionParticipant> =>
-      Boolean(entry && typeof entry === "object"),
-    )
-    .map((entry, index) => {
-      const role: ParticipantRole =
-        entry.role === "advanced-user" ||
-        entry.role === "observer" ||
-        entry.role === "judge" ||
-        entry.role === "spectator"
-          ? entry.role
-          : "lite-user";
-      return {
-        id: typeof entry.id === "string" ? entry.id : createParticipantId(),
-        role,
-        label:
-          typeof entry.label === "string" && entry.label.trim()
-            ? entry.label.trim().slice(0, 80)
-            : index === 0
-              ? "Local Lite Player"
-              : "Participant",
-        local: index === 0 ? true : Boolean(entry.local),
-        connected: index === 0 ? true : Boolean(entry.connected),
-      };
-    });
-  if (participants.length === 0) return [createLocalParticipant()];
-  return participants.some((participant) => participant.local)
-    ? participants
-    : [
-        { ...participants[0], local: true, connected: true },
-        ...participants.slice(1),
-      ];
+  const candidate = value.find((entry): entry is Partial<SessionParticipant> =>
+    Boolean(entry && typeof entry === "object" && entry.local === true),
+  ) as Partial<SessionParticipant> | undefined;
+  const fallback = value.find((entry): entry is Partial<SessionParticipant> =>
+    Boolean(entry && typeof entry === "object"),
+  );
+  const selected = candidate ?? fallback;
+  if (!selected) return [createLocalParticipant()];
+  return [normalizeLocalParticipant(selected)];
+}
+
+function normalizeLocalParticipant(
+  entry: Partial<SessionParticipant>,
+): SessionParticipant {
+  const role = normalizeRole(entry.role);
+  return {
+    id: typeof entry.id === "string" ? entry.id : createParticipantId(),
+    role,
+    label:
+      typeof entry.label === "string" && entry.label.trim()
+        ? entry.label.trim().slice(0, 80)
+        : "Local Lite Player",
+    local: true,
+    connected: true,
+    applicationType: normalizeApplicationType(entry.applicationType),
+    capabilities: createDisabledSessionCapabilities(),
+    authorityLevel: normalizeAuthorityLevel(entry.authorityLevel),
+    connectionState: normalizeConnectionState(entry.connectionState),
+    version:
+      typeof entry.version === "string" ? entry.version : LITE_APP_VERSION,
+    compatibilityStatus: normalizeCompatibilityStatus(
+      entry.compatibilityStatus,
+    ),
+    ownership: {
+      ownsLocalBattlefield: true,
+      objectIds: Array.isArray(entry.ownership?.objectIds)
+        ? entry.ownership.objectIds.filter(
+            (objectId): objectId is string => typeof objectId === "string",
+          )
+        : [],
+    },
+  };
+}
+
+function normalizeRole(value: unknown): ParticipantRole {
+  void value;
+  return "lite-user";
+}
+
+function normalizeApplicationType(value: unknown): ParticipantApplicationType {
+  void value;
+  return "boardstate-lite";
+}
+
+function normalizeAuthorityLevel(value: unknown): ParticipantAuthorityLevel {
+  void value;
+  return "local-lite";
+}
+
+function normalizeConnectionState(value: unknown): ParticipantConnectionState {
+  void value;
+  return "local";
+}
+
+function normalizeCompatibilityStatus(
+  value: unknown,
+): ParticipantCompatibilityStatus {
+  void value;
+  return "compatible";
 }
 
 function markImported(

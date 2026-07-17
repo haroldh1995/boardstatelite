@@ -212,6 +212,12 @@ Expected outputs:
 - Session participant metadata.
 - Readable local status.
 - Safe conflict or read-only states.
+- Participant registry.
+- Local Lite application identity.
+- Local authority ownership metadata.
+- Object visibility and synchronization metadata.
+- Unavailable synchronization, discovery, heartbeat, and conflict hooks.
+- Snapshot and export participant metadata.
 
 Systems likely affected:
 
@@ -219,6 +225,8 @@ Systems likely affected:
 - Persistence.
 - Rules result display.
 - Settings/status UI.
+- Shared-session and rules-adapter snapshots.
+- Multiplayer participation manager.
 
 Tests to preserve:
 

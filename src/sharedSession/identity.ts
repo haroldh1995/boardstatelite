@@ -47,6 +47,9 @@ export function createObjectBinding(input: {
       typeof input.existing?.controllerParticipantId === "string"
         ? input.existing.controllerParticipantId
         : input.controllerParticipantId,
+    visibility: "localOnly",
+    synchronizationState: "localOnly",
+    authoritySource: "local-lite",
   };
 }
 
