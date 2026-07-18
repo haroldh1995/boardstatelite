@@ -68,13 +68,16 @@ Live checks:
 15. Confirm export JSON contains `kind: "baord-state-lite-session"` and a stable `BS-SESSION-*` Local Session ID.
 16. Confirm export JSON contains `mode.currentMode: "simple"` and Advanced Mode availability is unavailable.
 17. Confirm export JSON contains `multiplayer.status: "localOnly"` and exactly one local BoardState Lite participant.
-18. Confirm imported/exported sessions remain Local Lite and do not attempt reconnect or sync.
-19. Confirm there are no false claims of Hub, sync, multiplayer, Advanced Mode, profile, friend, tournament, or notification integration.
-20. Confirm adapter diagnostics report BoardState authority as unavailable unless a real adapter is configured.
-21. Confirm mode diagnostics report Simple Mode as current and Advanced Mode unavailable.
-22. Confirm multiplayer diagnostics report single local participant and multiplayer unavailable.
-23. Confirm rules-renderer diagnostics report Local Helper Engine as the active rendering source after ACTIVATE FIELD.
-24. Confirm resolution details remain compact and do not claim BoardState authority unless a real adapter supplied a result.
+18. Confirm export JSON contains `hub.status: "standalone"`, a `BS-PROFILE-*` local anonymous profile, and a Baord State Lite-only application registry.
+19. Confirm export JSON contains local-only backup metadata and no Hub ID, cloud backup, friend, remote notification, or cross-app connected status.
+20. Confirm imported/exported sessions remain Local Lite and do not attempt reconnect or sync.
+21. Confirm there are no false claims of Hub, sync, multiplayer, Advanced Mode, profile sync, friend, tournament, notification, cloud backup, Deck Nexus, or cross-app launch integration.
+22. Confirm adapter diagnostics report BoardState authority as unavailable unless a real adapter is configured.
+23. Confirm mode diagnostics report Simple Mode as current and Advanced Mode unavailable.
+24. Confirm multiplayer diagnostics report single local participant and multiplayer unavailable.
+25. Confirm Hub diagnostics report Standalone Mode, local anonymous profile, local-only backup, and unavailable Hub/friends/remote notifications/cross-app launching.
+26. Confirm rules-renderer diagnostics report Local Helper Engine as the active rendering source after ACTIVATE FIELD.
+27. Confirm resolution details remain compact and do not claim BoardState authority unless a real adapter supplied a result.
 
 ## Viewports
 
@@ -105,3 +108,4 @@ The live app must still behave as Lite:
 10. Simple Mode remains the current mode; Advanced Mode is not shown as connected, active, transferred, or synced.
 11. Multiplayer metadata remains single-participant and local-only; no lobby, invite, chat, shared battlefield, judge, or player-joined state is exposed.
 12. Rules results render through the compact Lite renderer; no raw Advanced stack UI or fake authority appears.
+13. Hub metadata remains standalone and local-only; no account, friend list, cloud backup, remote notification, Deck Nexus, Hub, or cross-app launch feature is exposed as active.

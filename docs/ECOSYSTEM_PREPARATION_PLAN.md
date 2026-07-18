@@ -284,12 +284,13 @@ Tests to preserve:
 
 ## 7. Add Hub-Ready Profile, Friend, Tournament, Notification, And App-Link Adapters
 
-Goal: add adapter boundaries for future Hub features without pretending the Hub exists.
+Goal: add adapter boundaries for future Hub and linked-app features without pretending the Hub exists.
 
 Required boundaries:
 
 - User-facing status must remain honest.
 - No fake profile/friends/tournament/notification screens.
+- No fake accounts, cloud backup, app launching, or deep-link success.
 - Local-only Lite remains usable.
 
 Major risks:
@@ -297,27 +298,38 @@ Major risks:
 - Hub status misrepresentation.
 - Privacy issues.
 - Scope creep into a social product.
+- Cloud backup overwriting local-only saves.
+- Cross-app links implying unavailable applications are installed.
 
 Expected inputs:
 
 - Hub app-link contracts.
 - Profile and notification permission model.
+- Backup identity and account merge rules.
 
 Expected outputs:
 
-- Inert adapter interfaces or constants.
-- Explicit `not-connected` statuses.
+- Hub Integration Manager with standalone defaults.
+- Local anonymous profile abstraction.
+- Canonical application registry containing Baord State Lite only.
+- Friend, notification, backup, deep-link, and cross-app launching contracts.
+- Local JSON backup metadata in exports.
+- Explicit unavailable statuses for Hub, friends, cloud backup, remote notifications, and app launching.
 - Documentation and tests preventing false connected claims.
 
 Systems likely affected:
 
 - Settings/about surface.
 - Optional app-link utilities.
+- Field state, export/import, rules-adapter snapshots, and docs.
 - Documentation.
 
 Tests to preserve:
 
 - No misleading UI text.
+- Legacy save migration.
+- Export metadata.
+- App registry and capability negotiation.
 - PWA installability.
 - Offline behavior.
 

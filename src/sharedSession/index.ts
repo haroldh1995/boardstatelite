@@ -10,8 +10,10 @@ export {
   localParticipantId,
 } from "./identity";
 export {
+  createSessionEcosystemMetadata,
   createLocalSessionMetadata,
   createSessionSnapshot,
+  normalizeSessionEcosystemMetadata,
   normalizeSessionMetadata,
 } from "./metadata";
 export { SharedSessionManager, sharedSessionManager } from "./manager";
@@ -40,6 +42,7 @@ export type {
   SessionCapability,
   SessionCapabilityMap,
   SessionDiagnostics,
+  SessionEcosystemMetadata,
   SessionHookResult,
   SessionImportExportState,
   SessionObjectSnapshot,

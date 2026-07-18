@@ -160,6 +160,51 @@ Mitigation:
 
 - Use `Not connected`, `Coming later`, `Requires future Hub support`, or `Adapter not configured`.
 - Add tests for misleading copy when Hub surfaces are introduced.
+- Normalize current `field.hub` state to `standalone` and `hubAvailability: unavailable`.
+- Keep the application registry limited to Baord State Lite until real app discovery exists.
+
+## Profile And Account Overreach
+
+Risk: A local anonymous profile could be presented as a real Hub account or used to imply identity synchronization.
+
+Mitigation:
+
+- Store local profiles as `local-anonymous`.
+- Do not require login for Lite.
+- Keep profile sync capability false until Hub authentication exists.
+- Preserve the local profile ID in exports so future account merge work can be additive.
+
+## Friend And Notification Overreach
+
+Risk: Future friend, tournament, or notification contracts could leak into UI as fake social features.
+
+Mitigation:
+
+- Keep friend and remote-notification capabilities false.
+- Do not expose friend lists, invitations, online presence, tournament contacts, or remote notification toggles before real Hub support exists.
+- Make Hub manager hooks return unavailable with explicit reasons.
+
+## Backup Authority Conflict
+
+Risk: Future cloud backup could overwrite local battlefields, templates, or cached card data without user intent.
+
+Mitigation:
+
+- Keep current backup status as `local-only`.
+- Treat local JSON export/import as the only active backup destination today.
+- Include backup version, export version, application origin, and profile ID in export metadata.
+- Do not add destructive migrations or silent cloud restore behavior.
+
+## Cross-App Launch Ambiguity
+
+Risk: Future links to BoardState Advanced, Deck Nexus, or Hub may look available when no target is installed or configured.
+
+Mitigation:
+
+- Keep cross-app and deep-link capabilities false today.
+- Return unavailable from launch/deep-link managers without constructing fake URLs.
+- Do not show launch buttons until real targets and return paths are verified.
+- Include application origin and compatibility metadata in exports instead of pretending live app links exist.
 
 ## Mixed-Session Authority Issues
 

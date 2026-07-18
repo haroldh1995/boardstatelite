@@ -17,6 +17,15 @@ import {
   createDefaultMultiplayerState,
   normalizeMultiplayerState,
 } from "../multiplayer/state";
+import {
+  HUB_APPLICATION_ID,
+  HUB_BACKUP_VERSION,
+  HUB_COMPATIBILITY_VERSION,
+  HUB_EXPORT_VERSION,
+  HUB_LITE_APP_VERSION,
+  createDefaultHubIntegrationState,
+  normalizeHubState,
+} from "../hub";
 import type {
   FieldState,
   OpponentValues,
@@ -31,6 +40,7 @@ import type {
   Zone,
 } from "./types";
 import type { SharedSessionMetadata } from "../sharedSession/types";
+import type { HubIntegrationState } from "../hub/types";
 
 export const TOTAL_LABELS: Record<RelevantTotalKey, string> = {
   lands: "Lands",
@@ -83,12 +93,18 @@ export function createDefaultField(): FieldState {
   const now = new Date().toISOString();
   const session = createLocalSessionMetadata(now);
   const mode = createDefaultModeState(now);
+  const settings = createDefaultSettings();
+  const hub = createDefaultHubIntegrationState({
+    timestamp: now,
+    settings,
+  });
   const field: FieldState = {
     schemaVersion: 1,
     id: makeId("field"),
     session,
     mode,
     multiplayer: createDefaultMultiplayerState(session, now),
+    hub,
     name: "Baord State Lite Field",
     createdAt: now,
     updatedAt: now,
@@ -104,7 +120,7 @@ export function createDefaultField(): FieldState {
     ],
     pinnedTotals: DEFAULT_PINNED_TOTALS,
     customEffects: [],
-    settings: createDefaultSettings(),
+    settings,
     watcherPreferences: createDefaultWatcherPreferences(),
     orderingPreferences: {},
     optionalPreferences: {},
@@ -119,14 +135,12 @@ export function createDefaultField(): FieldState {
     session,
     objectIds,
   );
+  const sessionWithHub = applyHubSessionMetadata(sessionWithOwnership, hub);
   return {
     ...field,
-    session: sessionWithOwnership,
-    multiplayer: createDefaultMultiplayerState(
-      sessionWithOwnership,
-      now,
-      objectIds,
-    ),
+    session: sessionWithHub,
+    multiplayer: createDefaultMultiplayerState(sessionWithHub, now, objectIds),
+    hub,
     groups,
   };
 }
@@ -242,13 +256,23 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
       objectIds,
     },
   );
+  const settings = {
+    ...defaults.settings,
+    ...candidate.settings,
+  };
+  const hub = normalizeHubState(candidate.hub ?? unwrapped.hub, {
+    fallbackTimestamp: updatedAt,
+    settings,
+  });
+  const sessionWithHub = applyHubSessionMetadata(sessionWithOwnership, hub);
   return {
     ...defaults,
     ...candidate,
     id: typeof candidate.id === "string" ? candidate.id : defaults.id,
-    session: sessionWithOwnership,
+    session: sessionWithHub,
     mode,
     multiplayer,
+    hub,
     name: sanitizeText(candidate.name, "Imported Baord State Lite Field"),
     player: {
       ...defaults.player,
@@ -276,6 +300,7 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
       custom: sanitizeNumberRecord(candidate.opponentValues?.custom),
     },
     groups,
+    settings,
     pinnedTotals: Array.isArray(candidate.pinnedTotals)
       ? candidate.pinnedTotals
       : defaults.pinnedTotals,
@@ -402,11 +427,17 @@ export function normalizeField(field: FieldState): FieldState {
     fallbackTimestamp: updatedAt,
     objectIds,
   });
+  const hub = normalizeHubState(field.hub, {
+    fallbackTimestamp: updatedAt,
+    settings: field.settings,
+  });
+  const sessionWithHub = applyHubSessionMetadata(sessionWithOwnership, hub);
   return {
     ...field,
-    session: sessionWithOwnership,
+    session: sessionWithHub,
     mode,
     multiplayer,
+    hub,
     groups,
     updatedAt,
   };
@@ -493,6 +524,26 @@ function assignLocalParticipantOwnership(
           }
         : participant,
     ),
+  };
+}
+
+function applyHubSessionMetadata(
+  session: SharedSessionMetadata,
+  hub: HubIntegrationState,
+): SharedSessionMetadata {
+  return {
+    ...session,
+    liteAppVersion: HUB_LITE_APP_VERSION,
+    ecosystem: {
+      ...session.ecosystem,
+      profileId: hub.profile.id,
+      applicationOrigin: HUB_APPLICATION_ID,
+      applicationVersion: HUB_LITE_APP_VERSION,
+      backupVersion: HUB_BACKUP_VERSION,
+      exportVersion: HUB_EXPORT_VERSION,
+      hubId: null,
+      hubCompatibilityVersion: HUB_COMPATIBILITY_VERSION,
+    },
   };
 }
 

@@ -1,6 +1,7 @@
 import { calculateTotals } from "../domain/field";
 import type { CardIdentity, FieldState, PermanentGroup } from "../domain/types";
 import { createModeSnapshot, normalizeModeState } from "../gameModes/state";
+import { createHubSnapshot, normalizeHubState } from "../hub";
 import {
   createMultiplayerSnapshot,
   normalizeMultiplayerState,
@@ -29,6 +30,10 @@ export function createLiteFieldSnapshot(field: FieldState): LiteFieldSnapshot {
     fallbackTimestamp: field.updatedAt,
     objectIds,
   });
+  const hub = normalizeHubState(field.hub, {
+    fallbackTimestamp: field.updatedAt,
+    settings: field.settings,
+  });
   const sortedGroups = [...field.groups].sort(
     (a, b) => a.order - b.order || a.id.localeCompare(b.id),
   );
@@ -48,6 +53,7 @@ export function createLiteFieldSnapshot(field: FieldState): LiteFieldSnapshot {
     session: createSessionSnapshot(field.session),
     mode: createModeSnapshot(mode),
     multiplayer: createMultiplayerSnapshot(multiplayer),
+    hub: createHubSnapshot(hub),
     player: {
       life: field.player.life,
       startingLife: field.player.startingLife,

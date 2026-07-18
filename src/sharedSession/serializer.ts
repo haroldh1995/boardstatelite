@@ -1,10 +1,20 @@
 import type { FieldState } from "../domain/types";
 import { normalizeModeState } from "../gameModes/state";
+import {
+  HUB_APPLICATION_ID,
+  HUB_APPLICATION_NAME,
+  HUB_BACKUP_VERSION,
+  HUB_COMPATIBILITY_VERSION,
+  HUB_EXPORT_VERSION,
+  HUB_LITE_APP_VERSION,
+  normalizeHubState,
+} from "../hub";
 import { normalizeMultiplayerState } from "../multiplayer/state";
 import {
   SHARED_SESSION_COMPATIBILITY_VERSION,
   SHARED_SESSION_EXPORT_KIND,
   SHARED_SESSION_SERIALIZATION_VERSION,
+  type SharedSessionMetadata,
   type SharedSessionExportEnvelope,
 } from "./types";
 
@@ -23,13 +33,28 @@ export function createSessionExportEnvelope(
     fallbackTimestamp: field.updatedAt,
     objectIds,
   });
-  const exportedSession = {
+  const hub = normalizeHubState(field.hub, {
+    fallbackTimestamp: field.updatedAt,
+    settings: field.settings,
+  });
+  const exportedSession: SharedSessionMetadata = {
     ...field.session,
+    liteAppVersion: HUB_LITE_APP_VERSION,
     status: "localOnly" as const,
     importExport: {
       ...field.session.importExport,
       exported: true,
       exportedAt,
+    },
+    ecosystem: {
+      ...field.session.ecosystem,
+      profileId: hub.profile.id,
+      applicationOrigin: HUB_APPLICATION_ID as "boardstate-lite",
+      applicationVersion: HUB_LITE_APP_VERSION,
+      backupVersion: HUB_BACKUP_VERSION,
+      exportVersion: HUB_EXPORT_VERSION,
+      hubId: null,
+      hubCompatibilityVersion: HUB_COMPATIBILITY_VERSION,
     },
   };
   return {
@@ -39,6 +64,24 @@ export function createSessionExportEnvelope(
     session: exportedSession,
     mode,
     multiplayer,
+    hub,
+    application: {
+      id: HUB_APPLICATION_ID,
+      name: HUB_APPLICATION_NAME,
+      version: HUB_LITE_APP_VERSION,
+      mode: mode.currentMode,
+      rulesAuthority: exportedSession.currentRulesAuthority,
+      sessionAuthority: exportedSession.currentSessionAuthority,
+      compatibilityVersion: HUB_COMPATIBILITY_VERSION,
+    },
+    backup: {
+      type: "local-json",
+      status: "local-only",
+      backupVersion: hub.backup.backupVersion,
+      exportVersion: hub.backup.exportVersion,
+      profileId: hub.profile.id,
+      hubId: null,
+    },
     authority: {
       rules: exportedSession.currentRulesAuthority,
       session: exportedSession.currentSessionAuthority,
@@ -57,6 +100,7 @@ export function createSessionExportEnvelope(
       session: exportedSession,
       mode,
       multiplayer,
+      hub,
     },
     futureCompatibilityVersion: SHARED_SESSION_COMPATIBILITY_VERSION,
     notes: [
@@ -78,6 +122,7 @@ export function unwrapSessionImport(value: unknown): {
   session: unknown;
   mode: unknown;
   multiplayer: unknown;
+  hub: unknown;
   importedFromSessionEnvelope: boolean;
   unknownEnvelope: Record<string, unknown> | null;
 } {
@@ -95,6 +140,7 @@ export function unwrapSessionImport(value: unknown): {
       session: envelope.session,
       mode: envelope.mode,
       multiplayer: envelope.multiplayer,
+      hub: envelope.hub,
       importedFromSessionEnvelope: true,
       unknownEnvelope: envelope,
     };
@@ -104,6 +150,7 @@ export function unwrapSessionImport(value: unknown): {
     session: null,
     mode: null,
     multiplayer: null,
+    hub: null,
     importedFromSessionEnvelope: false,
     unknownEnvelope: null,
   };

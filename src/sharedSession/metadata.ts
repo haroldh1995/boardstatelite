@@ -1,4 +1,10 @@
 import { RULES_ADAPTER_VERSION } from "../rulesAdapter/types";
+import {
+  HUB_BACKUP_VERSION,
+  HUB_COMPATIBILITY_VERSION,
+  HUB_EXPORT_VERSION,
+  HUB_LITE_APP_VERSION,
+} from "../hub/types";
 import { createDisabledSessionCapabilities } from "./capabilities";
 import { createParticipantId, createSessionId } from "./identity";
 import type {
@@ -7,6 +13,7 @@ import type {
   ParticipantCompatibilityStatus,
   ParticipantConnectionState,
   ParticipantRole,
+  SessionEcosystemMetadata,
   SessionParticipant,
   SharedSessionMetadata,
   SharedSessionSnapshot,
@@ -40,6 +47,7 @@ export function createLocalSessionMetadata(
       exportedAt: null,
       source: "local",
     },
+    ecosystem: createSessionEcosystemMetadata(),
     futureCompatibilityVersion: SHARED_SESSION_COMPATIBILITY_VERSION,
     synchronizationVersion: 1,
     participants: [createLocalParticipant()],
@@ -97,6 +105,7 @@ export function normalizeSessionMetadata(
           ? candidate.importExport.source
           : "local",
     },
+    ecosystem: normalizeSessionEcosystemMetadata(candidate.ecosystem),
     futureCompatibilityVersion:
       typeof candidate.futureCompatibilityVersion === "string"
         ? candidate.futureCompatibilityVersion
@@ -123,6 +132,50 @@ export function createSessionSnapshot(
       status: session.status,
     },
     capabilities: { ...session.capabilities },
+  };
+}
+
+export function createSessionEcosystemMetadata(
+  profileId: string | null = null,
+): SessionEcosystemMetadata {
+  return {
+    profileId,
+    applicationOrigin: "boardstate-lite",
+    applicationVersion: HUB_LITE_APP_VERSION,
+    backupVersion: HUB_BACKUP_VERSION,
+    exportVersion: HUB_EXPORT_VERSION,
+    hubId: null,
+    hubCompatibilityVersion: HUB_COMPATIBILITY_VERSION,
+  };
+}
+
+export function normalizeSessionEcosystemMetadata(
+  value: unknown,
+): SessionEcosystemMetadata {
+  const defaults = createSessionEcosystemMetadata();
+  if (!value || typeof value !== "object") return defaults;
+  const candidate = value as Partial<SessionEcosystemMetadata>;
+  return {
+    profileId:
+      typeof candidate.profileId === "string" ? candidate.profileId : null,
+    applicationOrigin: "boardstate-lite",
+    applicationVersion:
+      typeof candidate.applicationVersion === "string"
+        ? candidate.applicationVersion
+        : HUB_LITE_APP_VERSION,
+    backupVersion:
+      typeof candidate.backupVersion === "number"
+        ? candidate.backupVersion
+        : HUB_BACKUP_VERSION,
+    exportVersion:
+      typeof candidate.exportVersion === "number"
+        ? candidate.exportVersion
+        : HUB_EXPORT_VERSION,
+    hubId: typeof candidate.hubId === "string" ? candidate.hubId : null,
+    hubCompatibilityVersion:
+      typeof candidate.hubCompatibilityVersion === "string"
+        ? candidate.hubCompatibilityVersion
+        : HUB_COMPATIBILITY_VERSION,
   };
 }
 

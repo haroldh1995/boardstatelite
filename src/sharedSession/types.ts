@@ -110,6 +110,16 @@ export interface SessionImportExportState {
   source: "local" | "json" | "future-ecosystem";
 }
 
+export interface SessionEcosystemMetadata {
+  profileId: string | null;
+  applicationOrigin: "boardstate-lite";
+  applicationVersion: string;
+  backupVersion: number;
+  exportVersion: number;
+  hubId: string | null;
+  hubCompatibilityVersion: string;
+}
+
 export interface SharedSessionMetadata {
   id: string;
   version: number;
@@ -122,6 +132,7 @@ export interface SharedSessionMetadata {
   currentSessionAuthority: SessionAuthority;
   status: SessionStatus;
   importExport: SessionImportExportState;
+  ecosystem: SessionEcosystemMetadata;
   futureCompatibilityVersion: string;
   synchronizationVersion: number;
   participants: SessionParticipant[];
@@ -164,6 +175,24 @@ export interface SharedSessionExportEnvelope {
   session: SharedSessionMetadata;
   mode: FieldState["mode"];
   multiplayer: FieldState["multiplayer"];
+  hub: FieldState["hub"];
+  application: {
+    id: "boardstate-lite";
+    name: "Baord State Lite";
+    version: string;
+    mode: FieldState["mode"]["currentMode"];
+    rulesAuthority: SharedSessionMetadata["currentRulesAuthority"];
+    sessionAuthority: SharedSessionMetadata["currentSessionAuthority"];
+    compatibilityVersion: string;
+  };
+  backup: {
+    type: "local-json";
+    status: "local-only";
+    backupVersion: number;
+    exportVersion: number;
+    profileId: string | null;
+    hubId: string | null;
+  };
   authority: {
     rules: SharedSessionMetadata["currentRulesAuthority"];
     session: SharedSessionMetadata["currentSessionAuthority"];

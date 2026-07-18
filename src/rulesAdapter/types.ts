@@ -21,6 +21,7 @@ import type {
 } from "../sharedSession/types";
 import type { ModeSnapshot } from "../gameModes/types";
 import type { MultiplayerSnapshot } from "../multiplayer/types";
+import type { HubSnapshot } from "../hub/types";
 
 export const RULES_ADAPTER_VERSION = "0.1.0";
 export const RULES_ADAPTER_SERIALIZATION_VERSION = 1;
@@ -88,6 +89,7 @@ export interface LiteFieldSnapshot {
   session: SharedSessionSnapshot;
   mode: ModeSnapshot;
   multiplayer: MultiplayerSnapshot;
+  hub: HubSnapshot;
   player: {
     life: number;
     startingLife: number;

@@ -44,6 +44,7 @@ This audit describes the current Baord State Lite implementation before ecosyste
 - `src/sharedSession/*`: canonical local session metadata, stable session/object IDs, local-only authority/status model, deterministic session export/import helpers, diagnostics, and inert future synchronization hooks.
 - `src/gameModes/*`: Simple/Advanced mode metadata, capability negotiation, compatibility validation, canonical handoff snapshots, unavailable launch/return hooks, diagnostics, and mode persistence defaults.
 - `src/multiplayer/*`: mixed Lite / Advanced participant registry, authority ownership, local-only visibility/synchronization metadata, unavailable discovery/synchronization/conflict hooks, diagnostics, and snapshot metadata.
+- `src/hub/*`: Hub-ready ecosystem profile, application registry, backup, notification, friend, deep-link, and cross-app launch contracts with standalone defaults and unavailable hooks.
 - `src/state/useFieldStore.ts`: Zustand store, local actions, undo/redo, modal state, persistence commits.
 - `src/services/db.ts`: Dexie persistence and localStorage fallback.
 - `src/services/scryfall.ts`: Scryfall API mapping, search, card fetch, pending request de-duplication, cache calls.
@@ -81,9 +82,9 @@ Persistence is local-first:
   - `baord-state-lite:search:<query>` fallback.
   - `baord-state-lite:card:<cardId>` fallback.
 - Field schema version: `schemaVersion: 1`.
-- Export shape: canonical `baord-state-lite-session` JSON envelope containing session metadata plus the current `FieldState`.
+- Export shape: canonical `baord-state-lite-session` JSON envelope containing session metadata, Simple Mode metadata, multiplayer metadata, Hub-ready application/profile/backup metadata, and the current `FieldState`.
 - Import validation: `sanitizeImportedField` requires schema version 1, groups array, and player data; it sanitizes key text/numeric values and preserves unknown root/group payloads through spreads.
-- Current migration posture: non-destructive defaulting only. Missing `trackingEnabled` defaults to `true`; missing session metadata receives a Local Lite session with one local participant and stable object bindings; missing mode metadata receives Simple Mode with Advanced unavailable; missing multiplayer metadata receives one local BoardState Lite participant and Local Lite authority.
+- Current migration posture: non-destructive defaulting only. Missing `trackingEnabled` defaults to `true`; missing session metadata receives a Local Lite session with one local participant and stable object bindings; missing mode metadata receives Simple Mode with Advanced unavailable; missing multiplayer metadata receives one local BoardState Lite participant and Local Lite authority; missing Hub metadata receives a local anonymous profile, Baord State Lite-only application registry, and local-only backup metadata.
 
 ## Canonical Shared Session Layer
 
@@ -154,6 +155,32 @@ Current runtime behavior:
 
 This layer is a data and integration boundary only. It does not make Lite a multiplayer authority.
 
+## Hub-Ready Ecosystem Layer
+
+The Hub layer prepares future ecosystem compatibility without creating accounts, cloud services, friend lists, notifications, or app launches.
+
+Modules:
+
+- `src/hub/types.ts`: profile, application registry, capability, friend, notification, backup, cross-app launch, deep-link, compatibility, diagnostics, and unavailable result types.
+- `src/hub/capabilities.ts`: standalone capability defaults. Local profile, local backup, and manual backup are true; remote/future capabilities are false.
+- `src/hub/profile.ts`: local anonymous profile creation and safe profile normalization.
+- `src/hub/registry.ts`: canonical application registry that currently contains only Baord State Lite.
+- `src/hub/state.ts`: default Hub integration state, migration normalization, snapshot creation, and unavailable-reason constants.
+- `src/hub/launch.ts`: cross-app launch and deep-link preparation abstraction that returns unavailable today.
+- `src/hub/manager.ts`: centralized diagnostics, capability negotiation, Hub/friend/notification/backup/launch hooks, and the developer diagnostics global.
+
+Current runtime behavior:
+
+1. Every field has `field.hub.status === "standalone"` and `field.hub.hubAvailability === "unavailable"`.
+2. Every field has a stable local anonymous `BS-PROFILE-*` profile ID.
+3. The application registry contains exactly one entry: Baord State Lite in Standalone Mode.
+4. Local JSON export/import is the only enabled backup destination.
+5. Hub profile sync, friends, cloud backup, remote notifications, cross-app launching, deep links, Deck Nexus, BoardState Hub, and BoardState Advanced launches all report unavailable.
+6. Exports and rules-adapter snapshots include Hub metadata without claiming Hub connectivity.
+7. Stale imported Hub-connected states normalize back to standalone/local-only unless future work explicitly verifies a real Hub authority.
+
+Developer diagnostics are available through `__BAORD_STATE_LITE_HUB__.getDiagnostics(field?)`. This is not a user-facing Hub integration claim.
+
 ## Current Lite Gameplay Model
 
 - The app tracks only the user's personal life total and personal battlefield-relevant state.
@@ -184,6 +211,10 @@ This layer is a data and integration boundary only. It does not make Lite a mult
 | Session identity                                  | `field.session`                                                                       | Persisted/exported                        | Normalized on field load/update           | Low: local-only metadata is additive                  |
 | Mode state                                        | `field.mode`                                                                          | Persisted/exported                        | Normalized on field load/update           | Low to medium: future handoff must stay honest        |
 | Multiplayer participation                         | `field.multiplayer`                                                                   | Persisted/exported                        | Normalized on field load/update           | Medium: future authority must reconcile participants  |
+| Hub ecosystem state                               | `field.hub`                                                                           | Persisted/exported                        | Normalized on field load/update           | Medium: future Hub authority must not fake local sync |
+| Local profile                                     | `field.hub.profile` and `field.session.ecosystem.profileId`                           | Persisted/exported                        | Normalized to local anonymous today       | Medium: future login/profile merge must preserve data |
+| Application registry                              | `field.hub.registry`                                                                  | Persisted/exported                        | Normalized to Baord State Lite only today | Medium: future app discovery must remain honest       |
+| Backup metadata                                   | `field.hub.backup` and export envelope `backup`                                       | Persisted/exported                        | Normalized to local JSON only today       | Medium: cloud backup must not overwrite local saves   |
 | Participants                                      | `field.session.participants`                                                          | Persisted/exported                        | Normalized to one local participant today | Medium: future roles need authority mapping           |
 | Permanents and tokens                             | `field.groups` with `group.session.objectIds`                                         | Persisted/exported                        | Direct with normalized stack keys         | Low to medium: grouped objects now have canonical IDs |
 | Generic placeholders                              | `field.groups` where `isGeneric`                                                      | Persisted/exported                        | Direct                                    | Medium: no Oracle identity                            |
@@ -269,7 +300,7 @@ Current capabilities supported by the model: `evaluateSnapshot`, `sharedSession`
 
 The canonical snapshot includes player state, relevant totals, opponent placeholder values, all permanent/group state, selected card identity and printing data, token/generic flags, tracking and depower state, attachments, counters, power/toughness, transform state, status flags, stack membership, custom effects, preferences, app version, adapter version, snapshot version, serialization version, and field timestamp. It excludes transient UI selection and animation state and omits card image URLs because future rules evaluation should use identity and printing data, not UI imagery.
 
-The snapshot now also includes Local Session metadata, participant metadata, current authority/status metadata, synchronization version, Simple/Advanced mode metadata, multiplayer participant metadata, compatibility metadata, object visibility/synchronization metadata, and each permanent group's session/object ownership binding.
+The snapshot now also includes Local Session metadata, participant metadata, current authority/status metadata, synchronization version, Simple/Advanced mode metadata, multiplayer participant metadata, Hub profile/application/backup metadata, compatibility metadata, object visibility/synchronization metadata, and each permanent group's session/object ownership binding.
 
 Version metadata is prepared with Lite version `0.0.0`, adapter version `0.1.0`, snapshot version `1`, serialization version `1`, and minimum future BoardState version `0.1.0`. Version negotiation currently only updates diagnostics/status and does not create a network connection.
 
@@ -338,6 +369,8 @@ Multiplayer coverage includes local participant creation, participant persistenc
 
 Rules-result renderer coverage includes canonical helper conversion, validation failures, unknown object rejection, authoritative result rendering, life/counter/token/status/transform/depower/tracking updates, warnings, unsupported interactions, judge notes, replay markers, reduced-motion mode, accessibility announcements, store Activate Field preservation, undo preservation, export-shape preservation, and Scryfall identity preservation.
 
+Hub coverage includes standalone profile defaults, application registry defaults, capability negotiation, stale connected-state normalization, unavailable Hub/friend/cloud/launch/deep-link hooks, export metadata, legacy migration, rules-adapter snapshot metadata, Activate Field preservation, undo/redo preservation, local helper rendering preservation, and diagnostics honesty.
+
 Known coverage gaps to preserve for future prompts:
 
 - No separate tutorial sprite tests because there is no tutorial sprite system.
@@ -362,6 +395,7 @@ Known coverage gaps to preserve for future prompts:
 - Shared-session metadata is local-only today; user-facing copy must not present `readyForSharing` types as real synchronization before a real authority exists.
 - Mode metadata is local Simple Mode today; user-facing copy must not present Advanced as connected, active, transferred, synced, or authoritative before a real BoardState Advanced target exists.
 - Multiplayer metadata is single-participant and local-only today; user-facing copy must not present players joined, lobbies, shared battlefields, judge connections, or synchronization before real authority exists.
+- Hub metadata is standalone and local-only today; user-facing copy must not present accounts, friends, cloud backup, remote notifications, app launching, Deck Nexus, Hub, or profile sync before real services exist.
 - Not Tracked must remain separate from Depower.
 - Lite helper rules must not conflict with future BoardState authoritative rules.
 - Adapter diagnostics must remain honest: status is unavailable until a real authority exists, and fallback must not be presented as authoritative.

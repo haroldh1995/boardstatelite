@@ -18,7 +18,11 @@ Unsupported cards can still be tracked as permanents, receive counters, count to
 
 ## Mode And Session Status
 
-Baord State Lite currently runs in Simple Mode with one local BoardState Lite participant. It includes local-only session metadata, future handoff snapshots, and mixed Lite / Advanced participant metadata so a later BoardState Advanced app can receive, return, or share a session, but Advanced Mode, multiplayer, shared sync, Hub integration, and authoritative BoardState control are not connected in this app today.
+Baord State Lite currently runs in Simple Mode with one local BoardState Lite participant. It includes local-only session metadata, future handoff snapshots, mixed Lite / Advanced participant metadata, and Hub-ready ecosystem metadata so later BoardState apps can receive, return, share, back up, or launch sessions when real ecosystem services exist. Advanced Mode, multiplayer, shared sync, Hub connectivity, cloud backup, friends, remote notifications, cross-app launching, and authoritative BoardState control are not connected in this app today.
+
+## Hub And Ecosystem Status
+
+Baord State Lite now stores a local anonymous profile and an application registry that contains only Baord State Lite. Local JSON export/import remains the only backup path. Hub profile sync, friends, cloud backup, remote notifications, Deck Nexus launching, BoardState Advanced launching, and Hub launching are architecture-only and report unavailable until real ecosystem targets exist.
 
 ## Rules Result Rendering
 
@@ -101,7 +105,7 @@ The app is installable as a PWA and caches the app shell, Scryfall card API resp
 - Local field data is saved in IndexedDB.
 - Import validates the expected schema and sanitizes labels.
 - Imported data is never executed as code.
-- Export creates a JSON backup of the current local session, including Simple Mode and future compatibility metadata.
+- Export creates a JSON backup of the current local session, including Simple Mode, local participant, Hub-ready application/profile/backup metadata, and future compatibility metadata.
 
 ## Scryfall Attribution
 

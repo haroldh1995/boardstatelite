@@ -19,6 +19,7 @@ Lite is responsible for:
 - Explicit Simple Mode metadata and inert future Advanced Mode handoff contracts.
 - Single local BoardState Lite participant metadata and inert future mixed Lite / Advanced multiplayer contracts.
 - Compact rules-result rendering for local helper output and future BoardState authority payloads.
+- Hub-ready local anonymous profile, application registry, local backup metadata, and inert future ecosystem hooks.
 - Clear support-status honesty for unsupported Oracle text.
 
 ## What Lite Is Not
@@ -74,6 +75,7 @@ Until those integrations actually exist, Lite must use honest wording such as `N
 - Full opponent board simulation.
 - Server-authoritative multiplayer state.
 - Fake Hub/profile/friends/tournament/notification screens.
+- Fake cloud backup, friend list, remote notification, or cross-app launching controls.
 - Claims that an ecosystem adapter is connected before it is actually wired.
 - Destructive migrations that invalidate local Lite saves.
 
@@ -134,7 +136,16 @@ Lite must not expose lobbies, invite buttons, fake player lists, chat, connected
 
 ## Hub And Linked-App Honesty
 
-Lite must not claim Hub, shared-session, profile, friends, tournament, notification, sync, or Advanced Mode availability before those systems exist. Internal placeholders may be documented or typed, but production UI must not present them as connected or working.
+Lite now has Hub-ready architecture, but it remains standalone and local-only. Current support is limited to:
+
+- A local anonymous profile ID that can later map to a Hub profile.
+- A canonical application registry containing only Baord State Lite.
+- Local JSON export/import backup metadata.
+- Capability flags for future profiles, friends, notifications, cloud backup, cross-app launching, app links, Deck Nexus, Hub, and BoardState Advanced.
+- Inert Hub, friend, notification, cloud backup, deep-link, and cross-app launch hooks that return unavailable.
+- Developer diagnostics that report Standalone Mode and Hub unavailable.
+
+Lite must not claim Hub, shared-session, profile sync, friends, tournament, notification, cloud backup, sync, cross-app launching, or Advanced Mode availability before those systems exist. Internal placeholders may be documented or typed, but production UI must not present them as connected or working.
 
 ## Local-Only Workflow Preservation
 
