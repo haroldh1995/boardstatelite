@@ -1,17 +1,18 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
+import { APP_GITHUB_PAGES_BASE, APP_NAME } from "./src/appMetadata.js";
 
 export default defineConfig({
-  base: process.env.GITHUB_ACTIONS ? "/boardstatelite/" : "/",
+  base: process.env.GITHUB_ACTIONS ? APP_GITHUB_PAGES_BASE : "/",
   plugins: [
     react(),
     VitePWA({
       registerType: "prompt",
       includeAssets: ["favicon.svg", "pwa-192.svg", "pwa-512.svg"],
       manifest: {
-        name: "Baord State Lite",
-        short_name: "Baord State Lite",
+        name: APP_NAME,
+        short_name: APP_NAME,
         description:
           "A focused personal Magic: The Gathering battlefield calculator for life, counters, tokens, and supported triggers.",
         theme_color: "#050907",
@@ -36,10 +37,10 @@ export default defineConfig({
         ],
       },
       workbox: {
-        clientsClaim: true,
+        clientsClaim: false,
         cleanupOutdatedCaches: true,
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
-        skipWaiting: true,
+        skipWaiting: false,
         globPatterns: ["**/*.{js,css,html,svg,png,ico,webp,woff2}"],
         runtimeCaching: [
           {

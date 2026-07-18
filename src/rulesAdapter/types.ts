@@ -22,11 +22,12 @@ import type {
 import type { ModeSnapshot } from "../gameModes/types";
 import type { MultiplayerSnapshot } from "../multiplayer/types";
 import type { HubSnapshot } from "../hub/types";
+import { APP_NAME, APP_VERSION } from "../appMetadata";
 
 export const RULES_ADAPTER_VERSION = "0.1.0";
 export const RULES_ADAPTER_SERIALIZATION_VERSION = 1;
 export const LITE_SNAPSHOT_VERSION = 1;
-export const LITE_APP_VERSION = "0.0.0";
+export const LITE_APP_VERSION = APP_VERSION;
 export const MINIMUM_BOARDSTATE_VERSION = "0.1.0";
 
 export type RulesAdapterStatus =
@@ -76,7 +77,7 @@ export interface RulesAdapterDiagnostics {
 
 export interface LiteFieldSnapshot {
   metadata: {
-    appName: "Baord State Lite";
+    appName: typeof APP_NAME;
     appVersion: string;
     fieldId: string;
     fieldName: string;

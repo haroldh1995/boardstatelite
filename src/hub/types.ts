@@ -1,10 +1,12 @@
+import { APP_ID, APP_NAME, APP_VERSION } from "../appMetadata";
+
 export const HUB_INTEGRATION_VERSION = 1;
 export const HUB_COMPATIBILITY_VERSION = "0.1.0";
 export const HUB_BACKUP_VERSION = 1;
 export const HUB_EXPORT_VERSION = 1;
-export const HUB_APPLICATION_ID = "boardstate-lite";
-export const HUB_APPLICATION_NAME = "Baord State Lite";
-export const HUB_LITE_APP_VERSION = "0.0.0";
+export const HUB_APPLICATION_ID = APP_ID;
+export const HUB_APPLICATION_NAME = APP_NAME;
+export const HUB_LITE_APP_VERSION = APP_VERSION;
 
 export type EcosystemApplicationId =
   | "boardstate-lite"

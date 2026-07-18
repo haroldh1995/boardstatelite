@@ -2,6 +2,7 @@ import { calculateTotals } from "../domain/field";
 import type { CardIdentity, FieldState, PermanentGroup } from "../domain/types";
 import { createModeSnapshot, normalizeModeState } from "../gameModes/state";
 import { createHubSnapshot, normalizeHubState } from "../hub";
+import { APP_NAME } from "../appMetadata";
 import {
   createMultiplayerSnapshot,
   normalizeMultiplayerState,
@@ -40,7 +41,7 @@ export function createLiteFieldSnapshot(field: FieldState): LiteFieldSnapshot {
 
   return {
     metadata: {
-      appName: "Baord State Lite",
+      appName: APP_NAME,
       appVersion: LITE_APP_VERSION,
       fieldId: field.id,
       fieldName: field.name,

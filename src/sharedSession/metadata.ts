@@ -5,6 +5,7 @@ import {
   HUB_EXPORT_VERSION,
   HUB_LITE_APP_VERSION,
 } from "../hub/types";
+import { APP_VERSION } from "../appMetadata";
 import { createDisabledSessionCapabilities } from "./capabilities";
 import { createParticipantId, createSessionId } from "./identity";
 import type {
@@ -24,7 +25,7 @@ import {
   SHARED_SESSION_VERSION,
 } from "./types";
 
-const LITE_APP_VERSION = "0.0.0";
+const LITE_APP_VERSION = APP_VERSION;
 
 export function createLocalSessionMetadata(
   timestamp = new Date().toISOString(),

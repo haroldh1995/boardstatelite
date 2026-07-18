@@ -64,7 +64,7 @@ This audit describes the current Baord State Lite implementation before ecosyste
 - Runtime caching:
   - `https://api.scryfall.com/cards/` uses NetworkFirst in `scryfall-card-api`.
   - `https://cards.scryfall.io/` uses CacheFirst in `scryfall-card-images`.
-- Updates display a prompt instead of silently disrupting active games.
+- Updates display a prompt instead of silently disrupting active games; the generated service worker does not skip waiting or claim active clients until the user accepts the update prompt or navigates naturally.
 
 ## Persistence
 
@@ -370,6 +370,8 @@ Multiplayer coverage includes local participant creation, participant persistenc
 Rules-result renderer coverage includes canonical helper conversion, validation failures, unknown object rejection, authoritative result rendering, life/counter/token/status/transform/depower/tracking updates, warnings, unsupported interactions, judge notes, replay markers, reduced-motion mode, accessibility announcements, store Activate Field preservation, undo preservation, export-shape preservation, and Scryfall identity preservation.
 
 Hub coverage includes standalone profile defaults, application registry defaults, capability negotiation, stale connected-state normalization, unavailable Hub/friend/cloud/launch/deep-link hooks, export metadata, legacy migration, rules-adapter snapshot metadata, Activate Field preservation, undo/redo preservation, local helper rendering preservation, and diagnostics honesty.
+
+Final ecosystem readiness coverage validates all prepared integration layers together: local-only defaults, canonical metadata, deterministic snapshots, export/import metadata, Lite helper fallback, compact renderer output, unavailable future hooks, corrupt future metadata recovery, and centralized app identity.
 
 Known coverage gaps to preserve for future prompts:
 

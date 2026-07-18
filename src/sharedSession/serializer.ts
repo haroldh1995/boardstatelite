@@ -49,7 +49,7 @@ export function createSessionExportEnvelope(
     ecosystem: {
       ...field.session.ecosystem,
       profileId: hub.profile.id,
-      applicationOrigin: HUB_APPLICATION_ID as "boardstate-lite",
+      applicationOrigin: HUB_APPLICATION_ID,
       applicationVersion: HUB_LITE_APP_VERSION,
       backupVersion: HUB_BACKUP_VERSION,
       exportVersion: HUB_EXPORT_VERSION,
