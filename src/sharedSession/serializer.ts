@@ -1,5 +1,6 @@
 import type { FieldState } from "../domain/types";
 import { normalizeModeState } from "../gameModes/state";
+import { serializeStable } from "../utils/stableSerialization";
 import {
   HUB_APPLICATION_ID,
   HUB_APPLICATION_NAME,
@@ -110,11 +111,7 @@ export function createSessionExportEnvelope(
 }
 
 export function serializeSessionExport(field: FieldState): string {
-  return JSON.stringify(
-    sortSerializable(createSessionExportEnvelope(field)),
-    null,
-    2,
-  );
+  return serializeStable(createSessionExportEnvelope(field), 2);
 }
 
 export function unwrapSessionImport(value: unknown): {
@@ -154,14 +151,4 @@ export function unwrapSessionImport(value: unknown): {
     importedFromSessionEnvelope: false,
     unknownEnvelope: null,
   };
-}
-
-function sortSerializable(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(sortSerializable);
-  if (!value || typeof value !== "object") return value;
-  return Object.fromEntries(
-    Object.entries(value)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, entry]) => [key, sortSerializable(entry)]),
-  );
 }

@@ -8,6 +8,7 @@ import {
   normalizeMultiplayerState,
 } from "../multiplayer/state";
 import { createSessionSnapshot } from "../sharedSession";
+import { sortSerializable } from "../utils/stableSerialization";
 import {
   LITE_APP_VERSION,
   LITE_SNAPSHOT_VERSION,
@@ -231,15 +232,5 @@ function sortStringArrayRecord(
     Object.entries(record)
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([key, value]) => [key, [...value].sort()]),
-  );
-}
-
-function sortSerializable(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(sortSerializable);
-  if (!value || typeof value !== "object") return value;
-  return Object.fromEntries(
-    Object.entries(value)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, entry]) => [key, sortSerializable(entry)]),
   );
 }

@@ -93,6 +93,7 @@ The current 430px fixture screenshot is saved at
 - `docs/INTEGRATION_RISKS.md`
 - `docs/LIVE_DEPLOYMENT_CHECKLIST.md`
 - `docs/FINAL_ECOSYSTEM_AUDIT.md`
+- `docs/ECHO_AMBIENT_FOUNDATION_AUDIT.md`
 
 ## Deployment
 
