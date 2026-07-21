@@ -26,6 +26,10 @@ import {
   createDefaultHubIntegrationState,
   normalizeHubState,
 } from "../hub";
+import {
+  createDefaultAmbientGameplayState,
+  normalizeAmbientGameplayState,
+} from "../echo/ambientEngine";
 import type {
   FieldState,
   OpponentValues,
@@ -105,6 +109,10 @@ export function createDefaultField(): FieldState {
     mode,
     multiplayer: createDefaultMultiplayerState(session, now),
     hub,
+    ambient: createDefaultAmbientGameplayState({
+      timestamp: now,
+      sessionId: session.id,
+    }),
     name: "Baord State Lite Field",
     createdAt: now,
     updatedAt: now,
@@ -265,6 +273,10 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
     settings,
   });
   const sessionWithHub = applyHubSessionMetadata(sessionWithOwnership, hub);
+  const ambient = normalizeAmbientGameplayState(candidate.ambient, {
+    fallbackTimestamp: updatedAt,
+    sessionId: sessionWithHub.id,
+  });
   return {
     ...defaults,
     ...candidate,
@@ -273,6 +285,7 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
     mode,
     multiplayer,
     hub,
+    ambient,
     name: sanitizeText(candidate.name, "Imported Baord State Lite Field"),
     player: {
       ...defaults.player,
@@ -432,12 +445,17 @@ export function normalizeField(field: FieldState): FieldState {
     settings: field.settings,
   });
   const sessionWithHub = applyHubSessionMetadata(sessionWithOwnership, hub);
+  const ambient = normalizeAmbientGameplayState(field.ambient, {
+    fallbackTimestamp: updatedAt,
+    sessionId: sessionWithHub.id,
+  });
   return {
     ...field,
     session: sessionWithHub,
     mode,
     multiplayer,
     hub,
+    ambient,
     groups,
     updatedAt,
   };

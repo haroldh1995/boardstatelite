@@ -1,5 +1,6 @@
 import type { FieldState, RelevantTotalKey } from "../domain/types";
 import type { LiteFieldSnapshot } from "../rulesAdapter";
+import type { AmbientGameplayState } from "./ambientTypes";
 
 export const ECHO_FOUNDATION_VERSION = 1;
 export const ECHO_COMPATIBILITY_VERSION = "0.1.0";
@@ -7,10 +8,12 @@ export const ECHO_COMPATIBILITY_VERSION = "0.1.0";
 export const ECHO_CAPABILITIES = [
   "ambientGameplayEngine",
   "passiveMode",
+  "preTurnPreparationMode",
   "activeTurnMode",
   "recoveryMode",
   "combatMode",
   "resolutionMode",
+  "postTurnMode",
   "turnPlanner",
   "actionPipeline",
   "voiceServices",
@@ -25,7 +28,7 @@ export const ECHO_CAPABILITIES = [
 export type EchoCapability = (typeof ECHO_CAPABILITIES)[number];
 export type EchoCapabilityMap = Record<EchoCapability, boolean>;
 
-export type EchoFoundationStatus = "dormant";
+export type EchoFoundationStatus = "architecture-ready";
 
 export interface EchoPermanentContext {
   groupId: string;
@@ -57,6 +60,7 @@ export interface EchoAmbientContext {
   authority: "local-lite";
   status: EchoFoundationStatus;
   capabilities: EchoCapabilityMap;
+  ambient: AmbientGameplayState;
   player: FieldState["player"];
   relevantTotals: Record<RelevantTotalKey, number>;
   battlefield: EchoPermanentContext[];
@@ -77,6 +81,7 @@ export interface EchoFoundationDiagnostics {
   authority: "local-lite";
   localOnly: true;
   userFacingEchoEnabled: false;
+  ambientMode: AmbientGameplayState["currentMode"];
   lastContextAt: string | null;
   lastFieldId: string | null;
 }

@@ -14,7 +14,7 @@ import {
 } from "./index";
 
 describe("Echo ambient foundation", () => {
-  it("creates a dormant local-only context without enabling Echo features", () => {
+  it("creates an architecture-ready local-only context without enabling user-facing Echo features", () => {
     const field = createDefaultField();
     const manager = new EchoFoundationManager();
     const before = structuredClone(field);
@@ -24,29 +24,42 @@ describe("Echo ambient foundation", () => {
     });
 
     expect(field).toEqual(before);
-    expect(context.status).toBe("dormant");
+    expect(context.status).toBe("architecture-ready");
     expect(context.currentMode).toBe("simple");
     expect(context.authority).toBe("local-lite");
+    expect(context.ambient.currentMode).toBe("passive");
     expect(context.boundaries).toEqual({
       authoritativeRulesAvailable: false,
       hubAvailable: false,
       networkingAvailable: false,
       userFacingEchoEnabled: false,
     });
-    expect(Object.values(context.capabilities).every(Boolean)).toBe(false);
+    expect(context.capabilities.ambientGameplayEngine).toBe(true);
+    expect(context.capabilities.voiceServices).toBe(false);
+    expect(context.capabilities.aiRecommendations).toBe(false);
     expect(context.liteSnapshot.metadata.fieldId).toBe(field.id);
     expect(context.sessionId).toBe(field.session.id);
   });
 
-  it("keeps the capability contract complete and explicitly disabled", () => {
+  it("keeps the capability contract complete and limits enabled items to architecture only", () => {
     const capabilities = createDormantEchoCapabilities();
 
     expect(Object.keys(capabilities).sort()).toEqual(
       [...ECHO_CAPABILITIES].sort(),
     );
-    expect(Object.values(capabilities)).toEqual(
-      ECHO_CAPABILITIES.map(() => false),
-    );
+    expect(capabilities).toMatchObject({
+      ambientGameplayEngine: true,
+      passiveMode: true,
+      preTurnPreparationMode: true,
+      activeTurnMode: true,
+      recoveryMode: true,
+      combatMode: true,
+      resolutionMode: true,
+      postTurnMode: true,
+      turnPlanner: false,
+      voiceServices: false,
+      combatPrediction: false,
+    });
   });
 
   it("serializes ambient contexts deterministically by reusing existing snapshots", () => {
@@ -84,10 +97,11 @@ describe("Echo ambient foundation", () => {
     expect(result.summary.join(" ")).toContain("Anim Pakal");
     expect(result.summary.join(" ")).toContain("Cathars' Crusade");
     expect(manager.diagnostics(field)).toMatchObject({
-      status: "dormant",
+      status: "architecture-ready",
       authority: "local-lite",
       localOnly: true,
       userFacingEchoEnabled: false,
+      ambientMode: "passive",
       lastFieldId: field.id,
     });
   });

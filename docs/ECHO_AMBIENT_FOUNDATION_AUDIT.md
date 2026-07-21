@@ -1,6 +1,6 @@
 # Echo Ambient Foundation Audit
 
-This document records the ECHO-01 preparation pass for BoardState Lite. It is intentionally an internal architecture note. The application does not expose Ambient Gameplay, voice controls, AI recommendations, combat prediction, speaker verification, or new user workflows after this milestone.
+This document records the ECHO-01 preparation pass and the ECHO-02 Ambient Gameplay core architecture for BoardState Lite. It is intentionally an internal architecture note. The application does not expose Ambient Gameplay controls, voice controls, AI recommendations, combat prediction, speaker verification, or new user workflows after these milestones.
 
 ## Scope
 
@@ -29,18 +29,18 @@ No Android wrapper exists in this repository. Deployment is GitHub Pages through
 
 ## Echo Preparation Added
 
-The `src/echo` module provides a dormant read-only foundation for future Echo milestones:
+The `src/echo` module provides an internal, local-only foundation for future Echo milestones:
 
-- A complete capability contract for future Ambient Gameplay systems, with every capability disabled today.
+- A complete capability contract for future Ambient Gameplay systems. Only the internal mode architecture reports available today; voice, AI, prediction, recognition, and planner features remain unavailable.
 - A read-only ambient context derived from the existing field, session, totals, and canonical Lite snapshot.
 - Deterministic serialization for that context.
-- Diagnostics that always report dormant, local-only, user-facing Echo disabled.
+- Diagnostics that report architecture-ready, local-only, user-facing Echo disabled.
+- A deterministic Ambient Gameplay state machine with Passive, Pre-Turn Preparation, Active Turn, Combat, Resolution, Recovery, and Post-Turn modes.
 
 This module deliberately does not:
 
 - Listen to audio.
 - Parse commands.
-- Start passive, active-turn, combat, recovery, or resolution modes.
 - Predict combat.
 - Recommend actions.
 - Create network calls.
@@ -48,6 +48,49 @@ This module deliberately does not:
 - Add UI, settings, buttons, routes, or tutorials.
 
 Future Echo milestones should build on this foundation instead of duplicating field snapshots, totals aggregation, session metadata, or authority-boundary logic.
+
+## ECHO-02 Ambient Gameplay Engine
+
+`src/echo/ambientEngine.ts` is the single deterministic source for Ambient Gameplay mode state. It is not a rules authority and does not replace Lite's existing turn, phase, battlefield, undo, persistence, or rules-helper systems.
+
+The engine owns only:
+
+- Current Ambient Gameplay mode.
+- Previous and requested mode metadata.
+- Transition reason and timestamp.
+- Valid transition rules.
+- Entry, exit, invalid-transition, and listener hooks.
+- Safe recovery and cancellation behavior.
+- Temporary mode context for future Echo services.
+- Conservative session and application lifecycle event handlers.
+
+The mode graph supports the intended stable path:
+
+Passive -> Pre-Turn Preparation -> Active Turn -> Combat -> Resolution -> Active Turn -> Post-Turn -> Passive
+
+It also supports skipped preparation, focused action resolution, combat cancellation, recovery from interrupted workflows, session reset, session completion, and safe persistence restoration.
+
+Invalid transitions fail safely, increment diagnostics, and do not mutate battlefield state.
+
+## Persistence Behavior
+
+The current `FieldState` now contains an `ambient` value. Existing saves without that property are migrated non-destructively to Passive Mode during `sanitizeImportedField` and `normalizeField`.
+
+Only stable modes are restored directly after reload:
+
+- Passive
+- Pre-Turn Preparation
+- Active Turn
+
+Focused or unsafe persisted modes fall back to Passive Mode unless a later milestone implements additional validation. This prevents a crash or stale reload from trapping the user in Combat, Resolution, Recovery, or Post-Turn workflows.
+
+The canonical Lite snapshot includes the normalized Ambient Gameplay state so future BoardState adapters can evaluate the same local context without reading UI-only state.
+
+## Turn And Phase Boundary
+
+BoardState Lite still does not have a full authoritative turn or phase tracker. The Ambient Gameplay engine exposes conservative `handleSessionEvent` hooks for future established turn/phase events, but it does not create a second turn tracker and does not override current Lite controls.
+
+Future Echo milestones may feed trusted turn-owner and phase events into this engine. The current runtime does not expose automatic mode changes to users.
 
 ## Architecture Hardening
 
@@ -68,8 +111,10 @@ Future Echo work should observe these constraints:
 
 The Echo foundation tests verify:
 
-- Echo is dormant and local-only.
-- All future capabilities are explicitly disabled.
+- Echo is architecture-ready, local-only, and user-facing Echo remains disabled.
+- Only internal mode architecture capabilities are available.
 - Ambient context creation does not mutate the field.
 - Context serialization is deterministic.
 - Existing Activate Field behavior remains on the Lite-helper path.
+- Ambient Gameplay valid and invalid transitions are deterministic.
+- Recovery, cancellation, reload fallback, lifecycle interruption, listener cleanup, field normalization, snapshots, and Lite-helper compatibility are covered.

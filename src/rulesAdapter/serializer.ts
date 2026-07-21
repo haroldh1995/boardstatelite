@@ -9,6 +9,7 @@ import {
 } from "../multiplayer/state";
 import { createSessionSnapshot } from "../sharedSession";
 import { sortSerializable } from "../utils/stableSerialization";
+import { normalizeAmbientGameplayState } from "../echo/ambientEngine";
 import {
   LITE_APP_VERSION,
   LITE_SNAPSHOT_VERSION,
@@ -36,6 +37,10 @@ export function createLiteFieldSnapshot(field: FieldState): LiteFieldSnapshot {
     fallbackTimestamp: field.updatedAt,
     settings: field.settings,
   });
+  const ambient = normalizeAmbientGameplayState(field.ambient, {
+    fallbackTimestamp: field.updatedAt,
+    sessionId: field.session.id,
+  });
   const sortedGroups = [...field.groups].sort(
     (a, b) => a.order - b.order || a.id.localeCompare(b.id),
   );
@@ -56,6 +61,7 @@ export function createLiteFieldSnapshot(field: FieldState): LiteFieldSnapshot {
     mode: createModeSnapshot(mode),
     multiplayer: createMultiplayerSnapshot(multiplayer),
     hub: createHubSnapshot(hub),
+    ambient,
     player: {
       life: field.player.life,
       startingLife: field.player.startingLife,

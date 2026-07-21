@@ -373,7 +373,7 @@ Hub coverage includes standalone profile defaults, application registry defaults
 
 Final ecosystem readiness coverage validates all prepared integration layers together: local-only defaults, canonical metadata, deterministic snapshots, export/import metadata, Lite helper fallback, compact renderer output, unavailable future hooks, corrupt future metadata recovery, and centralized app identity.
 
-Echo foundation coverage validates the dormant Ambient Gameplay preparation layer: every future Echo capability remains disabled, ambient context creation is read-only, context serialization is deterministic, existing Lite snapshots are reused, and Activate Field remains on the Lite-helper path.
+Echo coverage validates the Ambient Gameplay core architecture: internal mode capabilities are available, user-facing Echo capabilities remain disabled, ambient context creation is read-only, context serialization is deterministic, stable-mode persistence is safe, invalid transitions fail without mutating battlefield state, session/lifecycle recovery is deterministic, existing Lite snapshots include normalized ambient state, and Activate Field remains on the Lite-helper path.
 
 Known coverage gaps to preserve for future prompts:
 
@@ -404,5 +404,6 @@ Known coverage gaps to preserve for future prompts:
 - Lite helper rules must not conflict with future BoardState authoritative rules.
 - Adapter diagnostics must remain honest: status is unavailable until a real authority exists, and fallback must not be presented as authoritative.
 - Rules-result rendering must stay compact and must not expose raw Advanced engine output or present local helper output as BoardState authority.
-- Echo foundation code must remain dormant until real milestones add concrete services; do not expose passive mode, voice, AI recommendations, combat prediction, or turn planning as available from capability metadata alone.
+- Echo architecture must remain internal until real milestones add concrete user-facing services; do not expose mode controls, voice, AI recommendations, combat prediction, or turn planning from capability metadata alone.
+- Ambient Gameplay mode state is not a turn or phase authority. Future integrations must feed trusted turn/phase events into the engine instead of creating parallel ownership or phase trackers.
 - User-facing copy must not claim Hub, shared sessions, sync, or Advanced Mode before those systems exist.

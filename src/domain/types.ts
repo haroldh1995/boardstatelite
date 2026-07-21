@@ -5,6 +5,7 @@ import type {
 import type { ModeState } from "../gameModes/types";
 import type { MultiplayerState } from "../multiplayer/types";
 import type { HubIntegrationState } from "../hub/types";
+import type { AmbientGameplayState } from "../echo/ambientTypes";
 
 export type Zone =
   | "battlefield"
@@ -284,6 +285,7 @@ export interface FieldState {
   mode: ModeState;
   multiplayer: MultiplayerState;
   hub: HubIntegrationState;
+  ambient: AmbientGameplayState;
   name: string;
   createdAt: string;
   updatedAt: string;

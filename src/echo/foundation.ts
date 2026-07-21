@@ -3,6 +3,7 @@ import type { FieldState, PermanentGroup } from "../domain/types";
 import { createLiteFieldSnapshot } from "../rulesAdapter";
 import { localParticipantId } from "../sharedSession";
 import { serializeStable } from "../utils/stableSerialization";
+import { normalizeAmbientGameplayState } from "./ambientEngine";
 import {
   ECHO_CAPABILITIES,
   ECHO_COMPATIBILITY_VERSION,
@@ -14,9 +15,20 @@ import {
 } from "./types";
 
 export function createDormantEchoCapabilities(): EchoCapabilityMap {
-  return Object.fromEntries(
+  const capabilities = Object.fromEntries(
     ECHO_CAPABILITIES.map((capability) => [capability, false]),
   ) as EchoCapabilityMap;
+  return {
+    ...capabilities,
+    ambientGameplayEngine: true,
+    passiveMode: true,
+    preTurnPreparationMode: true,
+    activeTurnMode: true,
+    recoveryMode: true,
+    combatMode: true,
+    resolutionMode: true,
+    postTurnMode: true,
+  };
 }
 
 export class EchoFoundationManager {
@@ -29,6 +41,10 @@ export class EchoFoundationManager {
     options: { timestamp?: string } = {},
   ): EchoAmbientContext {
     const createdAt = options.timestamp ?? new Date().toISOString();
+    const ambient = normalizeAmbientGameplayState(field.ambient, {
+      fallbackTimestamp: field.updatedAt,
+      sessionId: field.session.id,
+    });
     const context: EchoAmbientContext = {
       version: ECHO_FOUNDATION_VERSION,
       compatibilityVersion: ECHO_COMPATIBILITY_VERSION,
@@ -38,8 +54,9 @@ export class EchoFoundationManager {
       localParticipantId: localParticipantId(field.session),
       currentMode: "simple",
       authority: "local-lite",
-      status: "dormant",
+      status: "architecture-ready",
       capabilities: this.getCapabilities(),
+      ambient,
       player: structuredClone(field.player),
       relevantTotals: calculateTotals(field.groups),
       battlefield: field.groups
@@ -68,14 +85,21 @@ export class EchoFoundationManager {
   }
 
   diagnostics(field?: FieldState): EchoFoundationDiagnostics {
+    const ambient = field
+      ? normalizeAmbientGameplayState(field.ambient, {
+          fallbackTimestamp: field.updatedAt,
+          sessionId: field.session.id,
+        })
+      : null;
     return {
-      status: "dormant",
+      status: "architecture-ready",
       compatibilityVersion: ECHO_COMPATIBILITY_VERSION,
       capabilities: this.getCapabilities(),
       currentMode: "simple",
       authority: "local-lite",
       localOnly: true,
       userFacingEchoEnabled: false,
+      ambientMode: ambient?.currentMode ?? "passive",
       lastContextAt: this.lastContextAt,
       lastFieldId: field?.id ?? this.lastFieldId,
     };
