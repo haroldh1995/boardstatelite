@@ -40,6 +40,13 @@ import { isReferenceFixtureMode } from "../dev/referenceMode";
 import { rulesAdapterManager } from "../rulesAdapter";
 import { rulesResultRenderer } from "../rulesResult";
 import { sharedSessionManager } from "../sharedSession";
+import { ambientEventPipeline } from "../echo/ambientEventPipeline";
+import type {
+  AmbientFieldMutation,
+  AmbientIntent,
+  AmbientIntentInput,
+  AmbientPipelineResult,
+} from "../echo/ambientEventTypes";
 
 const HISTORY_LIMIT = 80;
 
@@ -111,6 +118,10 @@ interface FieldStore {
     value: number,
     mode?: "one-at-a-time" | "simultaneous" | "correction",
   ) => void;
+  processAmbientIntent: (
+    intent: AmbientIntent | AmbientIntentInput,
+    mutation: AmbientFieldMutation,
+  ) => AmbientPipelineResult;
   reorderGroups: (groupId: string, direction: -1 | 1) => void;
   updateSettings: (settings: Partial<SettingsState>) => void;
   renameField: (name: string) => void;
@@ -433,6 +444,27 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
       [`${key} adjusted by ${delta}.`],
       set,
     );
+  },
+
+  processAmbientIntent(intent, mutation) {
+    const outcome = ambientEventPipeline.process({
+      field: get().field,
+      intent,
+      mutation,
+      approval: { method: "automatic" },
+    });
+    if (outcome.status !== "completed") return outcome;
+    const current = get();
+    set({
+      field: outcome.field,
+      undoStack: [...current.undoStack, outcome.historyEntry].slice(
+        -HISTORY_LIMIT,
+      ),
+      redoStack: [],
+      lastResult: null,
+    });
+    void saveField(outcome.field);
+    return outcome;
   },
 
   reorderGroups(groupId, direction) {

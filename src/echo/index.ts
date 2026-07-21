@@ -10,9 +10,28 @@ export {
   normalizeAmbientGameplayState,
 } from "./ambientEngine";
 export {
+  AmbientEventPipeline,
+  ambientEventPipeline,
+  assignAmbientConfidence,
+  createAmbientHistoryEntry,
+  createAmbientIntent,
+  createAmbientPreview,
+  createAmbientSynchronizationRecord,
+  createCanonicalAmbientEvent,
+  decideAmbientApproval,
+  resolveAmbientEntities,
+  serializeAmbientCanonicalEvent,
+  validateAmbientContext,
+  validateAmbientRules,
+} from "./ambientEventPipeline";
+export {
   AMBIENT_GAMEPLAY_MODES,
   AMBIENT_GAMEPLAY_STATE_VERSION,
 } from "./ambientTypes";
+export {
+  AMBIENT_EVENT_PIPELINE_VERSION,
+  AMBIENT_EVENT_SERIALIZATION_VERSION,
+} from "./ambientEventTypes";
 export {
   ECHO_CAPABILITIES,
   ECHO_COMPATIBILITY_VERSION,
@@ -38,6 +57,34 @@ export type {
   AmbientTransitionRequest,
   AmbientTransitionResult,
 } from "./ambientTypes";
+export type {
+  AmbientApprovalDecision,
+  AmbientApprovalMethod,
+  AmbientApprovalRequest,
+  AmbientCanonicalEvent,
+  AmbientCommitInput,
+  AmbientConfidence,
+  AmbientContextValidationResult,
+  AmbientEntityReference,
+  AmbientEntityResolver,
+  AmbientFieldMutation,
+  AmbientFieldMutationInput,
+  AmbientIntent,
+  AmbientIntentInput,
+  AmbientIntentKind,
+  AmbientIntentSource,
+  AmbientPipelineDiagnostics,
+  AmbientPipelineRequest,
+  AmbientPipelineResult,
+  AmbientPipelineStageName,
+  AmbientPipelineStageRecord,
+  AmbientPipelineStageStatus,
+  AmbientPreview,
+  AmbientPreviewBuilder,
+  AmbientResolvedEntity,
+  AmbientRuleValidationResult,
+  AmbientSynchronizationRecord,
+} from "./ambientEventTypes";
 export type {
   EchoAmbientContext,
   EchoCapability,

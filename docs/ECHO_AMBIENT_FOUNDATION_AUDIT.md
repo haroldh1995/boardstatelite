@@ -1,6 +1,6 @@
 # Echo Ambient Foundation Audit
 
-This document records the ECHO-01 preparation pass and the ECHO-02 Ambient Gameplay core architecture for BoardState Lite. It is intentionally an internal architecture note. The application does not expose Ambient Gameplay controls, voice controls, AI recommendations, combat prediction, speaker verification, or new user workflows after these milestones.
+This document records the ECHO-01 preparation pass, the ECHO-02 Ambient Gameplay core architecture, and the ECHO-03 Canonical Ambient Event Pipeline for BoardState Lite. It is intentionally an internal architecture note. The application does not expose Ambient Gameplay controls, voice controls, AI recommendations, combat prediction, speaker verification, or new user workflows after these milestones.
 
 ## Scope
 
@@ -36,6 +36,7 @@ The `src/echo` module provides an internal, local-only foundation for future Ech
 - Deterministic serialization for that context.
 - Diagnostics that report architecture-ready, local-only, user-facing Echo disabled.
 - A deterministic Ambient Gameplay state machine with Passive, Pre-Turn Preparation, Active Turn, Combat, Resolution, Recovery, and Post-Turn modes.
+- A canonical Ambient Event Pipeline that future Echo features must use for battlefield mutations.
 
 This module deliberately does not:
 
@@ -92,6 +93,40 @@ BoardState Lite still does not have a full authoritative turn or phase tracker. 
 
 Future Echo milestones may feed trusted turn-owner and phase events into this engine. The current runtime does not expose automatic mode changes to users.
 
+## ECHO-03 Canonical Ambient Event Pipeline
+
+`src/echo/ambientEventPipeline.ts` is the single internal pathway future Ambient Gameplay features must use to request committed Lite battlefield changes. It does not replace existing user-facing actions yet and does not introduce new controls. It is the reusable architecture for future planner, voice, correction, AI, and combat systems.
+
+The pipeline stages are explicit and testable:
+
+1. Intent Created
+2. Entity Resolution
+3. Context Validation
+4. Rule Validation
+5. Confidence Assignment
+6. Action Preview
+7. Approval Decision
+8. Canonical Event Creation
+9. Battlefield Mutation
+10. Undo Snapshot
+11. History Recording
+12. Synchronization
+13. Completion
+
+The pipeline owns Ambient request structure, canonical event metadata, preview scaffolding, approval routing, validation, duplicate-request protection, failure handling, local-only synchronization metadata, and HistoryEntry creation for the existing undo stack.
+
+It deliberately does not:
+
+- Parse voice or text commands.
+- Search Scryfall.
+- Predict combat.
+- Calculate AI recommendations.
+- Enforce full Magic rules.
+- Create a separate undo or history system.
+- Create networking or cloud synchronization.
+
+Future Echo code should call `AmbientEventPipeline.process` or the store-level `processAmbientIntent` entry point instead of mutating field state directly. Mutation handlers must still use existing domain helpers and `normalizeField` so Lite remains the local helper, not an authoritative rules engine.
+
 ## Architecture Hardening
 
 Stable serialization was extracted into `src/utils/stableSerialization.ts` and reused by existing rules-adapter and shared-session serializers. This removes duplicated recursive object sorting without changing export format or snapshot behavior.
@@ -118,3 +153,4 @@ The Echo foundation tests verify:
 - Existing Activate Field behavior remains on the Lite-helper path.
 - Ambient Gameplay valid and invalid transitions are deterministic.
 - Recovery, cancellation, reload fallback, lifecycle interruption, listener cleanup, field normalization, snapshots, and Lite-helper compatibility are covered.
+- Ambient Event Pipeline tests cover intent creation, entity resolution, context and rule validation, confidence, preview, approval, canonical events, undo/history reuse, synchronization metadata, duplicate rejection, cancellation, recovery, mutation failure, store undo/redo integration, and existing field compatibility.
