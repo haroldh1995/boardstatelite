@@ -11,10 +11,8 @@ import {
 } from "../test/factories";
 import {
   AmbientEventPipeline,
-  assignAmbientConfidence,
   createAmbientIntent,
   createAmbientPreview,
-  decideAmbientApproval,
   resolveAmbientEntities,
   serializeAmbientCanonicalEvent,
   validateAmbientContext,
@@ -40,7 +38,7 @@ describe("Canonical Ambient Event Pipeline", () => {
       source: "manual",
       actor: "you",
       payload: { amount: 3, note: "gain" },
-      confidence: "high",
+      confidence: { level: "high" },
     });
     expect(input.payload).toHaveProperty("ignored");
   });
@@ -52,6 +50,7 @@ describe("Canonical Ambient Event Pipeline", () => {
     const intent = createAmbientIntent({
       kind: "add-counters",
       source: "manual",
+      confidence: "high",
       entities: [
         { kind: "group", id: group.id },
         { kind: "object", id: objectId },
@@ -81,13 +80,15 @@ describe("Canonical Ambient Event Pipeline", () => {
         id: "missing-entity",
         kind: "tap",
         source: "manual",
+        confidence: "high",
         entities: [{ kind: "group", id: "missing" }],
       },
       mutation: ({ field: current }) => current,
     });
 
-    expect(result.status).toBe("failed");
-    expect(result.field).toBe(field);
+    expect(result.status).toBe("recovery-required");
+    expect(result.field.player.life).toBe(field.player.life);
+    expect(result.field.ambient.currentMode).toBe("recovery");
     expect(result.historyEntry).toBeNull();
     expect(
       result.stages.find((stage) => stage.stage === "entity-resolution")
@@ -100,6 +101,7 @@ describe("Canonical Ambient Event Pipeline", () => {
     const intent = createAmbientIntent({
       kind: "attack",
       source: "manual",
+      confidence: "high",
       requiredMode: "combat",
     });
     const context = validateAmbientContext({
@@ -118,6 +120,7 @@ describe("Canonical Ambient Event Pipeline", () => {
     const intent = createAmbientIntent({
       kind: "add-counters",
       source: "manual",
+      confidence: "high",
       entities: [
         { kind: "group", id: group.id },
         { kind: "group", id: group.id },
@@ -147,7 +150,7 @@ describe("Canonical Ambient Event Pipeline", () => {
       payload: { quantity: 2 },
     });
 
-    expect(assignAmbientConfidence(intent)).toBe("medium");
+    expect(intent.confidence.level).toBe("medium");
     const preview = createAmbientPreview({
       field,
       intent,
@@ -158,10 +161,8 @@ describe("Canonical Ambient Event Pipeline", () => {
     expect(preview).toMatchObject({
       intentId: "preview-intent",
       requiresApproval: true,
+      status: "created",
     });
-    expect(decideAmbientApproval({ method: "manual" }, true)).toBe(
-      "preview-required",
-    );
   });
 
   it("returns a preview result when approval is required", () => {
@@ -174,6 +175,7 @@ describe("Canonical Ambient Event Pipeline", () => {
         id: "manual-preview",
         kind: "create-token",
         source: "turn-planner",
+        confidence: "medium",
         requiresPreview: true,
       },
       approval: { method: "manual" },
@@ -198,6 +200,7 @@ describe("Canonical Ambient Event Pipeline", () => {
         id: "cancelled",
         kind: "modify-life",
         source: "manual",
+        confidence: "high",
         payload: { amount: 1 },
       },
       approval: { method: "manual", decision: "cancelled" },
@@ -212,6 +215,7 @@ describe("Canonical Ambient Event Pipeline", () => {
         id: "recovery",
         kind: "modify-life",
         source: "manual",
+        confidence: "high",
         payload: { amount: 1 },
       },
       approval: { method: "recovery-required" },
@@ -225,6 +229,7 @@ describe("Canonical Ambient Event Pipeline", () => {
     expect(recovery.status).toBe("recovery-required");
     expect(cancelled.field.player.life).toBe(40);
     expect(recovery.field.player.life).toBe(40);
+    expect(recovery.field.ambient.currentMode).toBe("recovery");
   });
 
   it("creates a canonical event, undo snapshot, history entry, and sync metadata", () => {
@@ -247,7 +252,10 @@ describe("Canonical Ambient Event Pipeline", () => {
     expect(result.field.player.life).toBe(43);
     expect(result.event).toMatchObject({
       source: "manual",
-      confidence: "high",
+      confidence: {
+        level: "high",
+        validation: { contextValid: true, rulesValid: true },
+      },
       undoReference: result.historyEntry.id,
       historyReference: result.historyEntry.id,
       synchronization: { status: "local-only" },
@@ -269,6 +277,7 @@ describe("Canonical Ambient Event Pipeline", () => {
         kind: "modify-life",
         source: "manual",
         payload: { amount: 1 },
+        confidence: "high",
       },
       timestamp: "2026-07-20T00:00:00.000Z",
       mutation: ({ field: current }) => resolveSetLife(current, 41, "gain"),
@@ -295,6 +304,7 @@ describe("Canonical Ambient Event Pipeline", () => {
         kind: "modify-life" as const,
         source: "manual" as const,
         payload: { amount: 1 },
+        confidence: "high" as const,
       },
       mutation: ({ field: current }: { field: FieldState }) =>
         resolveSetLife(current, 41, "gain"),
@@ -318,6 +328,7 @@ describe("Canonical Ambient Event Pipeline", () => {
         kind: "modify-life",
         source: "manual",
         payload: { amount: 1 },
+        confidence: "high",
       },
       mutation: ({ field: current }) => {
         innerStatus = pipeline.process({
@@ -327,6 +338,7 @@ describe("Canonical Ambient Event Pipeline", () => {
             kind: "modify-life",
             source: "manual",
             payload: { amount: 1 },
+            confidence: "high",
           },
           mutation: ({ field: innerField }) =>
             resolveSetLife(innerField, 99, "gain"),
@@ -345,7 +357,13 @@ describe("Canonical Ambient Event Pipeline", () => {
     const field = createDefaultField();
     const failed = pipeline.process({
       field,
-      intent: { id: "throwing", kind: "modify-life", source: "manual" },
+      intent: {
+        id: "throwing",
+        kind: "modify-life",
+        source: "manual",
+        payload: { amount: 1 },
+        confidence: "high",
+      },
       mutation: () => {
         throw new Error("mutation failed");
       },
@@ -357,6 +375,7 @@ describe("Canonical Ambient Event Pipeline", () => {
         kind: "modify-life",
         source: "manual",
         payload: { amount: 1 },
+        confidence: "high",
       },
       mutation: ({ field: current }) => {
         current.player.life = 1;
@@ -388,6 +407,7 @@ describe("Canonical Ambient Event Pipeline", () => {
         kind: "modify-life",
         source: "manual",
         payload: { amount: 2 },
+        confidence: "high",
       },
       ({ field: current }) => resolveSetLife(current, 42, "gain"),
     );
@@ -413,6 +433,7 @@ describe("Canonical Ambient Event Pipeline", () => {
         id: "tap-token-stack",
         kind: "tap",
         source: "manual",
+        confidence: "high",
         entities: [{ kind: "group", id: group.id }],
       },
       mutation: ({ field: current }) =>

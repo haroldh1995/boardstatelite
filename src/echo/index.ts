@@ -25,6 +25,17 @@ export {
   validateAmbientRules,
 } from "./ambientEventPipeline";
 export {
+  AmbientConfidenceDecisionEngine,
+  ambientConfidenceDecisionEngine,
+  assessAmbientConfidence,
+  createAmbientCorrectionRequest,
+  decideAmbientApprovalWithConfidence,
+  isAmbientPreviewExpired,
+  normalizeAmbientConfidence,
+  routeAmbientCorrection,
+  transitionAmbientPreview,
+} from "./ambientConfidence";
+export {
   AMBIENT_GAMEPLAY_MODES,
   AMBIENT_GAMEPLAY_STATE_VERSION,
 } from "./ambientTypes";
@@ -63,7 +74,6 @@ export type {
   AmbientApprovalRequest,
   AmbientCanonicalEvent,
   AmbientCommitInput,
-  AmbientConfidence,
   AmbientContextValidationResult,
   AmbientEntityReference,
   AmbientEntityResolver,
@@ -85,6 +95,20 @@ export type {
   AmbientRuleValidationResult,
   AmbientSynchronizationRecord,
 } from "./ambientEventTypes";
+export type {
+  AmbientConfidenceAssessment,
+  AmbientConfidenceDecision,
+  AmbientConfidenceDecisionInput,
+  AmbientConfidenceInput,
+  AmbientConfidenceLevel,
+  AmbientCorrectionRequest,
+  AmbientCorrectionStatus,
+  AmbientCorrectionType,
+  AmbientExecutionPath,
+  AmbientFeedbackNotice,
+  AmbientPreviewLifecycleRecord,
+  AmbientPreviewStatus,
+} from "./ambientConfidenceTypes";
 export type {
   EchoAmbientContext,
   EchoCapability,

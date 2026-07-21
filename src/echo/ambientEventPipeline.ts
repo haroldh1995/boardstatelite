@@ -10,7 +10,6 @@ import { serializeStable } from "../utils/stableSerialization";
 import {
   AMBIENT_EVENT_PIPELINE_VERSION,
   AMBIENT_EVENT_SERIALIZATION_VERSION,
-  type AmbientApprovalDecision,
   type AmbientApprovalRequest,
   type AmbientCanonicalEvent,
   type AmbientContextValidationResult,
@@ -28,6 +27,19 @@ import {
   type AmbientSynchronizationRecord,
 } from "./ambientEventTypes";
 import { normalizeAmbientGameplayState } from "./ambientEngine";
+import {
+  ambientConfidenceDecisionEngine,
+  assessAmbientConfidence,
+  createAmbientCorrectionRequest,
+  decideAmbientApprovalWithConfidence,
+  isAmbientPreviewExpired,
+  normalizeAmbientConfidence,
+  transitionAmbientPreview,
+} from "./ambientConfidence";
+import type {
+  AmbientConfidenceDecision,
+  AmbientFeedbackNotice,
+} from "./ambientConfidenceTypes";
 
 const PIPELINE_STAGES: AmbientPipelineStageName[] = [
   "intent-created",
@@ -91,6 +103,8 @@ export class AmbientEventPipeline {
         historyEntry: null,
         undo: null,
         preview: null,
+        correction: null,
+        feedback: [],
         stages: completeRemainingStages(stages, stage, timestamp),
         diagnostics: this.getDiagnostics(),
       };
@@ -138,11 +152,10 @@ export class AmbientEventPipeline {
         timestamp,
       );
       if (resolvedEntities.some((entity) => entity.status !== "resolved")) {
-        return this.failFromValidation(
-          request.field,
+        recordStage(
           stages,
-          intent,
-          "entity-resolution",
+          "context-validation",
+          "failed",
           "One or more Ambient entities could not be resolved.",
           timestamp,
         );
@@ -159,20 +172,15 @@ export class AmbientEventPipeline {
             intent,
             resolvedEntities,
           });
-      recordStage(
-        stages,
-        "context-validation",
-        contextValidation.ok ? "passed" : "failed",
-        validationMessage(contextValidation.errors, contextValidation.warnings),
-        timestamp,
-      );
-      if (!contextValidation.ok) {
-        return this.failFromValidation(
-          request.field,
+      if (!resolvedEntities.some((entity) => entity.status !== "resolved")) {
+        recordStage(
           stages,
-          intent,
           "context-validation",
-          contextValidation.errors.join(" "),
+          contextValidation.ok ? "passed" : "failed",
+          validationMessage(
+            contextValidation.errors,
+            contextValidation.warnings,
+          ),
           timestamp,
         );
       }
@@ -195,29 +203,74 @@ export class AmbientEventPipeline {
         validationMessage(ruleValidation.errors, ruleValidation.warnings),
         timestamp,
       );
-      if (!ruleValidation.ok) {
-        return this.failFromValidation(
-          request.field,
-          stages,
-          intent,
-          "rule-validation",
-          ruleValidation.errors.join(" "),
-          timestamp,
-        );
-      }
-
-      const confidence = assignAmbientConfidence(intent);
+      const confidence = assignAmbientConfidence(intent, {
+        timestamp,
+        contextValid: contextValidation.ok,
+        rulesValid: ruleValidation.ok,
+        warningCount:
+          contextValidation.warnings.length + ruleValidation.warnings.length,
+      });
       const intentWithConfidence = { ...intent, confidence };
       recordStage(
         stages,
         "confidence-assignment",
         "passed",
-        `Confidence assigned as ${confidence}.`,
+        `Confidence assigned as ${confidence.level}.`,
         timestamp,
       );
 
+      const decision = ambientConfidenceDecisionEngine.decide({
+        confidence,
+        mode: contextValidation.mode,
+        intentKind: intentWithConfidence.kind,
+        source: intentWithConfidence.source,
+        contextValidation,
+        ruleValidation,
+        entityResolutionOk: resolvedEntities.every(
+          (entity) => entity.status === "resolved",
+        ),
+        requiresPreview: intentWithConfidence.requiresPreview,
+        timestamp,
+      });
+
+      if (decision.rejectionRequired) {
+        return this.rejectFromDecision(
+          request.field,
+          stages,
+          intentWithConfidence,
+          resolvedEntities,
+          decision,
+          timestamp,
+        );
+      }
+
+      if (decision.correctionRequired) {
+        return this.correctionFromDecision(
+          request.field,
+          stages,
+          intentWithConfidence,
+          resolvedEntities,
+          decision,
+          timestamp,
+        );
+      }
+
+      if (decision.recoveryRequired) {
+        return this.recoveryFromApproval(
+          request.field,
+          stages,
+          intentWithConfidence,
+          resolvedEntities,
+          null,
+          decision.feedback,
+          decision.reason,
+          timestamp,
+        );
+      }
+
       const preview =
-        intentWithConfidence.requiresPreview ||
+        decision.previewRequired ||
+        decision.confirmationRequired ||
         request.approval?.method === "manual" ||
         request.approval?.method === "confirmation-required"
           ? createAmbientPreview({
@@ -239,6 +292,9 @@ export class AmbientEventPipeline {
       const approvalDecision = decideAmbientApproval(
         request.approval,
         Boolean(preview),
+        decision,
+        preview,
+        timestamp,
       );
       recordStage(
         stages,
@@ -266,6 +322,8 @@ export class AmbientEventPipeline {
           historyEntry: null,
           undo: null,
           preview,
+          correction: null,
+          feedback: decision.feedback,
           stages: completeRemainingStages(
             stages,
             "approval-decision",
@@ -280,7 +338,9 @@ export class AmbientEventPipeline {
           request.field,
           stages,
           intentWithConfidence,
+          resolvedEntities,
           preview,
+          decision.feedback,
           "Ambient intent was cancelled before mutation.",
           timestamp,
         );
@@ -291,7 +351,9 @@ export class AmbientEventPipeline {
           request.field,
           stages,
           intentWithConfidence,
+          resolvedEntities,
           preview,
+          decision.feedback,
           request.approval?.reason ?? "Ambient intent requires recovery.",
           timestamp,
         );
@@ -319,22 +381,34 @@ export class AmbientEventPipeline {
       );
 
       if (!request.mutation) {
-        return this.failFromValidation(
+        return this.rejectFromDecision(
           request.field,
           stages,
           intentWithConfidence,
-          "battlefield-mutation",
-          "No Ambient battlefield mutation handler was provided.",
+          resolvedEntities,
+          {
+            ...decision,
+            path: "action-rejection",
+            mutationAllowed: false,
+            rejectionRequired: true,
+            reason: "No Ambient battlefield mutation handler was provided.",
+          },
           timestamp,
         );
       }
 
+      const committedPreview = preview
+        ? transitionAmbientPreview(preview, "committed", {
+            timestamp,
+            reason: "Ambient preview committed to battlefield mutation.",
+          })
+        : null;
       const before = structuredClone(request.field);
       const mutationResult = request.mutation({
         field: structuredClone(request.field),
         intent: intentWithConfidence,
         resolvedEntities,
-        preview,
+        preview: committedPreview,
       });
       const after = normalizeField(extractField(mutationResult));
       const mutationSummary = extractSummary(
@@ -427,7 +501,9 @@ export class AmbientEventPipeline {
         event,
         historyEntry,
         undo: { before, after, historyEntryId: historyEntry.id },
-        preview,
+        preview: committedPreview,
+        correction: null,
+        feedback: decision.feedback,
         stages,
         diagnostics: this.getDiagnostics(),
       };
@@ -458,24 +534,24 @@ export class AmbientEventPipeline {
     return { ...this.diagnosticsState, active: this.active };
   }
 
-  private failFromValidation(
+  private rejectFromDecision(
     field: FieldState,
     stages: AmbientPipelineStageRecord[],
     intent: AmbientIntent,
-    failedStage: AmbientPipelineStageName,
-    message: string,
+    resolvedEntities: AmbientResolvedEntity[],
+    decision: AmbientConfidenceDecision,
     timestamp: string,
   ): AmbientPipelineResult {
     const event = createCanonicalAmbientEvent({
       field,
       intent,
-      resolvedEntities: [],
+      resolvedEntities,
       timestamp,
-      status: "failed",
-      summary: [],
+      status: "rejected",
+      summary: [decision.reason],
       changedGroupIds: [],
       generatedGameEventIds: [],
-      error: message,
+      error: decision.reason,
       historyReference: null,
       undoReference: null,
     });
@@ -483,20 +559,81 @@ export class AmbientEventPipeline {
       ...this.diagnosticsState,
       lastIntentId: intent.id,
       lastEventId: event.id,
-      lastStatus: "failed",
-      lastError: message,
+      lastStatus: "rejected",
+      lastError: decision.reason,
       processedIntentCount: this.processedIntentIds.size,
       active: false,
     };
     this.active = false;
     return {
-      status: "failed",
+      status: "rejected",
       field,
       event,
       historyEntry: null,
       undo: null,
       preview: null,
-      stages: completeRemainingStages(stages, failedStage, timestamp),
+      correction: null,
+      feedback: decision.feedback,
+      stages: completeRemainingStages(
+        stages,
+        lastRecordedStage(stages),
+        timestamp,
+      ),
+      diagnostics: this.getDiagnostics(),
+    };
+  }
+
+  private correctionFromDecision(
+    field: FieldState,
+    stages: AmbientPipelineStageRecord[],
+    intent: AmbientIntent,
+    resolvedEntities: AmbientResolvedEntity[],
+    decision: AmbientConfidenceDecision,
+    timestamp: string,
+  ): AmbientPipelineResult {
+    const correction = createAmbientCorrectionRequest({
+      type: "retry",
+      intentId: intent.id,
+      reason: decision.reason,
+      timestamp,
+    });
+    const event = createCanonicalAmbientEvent({
+      field,
+      intent,
+      resolvedEntities,
+      timestamp,
+      status: "correction-required",
+      summary: [decision.reason],
+      changedGroupIds: [],
+      generatedGameEventIds: [],
+      error: null,
+      historyReference: null,
+      undoReference: null,
+    });
+    this.diagnosticsState = {
+      ...this.diagnosticsState,
+      lastIntentId: intent.id,
+      lastEventId: event.id,
+      lastStatus: "correction-required",
+      lastError: null,
+      processedIntentCount: this.processedIntentIds.size,
+      active: false,
+    };
+    this.active = false;
+    return {
+      status: "correction-required",
+      field,
+      event,
+      historyEntry: null,
+      undo: null,
+      preview: null,
+      correction,
+      feedback: decision.feedback,
+      stages: completeRemainingStages(
+        stages,
+        lastRecordedStage(stages),
+        timestamp,
+      ),
       diagnostics: this.getDiagnostics(),
     };
   }
@@ -505,14 +642,22 @@ export class AmbientEventPipeline {
     field: FieldState,
     stages: AmbientPipelineStageRecord[],
     intent: AmbientIntent,
+    resolvedEntities: AmbientResolvedEntity[],
     preview: AmbientPreview | null,
+    feedback: AmbientFeedbackNotice[],
     message: string,
     timestamp: string,
   ): AmbientPipelineResult {
+    const cancelledPreview = preview
+      ? transitionAmbientPreview(preview, "cancelled", {
+          timestamp,
+          reason: message,
+        })
+      : null;
     const event = createCanonicalAmbientEvent({
       field,
       intent,
-      resolvedEntities: [],
+      resolvedEntities,
       timestamp,
       status: "cancelled",
       summary: [message],
@@ -538,8 +683,14 @@ export class AmbientEventPipeline {
       event,
       historyEntry: null,
       undo: null,
-      preview,
-      stages: completeRemainingStages(stages, "approval-decision", timestamp),
+      preview: cancelledPreview,
+      correction: null,
+      feedback,
+      stages: completeRemainingStages(
+        stages,
+        lastRecordedStage(stages),
+        timestamp,
+      ),
       diagnostics: this.getDiagnostics(),
     };
   }
@@ -548,16 +699,19 @@ export class AmbientEventPipeline {
     field: FieldState,
     stages: AmbientPipelineStageRecord[],
     intent: AmbientIntent,
+    resolvedEntities: AmbientResolvedEntity[],
     preview: AmbientPreview | null,
+    feedback: AmbientFeedbackNotice[],
     message: string,
     timestamp: string,
   ): AmbientPipelineResult {
+    const recoveryField = createRecoveryField(field, message, timestamp);
     const event = createCanonicalAmbientEvent({
-      field,
+      field: recoveryField,
       intent,
-      resolvedEntities: [],
+      resolvedEntities,
       timestamp,
-      status: "failed",
+      status: "recovery-required",
       summary: [message],
       changedGroupIds: [],
       generatedGameEventIds: [],
@@ -577,12 +731,18 @@ export class AmbientEventPipeline {
     this.active = false;
     return {
       status: "recovery-required",
-      field,
+      field: recoveryField,
       event,
       historyEntry: null,
       undo: null,
       preview,
-      stages: completeRemainingStages(stages, "approval-decision", timestamp),
+      correction: null,
+      feedback,
+      stages: completeRemainingStages(
+        stages,
+        lastRecordedStage(stages),
+        timestamp,
+      ),
       diagnostics: this.getDiagnostics(),
     };
   }
@@ -605,12 +765,13 @@ export function createAmbientIntent(
       ? input.entities.map(normalizeEntityReference)
       : [],
     payload: normalizePayload(input.payload),
-    confidence:
-      input.confidence === "high" ||
-      input.confidence === "medium" ||
-      input.confidence === "low"
-        ? input.confidence
-        : "unknown",
+    confidence: normalizeAmbientConfidence(input.confidence, {
+      source: input.source,
+      timestamp: fallbackTimestamp,
+      contextValid: false,
+      rulesValid: false,
+      warningCount: 0,
+    }),
     requiredMode: input.requiredMode ?? null,
     requiresPreview: Boolean(input.requiresPreview),
     correlationId:
@@ -774,14 +935,22 @@ export function validateAmbientRules(input: {
   if (!input.field.groups.every((group) => group.id)) {
     errors.push("Battlefield contains a corrupted object identifier.");
   }
-  if (input.intent.confidence === "unknown") {
+  if (input.intent.confidence.level === "unknown") {
     warnings.push("Ambient intent confidence is unknown.");
   }
   return { ok: errors.length === 0, errors, warnings };
 }
 
-export function assignAmbientConfidence(intent: AmbientIntent) {
-  return intent.confidence;
+export function assignAmbientConfidence(
+  intent: AmbientIntent,
+  options: {
+    timestamp: string;
+    contextValid: boolean;
+    rulesValid: boolean;
+    warningCount: number;
+  },
+) {
+  return assessAmbientConfidence(intent, options);
 }
 
 export function createAmbientPreview(input: {
@@ -796,37 +965,80 @@ export function createAmbientPreview(input: {
   timestamp: string;
 }): AmbientPreview {
   if (input.previewBuilder) {
-    return input.previewBuilder({
-      field: input.field,
-      intent: input.intent,
-      resolvedEntities: input.resolvedEntities,
-    });
+    return normalizeAmbientPreview(
+      input.previewBuilder({
+        field: input.field,
+        intent: input.intent,
+        resolvedEntities: input.resolvedEntities,
+      }),
+      input.timestamp,
+    );
   }
+  return normalizeAmbientPreview(
+    {
+      id: makeId("ambient-preview"),
+      intentId: input.intent.id,
+      createdAt: input.timestamp,
+      updatedAt: input.timestamp,
+      expiresAt: null,
+      status: "created",
+      lifecycle: [
+        {
+          status: "created",
+          timestamp: input.timestamp,
+          reason: "Ambient preview created.",
+        },
+      ],
+      summary: [`Preview prepared for ${input.intent.kind}.`],
+      resolvedEntities: input.resolvedEntities.map((entity) => ({
+        ...entity,
+        objectIds: [...entity.objectIds],
+      })),
+      requiresApproval: true,
+    },
+    input.timestamp,
+  );
+}
+
+function normalizeAmbientPreview(
+  preview: AmbientPreview,
+  timestamp: string,
+): AmbientPreview {
+  const status = preview.status ?? "created";
   return {
-    id: makeId("ambient-preview"),
-    intentId: input.intent.id,
-    createdAt: input.timestamp,
-    summary: [`Preview prepared for ${input.intent.kind}.`],
-    resolvedEntities: input.resolvedEntities.map((entity) => ({
+    id: preview.id,
+    intentId: preview.intentId,
+    createdAt: preview.createdAt,
+    updatedAt: preview.updatedAt ?? timestamp,
+    expiresAt: preview.expiresAt ?? null,
+    status,
+    lifecycle: Array.isArray(preview.lifecycle)
+      ? preview.lifecycle.map((entry) => ({ ...entry }))
+      : [{ status, timestamp, reason: "Ambient preview normalized." }],
+    summary: [...preview.summary],
+    resolvedEntities: preview.resolvedEntities.map((entity) => ({
       ...entity,
       objectIds: [...entity.objectIds],
     })),
-    requiresApproval: true,
+    requiresApproval: Boolean(preview.requiresApproval),
   };
 }
 
 export function decideAmbientApproval(
   approval: AmbientApprovalRequest | undefined,
   hasPreview: boolean,
-): AmbientApprovalDecision {
-  if (!approval) return "approved";
-  if (approval.decision) return approval.decision;
-  if (approval.method === "automatic" || approval.method === "undo-window") {
-    return "approved";
-  }
-  if (approval.method === "recovery-required") return "recovery-required";
-  if (hasPreview) return "preview-required";
-  return "approved";
+  decision: AmbientConfidenceDecision,
+  preview: AmbientPreview | null,
+  timestamp: string,
+) {
+  return decideAmbientApprovalWithConfidence({
+    approval,
+    decision,
+    hasPreview,
+    previewExpired: preview
+      ? isAmbientPreviewExpired(preview, timestamp)
+      : false,
+  });
 }
 
 export function createCanonicalAmbientEvent(input: {
@@ -949,6 +1161,12 @@ function completeRemainingStages(
   return stages;
 }
 
+function lastRecordedStage(
+  stages: AmbientPipelineStageRecord[],
+): AmbientPipelineStageName {
+  return stages.at(-1)?.stage ?? "intent-created";
+}
+
 function validationMessage(errors: string[], warnings: string[]): string {
   if (errors.length) return errors.join(" ");
   if (warnings.length) return warnings.join(" ");
@@ -1036,6 +1254,41 @@ function extractChangedGroupIds(
         serializeStable(group),
     )
     .map((group) => group.id);
+}
+
+function createRecoveryField(
+  field: FieldState,
+  reason: string,
+  timestamp: string,
+): FieldState {
+  return {
+    ...field,
+    ambient: {
+      ...field.ambient,
+      currentMode: "recovery",
+      previousMode: field.ambient.currentMode,
+      requestedMode: "recovery",
+      transitionReason: "workflow-failed",
+      transitionTimestamp: timestamp,
+      context: {
+        ...field.ambient.context,
+        originMode: field.ambient.currentMode,
+        recoveryReason: reason.slice(0, 240),
+        focusedAction: "none",
+        pendingEventIds: [],
+        temporary: {},
+      },
+      lastTransition: {
+        id: makeId("ambient-transition"),
+        from: field.ambient.currentMode,
+        to: "recovery",
+        reason: "workflow-failed",
+        requestedAt: timestamp,
+        accepted: true,
+        message: reason.slice(0, 240),
+      },
+    },
+  };
 }
 
 function extractGeneratedEvents(result: FieldState | ResolutionResult) {

@@ -8,6 +8,14 @@ import type {
   Zone,
 } from "../domain/types";
 import type { AmbientGameplayMode, AmbientGameplayState } from "./ambientTypes";
+import type {
+  AmbientConfidenceAssessment,
+  AmbientConfidenceInput,
+  AmbientCorrectionRequest,
+  AmbientFeedbackNotice,
+  AmbientPreviewLifecycleRecord,
+  AmbientPreviewStatus,
+} from "./ambientConfidenceTypes";
 
 export const AMBIENT_EVENT_PIPELINE_VERSION = 1;
 export const AMBIENT_EVENT_SERIALIZATION_VERSION = 1;
@@ -73,8 +81,6 @@ export type AmbientIntentSource =
   | "user-correction"
   | "system";
 
-export type AmbientConfidence = "high" | "medium" | "low" | "unknown";
-
 export type AmbientApprovalMethod =
   | "automatic"
   | "manual"
@@ -126,14 +132,17 @@ export interface AmbientIntent {
   actor: Owner;
   entities: AmbientEntityReference[];
   payload: Record<string, string | number | boolean | null>;
-  confidence: AmbientConfidence;
+  confidence: AmbientConfidenceAssessment;
   requiredMode: AmbientGameplayMode | null;
   requiresPreview: boolean;
   correlationId: string | null;
 }
 
 export type AmbientIntentInput = Partial<
-  Omit<AmbientIntent, "id" | "createdAt" | "payload" | "entities">
+  Omit<
+    AmbientIntent,
+    "id" | "createdAt" | "payload" | "entities" | "confidence"
+  >
 > & {
   id?: string;
   kind: AmbientIntentKind;
@@ -141,6 +150,7 @@ export type AmbientIntentInput = Partial<
   createdAt?: string;
   entities?: AmbientEntityReference[];
   payload?: Record<string, unknown>;
+  confidence?: AmbientConfidenceInput;
 };
 
 export interface AmbientContextValidationResult {
@@ -160,6 +170,10 @@ export interface AmbientPreview {
   id: string;
   intentId: string;
   createdAt: string;
+  updatedAt: string;
+  expiresAt: string | null;
+  status: AmbientPreviewStatus;
+  lifecycle: AmbientPreviewLifecycleRecord[];
   summary: string[];
   resolvedEntities: AmbientResolvedEntity[];
   requiresApproval: boolean;
@@ -176,9 +190,16 @@ export interface AmbientCanonicalEvent {
   participantId: string;
   intent: AmbientIntent;
   resolvedEntities: AmbientResolvedEntity[];
-  confidence: AmbientConfidence;
+  confidence: AmbientConfidenceAssessment;
   result: {
-    status: "completed" | "preview" | "cancelled" | "failed";
+    status:
+      | "completed"
+      | "preview"
+      | "cancelled"
+      | "failed"
+      | "rejected"
+      | "correction-required"
+      | "recovery-required";
     summary: string[];
     changedGroupIds: string[];
     generatedGameEventIds: string[];
@@ -257,6 +278,8 @@ export type AmbientPipelineResult =
       historyEntry: HistoryEntry;
       undo: { before: FieldState; after: FieldState; historyEntryId: string };
       preview: AmbientPreview | null;
+      correction: null;
+      feedback: AmbientFeedbackNotice[];
       stages: AmbientPipelineStageRecord[];
       diagnostics: AmbientPipelineDiagnostics;
     }
@@ -267,16 +290,25 @@ export type AmbientPipelineResult =
       historyEntry: null;
       undo: null;
       preview: AmbientPreview;
+      correction: null;
+      feedback: AmbientFeedbackNotice[];
       stages: AmbientPipelineStageRecord[];
       diagnostics: AmbientPipelineDiagnostics;
     }
   | {
-      status: "cancelled" | "recovery-required" | "failed";
+      status:
+        | "cancelled"
+        | "recovery-required"
+        | "failed"
+        | "rejected"
+        | "correction-required";
       field: FieldState;
       event: AmbientCanonicalEvent | null;
       historyEntry: null;
       undo: null;
       preview: AmbientPreview | null;
+      correction: AmbientCorrectionRequest | null;
+      feedback: AmbientFeedbackNotice[];
       stages: AmbientPipelineStageRecord[];
       diagnostics: AmbientPipelineDiagnostics;
     };
