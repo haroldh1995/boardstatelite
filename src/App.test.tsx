@@ -184,4 +184,44 @@ describe("Baord State Lite app shell", () => {
       useFieldStore.getState().field.preTurnPlanner.actions[0].status,
     ).toBe("completed");
   });
+
+  it("shows the active turn action strip and routes planned actions through undoable Ambient events", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(
+      await screen.findByRole("button", { name: /continue to field/i }),
+    );
+    await user.click(screen.getByRole("button", { name: /^tools$/i }));
+    await user.click(
+      screen.getByRole("button", { name: /open pre-turn planner/i }),
+    );
+    await user.type(screen.getByLabelText(/plan title/i), "Command Tower");
+    await user.click(
+      screen.getByRole("button", { name: /add planned action/i }),
+    );
+    await user.keyboard("{Escape}");
+
+    expect(
+      screen.getByRole("region", { name: /active turn action strip/i }),
+    ).toBeInTheDocument();
+    await user.click(
+      screen.getAllByRole("button", { name: /^Begin Turn/i })[0],
+    );
+    expect(useFieldStore.getState().field.ambient.currentMode).toBe(
+      "activeTurn",
+    );
+    await user.click(
+      screen.getAllByRole("button", { name: /^Play Command Tower/i })[0],
+    );
+
+    expect(
+      useFieldStore.getState().field.preTurnPlanner.actions[0].status,
+    ).toBe("completed");
+    expect(useFieldStore.getState().undoStack.length).toBeGreaterThanOrEqual(2);
+    useFieldStore.getState().undo();
+    expect(
+      useFieldStore.getState().field.preTurnPlanner.actions[0].status,
+    ).toBe("planned");
+  });
 });

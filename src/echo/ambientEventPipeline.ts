@@ -866,6 +866,7 @@ export function validateAmbientContext(input: {
   const ambient = normalizeAmbientGameplayState(input.field.ambient, {
     fallbackTimestamp: input.field.updatedAt,
     sessionId: input.field.session.id,
+    allowFocusedMode: true,
   });
   const errors: string[] = [];
   const warnings: string[] = [];

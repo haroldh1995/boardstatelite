@@ -11,6 +11,7 @@ import { createSessionSnapshot } from "../sharedSession";
 import { sortSerializable } from "../utils/stableSerialization";
 import { normalizeAmbientGameplayState } from "../echo/ambientEngine";
 import { normalizePreTurnPlannerState } from "../echo/preTurnPlanner";
+import { normalizeActiveTurnActionStripState } from "../echo/activeTurnActionStrip";
 import {
   LITE_APP_VERSION,
   LITE_SNAPSHOT_VERSION,
@@ -41,6 +42,7 @@ export function createLiteFieldSnapshot(field: FieldState): LiteFieldSnapshot {
   const ambient = normalizeAmbientGameplayState(field.ambient, {
     fallbackTimestamp: field.updatedAt,
     sessionId: field.session.id,
+    allowFocusedMode: true,
   });
   const preTurnPlanner = normalizePreTurnPlannerState(field.preTurnPlanner, {
     fallbackTimestamp: field.updatedAt,
@@ -48,6 +50,15 @@ export function createLiteFieldSnapshot(field: FieldState): LiteFieldSnapshot {
     ambientMode: ambient.currentMode,
     knownGroupIds: field.groups.map((group) => group.id),
   });
+  const activeTurnActionStrip = normalizeActiveTurnActionStripState(
+    field.activeTurnActionStrip,
+    {
+      fallbackTimestamp: field.updatedAt,
+      sessionId: field.session.id,
+      ambientMode: ambient.currentMode,
+      planner: preTurnPlanner,
+    },
+  );
   const sortedGroups = [...field.groups].sort(
     (a, b) => a.order - b.order || a.id.localeCompare(b.id),
   );
@@ -70,6 +81,7 @@ export function createLiteFieldSnapshot(field: FieldState): LiteFieldSnapshot {
     hub: createHubSnapshot(hub),
     ambient,
     preTurnPlanner,
+    activeTurnActionStrip,
     player: {
       life: field.player.life,
       startingLife: field.player.startingLife,

@@ -54,6 +54,16 @@ import {
   syncPlannerWithAmbientMode,
   updatePlannedAction,
 } from "../echo/preTurnPlanner";
+import {
+  clearCompletedActionStripItems,
+  markActionStripPipelineResult,
+  plannerStatusFromActionStripStatus,
+  reorderActionStripItem,
+  setActionStripCompletedCollapsed,
+  setActionStripExpanded,
+  setActionStripItemStatus,
+  synchronizeActionStripWithPlanner,
+} from "../echo/activeTurnActionStrip";
 import type {
   AmbientFieldMutation,
   AmbientIntent,
@@ -66,6 +76,7 @@ import type {
   PreTurnPlannerActionStatus,
   PreTurnPlannerActionType,
 } from "../echo/preTurnPlannerTypes";
+import type { ActiveTurnActionStatus } from "../echo/activeTurnActionStripTypes";
 
 const HISTORY_LIMIT = 80;
 
@@ -156,6 +167,15 @@ interface FieldStore {
     group: PreTurnPlannerActionType | "completed",
     collapsed: boolean,
   ) => void;
+  actionStripSelectItem: (itemId: string) => AmbientPipelineResult | null;
+  actionStripSetItemStatus: (
+    itemId: string,
+    status: ActiveTurnActionStatus,
+  ) => AmbientPipelineResult | null;
+  actionStripReorderItem: (itemId: string, direction: -1 | 1) => void;
+  actionStripClearCompleted: () => void;
+  actionStripSetExpanded: (expanded: boolean) => void;
+  actionStripSetCompletedCollapsed: (completedCollapsed: boolean) => void;
   reorderGroups: (groupId: string, direction: -1 | 1) => void;
   updateSettings: (settings: Partial<SettingsState>) => void;
   renameField: (name: string) => void;
@@ -654,6 +674,80 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
     );
   },
 
+  actionStripSelectItem(itemId) {
+    return processActionStripItem(get, set, itemId, "completed");
+  },
+
+  actionStripSetItemStatus(itemId, status) {
+    return processActionStripItem(get, set, itemId, status);
+  },
+
+  actionStripReorderItem(itemId, direction) {
+    const before = get().field;
+    const timestamp = new Date().toISOString();
+    const synced = syncActionStripField(before, timestamp);
+    commitPlannerField(
+      normalizeField({
+        ...synced,
+        activeTurnActionStrip: reorderActionStripItem(
+          synced.activeTurnActionStrip,
+          itemId,
+          direction,
+          timestamp,
+        ),
+      }),
+      set,
+    );
+  },
+
+  actionStripClearCompleted() {
+    const before = get().field;
+    const timestamp = new Date().toISOString();
+    const synced = syncActionStripField(before, timestamp);
+    commitPlannerField(
+      normalizeField({
+        ...synced,
+        activeTurnActionStrip: clearCompletedActionStripItems(
+          synced.activeTurnActionStrip,
+          timestamp,
+        ),
+      }),
+      set,
+    );
+  },
+
+  actionStripSetExpanded(expanded) {
+    const before = get().field;
+    const timestamp = new Date().toISOString();
+    commitPlannerField(
+      normalizeField({
+        ...before,
+        activeTurnActionStrip: setActionStripExpanded(
+          before.activeTurnActionStrip,
+          expanded,
+          timestamp,
+        ),
+      }),
+      set,
+    );
+  },
+
+  actionStripSetCompletedCollapsed(completedCollapsed) {
+    const before = get().field;
+    const timestamp = new Date().toISOString();
+    commitPlannerField(
+      normalizeField({
+        ...before,
+        activeTurnActionStrip: setActionStripCompletedCollapsed(
+          before.activeTurnActionStrip,
+          completedCollapsed,
+          timestamp,
+        ),
+      }),
+      set,
+    );
+  },
+
   reorderGroups(groupId, direction) {
     const before = get().field;
     const sorted = [...before.groups].sort((a, b) => a.order - b.order);
@@ -832,6 +926,199 @@ function syncPlannerField(field: FieldState, timestamp: string): FieldState {
       timestamp,
     ),
   });
+}
+
+function syncActionStripField(
+  field: FieldState,
+  timestamp: string,
+): FieldState {
+  const syncedPlanner = syncPlannerWithAmbientMode(
+    field.preTurnPlanner,
+    field.ambient.currentMode,
+    timestamp,
+  );
+  return normalizeField({
+    ...field,
+    preTurnPlanner: syncedPlanner,
+    activeTurnActionStrip: synchronizeActionStripWithPlanner(
+      field.activeTurnActionStrip,
+      {
+        planner: syncedPlanner,
+        ambientMode: field.ambient.currentMode,
+        timestamp,
+        sessionId: field.session.id,
+      },
+    ),
+  });
+}
+
+function processActionStripItem(
+  get: () => FieldStore,
+  set: (partial: Partial<FieldStore>) => void,
+  itemId: string,
+  status: ActiveTurnActionStatus,
+): AmbientPipelineResult | null {
+  const timestamp = new Date().toISOString();
+  const baseField = syncActionStripField(get().field, timestamp);
+  const item = baseField.activeTurnActionStrip.items.find(
+    (entry) => entry.id === itemId,
+  );
+  if (!item) return null;
+
+  const outcome = ambientEventPipeline.process({
+    field: baseField,
+    intent: {
+      ...item.intent,
+      id: makeId("strip-intent"),
+      confidence: "high",
+      requiresPreview: false,
+      payload: {
+        ...(item.intent.payload ?? {}),
+        actionStripItemId: item.id,
+        actionStripStatus: status,
+      },
+    },
+    approval: { method: "automatic" },
+    mutation: ({ field: current }) =>
+      applyActionStripMutation(current, item.id, status, timestamp),
+    timestamp,
+  });
+
+  if (outcome.status === "completed") {
+    const current = get();
+    set({
+      field: outcome.field,
+      undoStack: [...current.undoStack, outcome.historyEntry].slice(
+        -HISTORY_LIMIT,
+      ),
+      redoStack: [],
+      lastResult: null,
+    });
+    void saveField(outcome.field);
+    return outcome;
+  }
+
+  const message =
+    outcome.event?.result.error ??
+    outcome.feedback[0]?.message ??
+    `Action Strip item ${item.label} could not be completed.`;
+  const blocked = normalizeField({
+    ...baseField,
+    activeTurnActionStrip: markActionStripPipelineResult(
+      baseField.activeTurnActionStrip,
+      {
+        itemId,
+        status: "blocked",
+        timestamp,
+        eventId: outcome.event?.id ?? null,
+        failureReason: message,
+      },
+    ),
+  });
+  set({ field: blocked, lastResult: null });
+  void saveField(blocked);
+  return outcome;
+}
+
+function applyActionStripMutation(
+  field: FieldState,
+  itemId: string,
+  status: ActiveTurnActionStatus,
+  timestamp: string,
+): FieldState {
+  const synced = syncActionStripField(field, timestamp);
+  const item = synced.activeTurnActionStrip.items.find(
+    (entry) => entry.id === itemId,
+  );
+  if (!item) return synced;
+
+  const nextAmbient = transitionForActionItem(synced, item.kind, timestamp);
+  const plannerStatus = plannerStatusFromActionStripStatus(status);
+  const nextPlanner =
+    item.sourceActionId && plannerStatus
+      ? setPlannedActionStatus(
+          synced.preTurnPlanner,
+          item.sourceActionId,
+          plannerStatus,
+          timestamp,
+        )
+      : synced.preTurnPlanner;
+  const nextStrip = markActionStripPipelineResult(
+    setActionStripItemStatus(
+      synced.activeTurnActionStrip,
+      itemId,
+      status,
+      timestamp,
+    ),
+    {
+      itemId,
+      status,
+      timestamp,
+      eventId: null,
+      failureReason: null,
+    },
+  );
+
+  return normalizeField({
+    ...synced,
+    ambient: nextAmbient,
+    preTurnPlanner: syncPlannerWithAmbientMode(
+      nextPlanner,
+      nextAmbient.currentMode,
+      timestamp,
+    ),
+    activeTurnActionStrip: synchronizeActionStripWithPlanner(nextStrip, {
+      planner: nextPlanner,
+      ambientMode: nextAmbient.currentMode,
+      timestamp,
+      sessionId: synced.session.id,
+    }),
+  });
+}
+
+function transitionForActionItem(
+  field: FieldState,
+  kind: FieldState["activeTurnActionStrip"]["items"][number]["kind"],
+  timestamp: string,
+): FieldState["ambient"] {
+  const engine = new AmbientGameplayEngine(field.ambient);
+  if (kind === "begin-turn") {
+    const result = engine.requestTransition({
+      targetMode: "activeTurn",
+      reason: "turn-owner-changed",
+      timestamp,
+    });
+    return result.ok ? result.state : field.ambient;
+  }
+  if (kind === "move-to-combat") {
+    const result = engine.requestTransition({
+      targetMode: "combat",
+      reason: "phase-changed",
+      timestamp,
+      context: {
+        originMode: field.ambient.currentMode,
+        focusedAction: "combatDeclaration",
+      },
+    });
+    return result.ok ? result.state : field.ambient;
+  }
+  if (kind === "end-combat") {
+    const result = engine.requestTransition({
+      targetMode: "activeTurn",
+      reason: "combat-finalized",
+      timestamp,
+    });
+    return result.ok ? result.state : field.ambient;
+  }
+  if (kind === "end-turn") {
+    const result = engine.requestTransition({
+      targetMode: "postTurn",
+      reason: "phase-changed",
+      timestamp,
+    });
+    return result.ok ? result.state : field.ambient;
+  }
+  return field.ambient;
 }
 
 function adjustManualTotal(

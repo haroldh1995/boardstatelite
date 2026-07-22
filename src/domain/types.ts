@@ -7,6 +7,7 @@ import type { MultiplayerState } from "../multiplayer/types";
 import type { HubIntegrationState } from "../hub/types";
 import type { AmbientGameplayState } from "../echo/ambientTypes";
 import type { PreTurnPlannerState } from "../echo/preTurnPlannerTypes";
+import type { ActiveTurnActionStripState } from "../echo/activeTurnActionStripTypes";
 
 export type Zone =
   | "battlefield"
@@ -289,6 +290,7 @@ export interface FieldState {
   hub: HubIntegrationState;
   ambient: AmbientGameplayState;
   preTurnPlanner: PreTurnPlannerState;
+  activeTurnActionStrip: ActiveTurnActionStripState;
   name: string;
   createdAt: string;
   updatedAt: string;

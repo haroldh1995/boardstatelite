@@ -56,6 +56,21 @@ export {
   updatePlannedAction,
 } from "./preTurnPlanner";
 export {
+  actionStripKindLabel,
+  clearCompletedActionStripItems,
+  createDefaultActiveTurnActionStripState,
+  getActionStripDiagnostics,
+  markActionStripPipelineResult,
+  normalizeActiveTurnActionStripState,
+  plannerStatusFromActionStripStatus,
+  reorderActionStripItem,
+  setActionStripCompletedCollapsed,
+  setActionStripExpanded,
+  setActionStripItemStatus,
+  sortActionStripItems,
+  synchronizeActionStripWithPlanner,
+} from "./activeTurnActionStrip";
+export {
   AMBIENT_GAMEPLAY_MODES,
   AMBIENT_GAMEPLAY_STATE_VERSION,
 } from "./ambientTypes";
@@ -67,6 +82,7 @@ export {
   PRE_TURN_PLANNER_ACTION_STRIP_VERSION,
   PRE_TURN_PLANNER_VERSION,
 } from "./preTurnPlannerTypes";
+export { ACTIVE_TURN_ACTION_STRIP_VERSION } from "./activeTurnActionStripTypes";
 export {
   ECHO_CAPABILITIES,
   ECHO_COMPATIBILITY_VERSION,
@@ -147,6 +163,15 @@ export type {
   PreTurnPlannerLifecycleStatus,
   PreTurnPlannerState,
 } from "./preTurnPlannerTypes";
+export type {
+  ActiveTurnActionKind,
+  ActiveTurnActionSource,
+  ActiveTurnActionStatus,
+  ActiveTurnActionStripDiagnostics,
+  ActiveTurnActionStripItem,
+  ActiveTurnActionStripState,
+  ActiveTurnActionStripVisibility,
+} from "./activeTurnActionStripTypes";
 export type {
   EchoAmbientContext,
   EchoCapability,

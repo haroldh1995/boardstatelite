@@ -34,6 +34,10 @@ import {
   createDefaultPreTurnPlannerState,
   normalizePreTurnPlannerState,
 } from "../echo/preTurnPlanner";
+import {
+  createDefaultActiveTurnActionStripState,
+  normalizeActiveTurnActionStripState,
+} from "../echo/activeTurnActionStrip";
 import type {
   FieldState,
   OpponentValues,
@@ -118,6 +122,10 @@ export function createDefaultField(): FieldState {
       sessionId: session.id,
     }),
     preTurnPlanner: createDefaultPreTurnPlannerState({
+      timestamp: now,
+      sessionId: session.id,
+    }),
+    activeTurnActionStrip: createDefaultActiveTurnActionStripState({
       timestamp: now,
       sessionId: session.id,
     }),
@@ -294,6 +302,15 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
       knownGroupIds: groups.map((group) => group.id),
     },
   );
+  const activeTurnActionStrip = normalizeActiveTurnActionStripState(
+    candidate.activeTurnActionStrip,
+    {
+      fallbackTimestamp: updatedAt,
+      sessionId: sessionWithHub.id,
+      ambientMode: ambient.currentMode,
+      planner: preTurnPlanner,
+    },
+  );
   return {
     ...defaults,
     ...candidate,
@@ -304,6 +321,7 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
     hub,
     ambient,
     preTurnPlanner,
+    activeTurnActionStrip,
     name: sanitizeText(candidate.name, "Imported Baord State Lite Field"),
     player: {
       ...defaults.player,
@@ -466,6 +484,7 @@ export function normalizeField(field: FieldState): FieldState {
   const ambient = normalizeAmbientGameplayState(field.ambient, {
     fallbackTimestamp: updatedAt,
     sessionId: sessionWithHub.id,
+    allowFocusedMode: true,
   });
   const preTurnPlanner = normalizePreTurnPlannerState(field.preTurnPlanner, {
     fallbackTimestamp: updatedAt,
@@ -473,6 +492,15 @@ export function normalizeField(field: FieldState): FieldState {
     ambientMode: ambient.currentMode,
     knownGroupIds: groups.map((group) => group.id),
   });
+  const activeTurnActionStrip = normalizeActiveTurnActionStripState(
+    field.activeTurnActionStrip,
+    {
+      fallbackTimestamp: updatedAt,
+      sessionId: sessionWithHub.id,
+      ambientMode: ambient.currentMode,
+      planner: preTurnPlanner,
+    },
+  );
   return {
     ...field,
     session: sessionWithHub,
@@ -481,6 +509,7 @@ export function normalizeField(field: FieldState): FieldState {
     hub,
     ambient,
     preTurnPlanner,
+    activeTurnActionStrip,
     groups,
     updatedAt,
   };

@@ -66,7 +66,11 @@ export function createDefaultAmbientGameplayState(
 
 export function normalizeAmbientGameplayState(
   value: unknown,
-  options: { fallbackTimestamp: string; sessionId?: string | null },
+  options: {
+    fallbackTimestamp: string;
+    sessionId?: string | null;
+    allowFocusedMode?: boolean;
+  },
 ): AmbientGameplayState {
   const defaults = createDefaultAmbientGameplayState({
     timestamp: options.fallbackTimestamp,
@@ -76,7 +80,8 @@ export function normalizeAmbientGameplayState(
   const candidate = value as Partial<AmbientGameplayState>;
   const currentMode = normalizeMode(candidate.currentMode);
   const safeMode =
-    currentMode && RESTORABLE_MODES.has(currentMode)
+    currentMode &&
+    (RESTORABLE_MODES.has(currentMode) || options.allowFocusedMode)
       ? currentMode
       : defaults.currentMode;
   const context = normalizeContext(candidate.context, {
@@ -116,6 +121,7 @@ export class AmbientGameplayEngine {
     this.state = normalizeAmbientGameplayState(initialState, {
       fallbackTimestamp: initialState.transitionTimestamp,
       sessionId: initialState.context.sessionId,
+      allowFocusedMode: true,
     });
     this.hooks = hooks;
   }

@@ -114,6 +114,18 @@ test("pre-turn planner creates editable plans without mutating the battlefield",
   await expect(
     page.getByRole("listitem", { name: /Cast Sol Ring, completed/i }),
   ).toBeVisible();
+
+  await page.keyboard.press("Escape");
+  await expect(
+    page.getByRole("region", { name: /Active turn action strip/i }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: /^Begin Turn/ })
+    .first()
+    .click();
+  await expect(
+    page.getByRole("button", { name: /^Draw/ }).first(),
+  ).toBeVisible();
 });
 
 async function continuePastStartup(page: import("@playwright/test").Page) {

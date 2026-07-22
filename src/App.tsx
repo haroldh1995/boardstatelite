@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { Battlefield } from "./components/Battlefield";
+import { ActiveTurnActionStrip } from "./components/ActiveTurnActionStrip";
 import { BottomDock } from "./components/BottomDock";
 import { LifeTracker } from "./components/LifeTracker";
 import { ModalRoot } from "./components/ModalRoot";
@@ -55,6 +56,7 @@ function App() {
         <>
           <LifeTracker />
           <TotalsStrip />
+          <ActiveTurnActionStrip />
           <Battlefield />
           <BottomDock />
           <ModalRoot />
