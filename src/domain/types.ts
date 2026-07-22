@@ -6,6 +6,7 @@ import type { ModeState } from "../gameModes/types";
 import type { MultiplayerState } from "../multiplayer/types";
 import type { HubIntegrationState } from "../hub/types";
 import type { AmbientGameplayState } from "../echo/ambientTypes";
+import type { PreTurnPlannerState } from "../echo/preTurnPlannerTypes";
 
 export type Zone =
   | "battlefield"
@@ -42,6 +43,7 @@ export type ModalKind =
   | "summary"
   | "details"
   | "settings"
+  | "planner"
   | "exactTotal"
   | "triggerOrder"
   | "customEffect";
@@ -286,6 +288,7 @@ export interface FieldState {
   multiplayer: MultiplayerState;
   hub: HubIntegrationState;
   ambient: AmbientGameplayState;
+  preTurnPlanner: PreTurnPlannerState;
   name: string;
   createdAt: string;
   updatedAt: string;

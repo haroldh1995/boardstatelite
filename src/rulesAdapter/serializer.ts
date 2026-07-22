@@ -10,6 +10,7 @@ import {
 import { createSessionSnapshot } from "../sharedSession";
 import { sortSerializable } from "../utils/stableSerialization";
 import { normalizeAmbientGameplayState } from "../echo/ambientEngine";
+import { normalizePreTurnPlannerState } from "../echo/preTurnPlanner";
 import {
   LITE_APP_VERSION,
   LITE_SNAPSHOT_VERSION,
@@ -41,6 +42,12 @@ export function createLiteFieldSnapshot(field: FieldState): LiteFieldSnapshot {
     fallbackTimestamp: field.updatedAt,
     sessionId: field.session.id,
   });
+  const preTurnPlanner = normalizePreTurnPlannerState(field.preTurnPlanner, {
+    fallbackTimestamp: field.updatedAt,
+    sessionId: field.session.id,
+    ambientMode: ambient.currentMode,
+    knownGroupIds: field.groups.map((group) => group.id),
+  });
   const sortedGroups = [...field.groups].sort(
     (a, b) => a.order - b.order || a.id.localeCompare(b.id),
   );
@@ -62,6 +69,7 @@ export function createLiteFieldSnapshot(field: FieldState): LiteFieldSnapshot {
     multiplayer: createMultiplayerSnapshot(multiplayer),
     hub: createHubSnapshot(hub),
     ambient,
+    preTurnPlanner,
     player: {
       life: field.player.life,
       startingLife: field.player.startingLife,

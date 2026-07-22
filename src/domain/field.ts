@@ -30,6 +30,10 @@ import {
   createDefaultAmbientGameplayState,
   normalizeAmbientGameplayState,
 } from "../echo/ambientEngine";
+import {
+  createDefaultPreTurnPlannerState,
+  normalizePreTurnPlannerState,
+} from "../echo/preTurnPlanner";
 import type {
   FieldState,
   OpponentValues,
@@ -110,6 +114,10 @@ export function createDefaultField(): FieldState {
     multiplayer: createDefaultMultiplayerState(session, now),
     hub,
     ambient: createDefaultAmbientGameplayState({
+      timestamp: now,
+      sessionId: session.id,
+    }),
+    preTurnPlanner: createDefaultPreTurnPlannerState({
       timestamp: now,
       sessionId: session.id,
     }),
@@ -277,6 +285,15 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
     fallbackTimestamp: updatedAt,
     sessionId: sessionWithHub.id,
   });
+  const preTurnPlanner = normalizePreTurnPlannerState(
+    candidate.preTurnPlanner,
+    {
+      fallbackTimestamp: updatedAt,
+      sessionId: sessionWithHub.id,
+      ambientMode: ambient.currentMode,
+      knownGroupIds: groups.map((group) => group.id),
+    },
+  );
   return {
     ...defaults,
     ...candidate,
@@ -286,6 +303,7 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
     multiplayer,
     hub,
     ambient,
+    preTurnPlanner,
     name: sanitizeText(candidate.name, "Imported Baord State Lite Field"),
     player: {
       ...defaults.player,
@@ -449,6 +467,12 @@ export function normalizeField(field: FieldState): FieldState {
     fallbackTimestamp: updatedAt,
     sessionId: sessionWithHub.id,
   });
+  const preTurnPlanner = normalizePreTurnPlannerState(field.preTurnPlanner, {
+    fallbackTimestamp: updatedAt,
+    sessionId: sessionWithHub.id,
+    ambientMode: ambient.currentMode,
+    knownGroupIds: groups.map((group) => group.id),
+  });
   return {
     ...field,
     session: sessionWithHub,
@@ -456,6 +480,7 @@ export function normalizeField(field: FieldState): FieldState {
     multiplayer,
     hub,
     ambient,
+    preTurnPlanner,
     groups,
     updatedAt,
   };

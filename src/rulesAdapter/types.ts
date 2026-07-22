@@ -23,6 +23,7 @@ import type { ModeSnapshot } from "../gameModes/types";
 import type { MultiplayerSnapshot } from "../multiplayer/types";
 import type { HubSnapshot } from "../hub/types";
 import type { AmbientGameplayState } from "../echo/ambientTypes";
+import type { PreTurnPlannerState } from "../echo/preTurnPlannerTypes";
 import { APP_NAME, APP_VERSION } from "../appMetadata";
 
 export const RULES_ADAPTER_VERSION = "0.1.0";
@@ -93,6 +94,7 @@ export interface LiteFieldSnapshot {
   multiplayer: MultiplayerSnapshot;
   hub: HubSnapshot;
   ambient: AmbientGameplayState;
+  preTurnPlanner: PreTurnPlannerState;
   player: {
     life: number;
     startingLife: number;

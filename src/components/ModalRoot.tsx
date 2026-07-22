@@ -10,6 +10,7 @@ import type {
   StackScope,
 } from "../domain/types";
 import { useFieldStore } from "../state/useFieldStore";
+import { PreTurnPlannerSheet } from "./PreTurnPlannerSheet";
 import { ScryfallSearch } from "./ScryfallSearch";
 
 export function ModalRoot() {
@@ -123,6 +124,8 @@ function ModalContent({ modal }: { modal: ModalState }) {
       return <DetailsSheet />;
     case "settings":
       return <SettingsSheet />;
+    case "planner":
+      return <PreTurnPlannerSheet />;
     case "exactTotal":
       return (
         <ExactTotalSheet
@@ -997,6 +1000,7 @@ function DetailsSheet() {
 
 function SettingsSheet() {
   const field = useFieldStore((state) => state.field);
+  const openModal = useFieldStore((state) => state.openModal);
   const updateSettings = useFieldStore((state) => state.updateSettings);
   const resetField = useFieldStore((state) => state.resetField);
   const exportField = useFieldStore((state) => state.exportField);
@@ -1010,6 +1014,13 @@ function SettingsSheet() {
       <div className="sheet-columns">
         <section>
           <h3>Field</h3>
+          <button
+            type="button"
+            className="primary-action"
+            onClick={() => openModal({ kind: "planner" })}
+          >
+            Open Pre-Turn Planner
+          </button>
           <label>
             Card size
             <select

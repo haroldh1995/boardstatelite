@@ -140,4 +140,48 @@ describe("Baord State Lite app shell", () => {
       screen.getByRole("button", { name: /activate field/i }),
     ).toBeInTheDocument();
   });
+
+  it("opens the pre-turn planner and edits planned actions without changing battlefield state", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(
+      await screen.findByRole("button", { name: /continue to field/i }),
+    );
+    await user.click(screen.getByRole("button", { name: /^tools$/i }));
+    await user.click(
+      screen.getByRole("button", { name: /open pre-turn planner/i }),
+    );
+
+    expect(
+      screen.getByRole("heading", { name: /one-minute pre-turn planner/i }),
+    ).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText(/action type/i), [
+      "spell-sequence",
+    ]);
+    await user.type(screen.getByLabelText(/plan title/i), "Cast Sol Ring");
+    await user.type(screen.getByLabelText(/^Reminder$/i), "Cast before combat");
+    await user.type(screen.getByLabelText(/^Notes$/i), "Use floating mana.");
+    await user.click(
+      screen.getByRole("button", { name: /add planned action/i }),
+    );
+
+    expect(screen.getAllByText("Cast Sol Ring").length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(/prepared for future action strip/i),
+    ).toBeInTheDocument();
+    expect(useFieldStore.getState().field.preTurnPlanner.actions).toHaveLength(
+      1,
+    );
+    expect(useFieldStore.getState().field.groups).toHaveLength(1);
+    expect(useFieldStore.getState().undoStack).toHaveLength(0);
+
+    await user.click(
+      screen.getByRole("button", { name: /mark cast sol ring complete/i }),
+    );
+    expect(
+      useFieldStore.getState().field.preTurnPlanner.actions[0].status,
+    ).toBe("completed");
+  });
 });

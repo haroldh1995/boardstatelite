@@ -40,13 +40,32 @@ import { isReferenceFixtureMode } from "../dev/referenceMode";
 import { rulesAdapterManager } from "../rulesAdapter";
 import { rulesResultRenderer } from "../rulesResult";
 import { sharedSessionManager } from "../sharedSession";
+import { AmbientGameplayEngine } from "../echo/ambientEngine";
 import { ambientEventPipeline } from "../echo/ambientEventPipeline";
+import {
+  addPlannedAction,
+  clearAllPlans,
+  clearCompletedPlans,
+  removePlannedAction,
+  reorderPlannedAction,
+  resetPreTurnPlanner,
+  setPlannedActionStatus,
+  setPlannerGroupCollapsed,
+  syncPlannerWithAmbientMode,
+  updatePlannedAction,
+} from "../echo/preTurnPlanner";
 import type {
   AmbientFieldMutation,
   AmbientIntent,
   AmbientIntentInput,
   AmbientPipelineResult,
 } from "../echo/ambientEventTypes";
+import type {
+  PlannedActionInput,
+  PlannedActionUpdate,
+  PreTurnPlannerActionStatus,
+  PreTurnPlannerActionType,
+} from "../echo/preTurnPlannerTypes";
 
 const HISTORY_LIMIT = 80;
 
@@ -122,6 +141,21 @@ interface FieldStore {
     intent: AmbientIntent | AmbientIntentInput,
     mutation: AmbientFieldMutation,
   ) => AmbientPipelineResult;
+  plannerAddAction: (input: PlannedActionInput) => void;
+  plannerUpdateAction: (actionId: string, update: PlannedActionUpdate) => void;
+  plannerRemoveAction: (actionId: string) => void;
+  plannerReorderAction: (actionId: string, direction: -1 | 1) => void;
+  plannerSetActionStatus: (
+    actionId: string,
+    status: PreTurnPlannerActionStatus,
+  ) => void;
+  plannerClearCompleted: () => void;
+  plannerClearAll: () => void;
+  plannerReset: () => void;
+  plannerSetGroupCollapsed: (
+    group: PreTurnPlannerActionType | "completed",
+    collapsed: boolean,
+  ) => void;
   reorderGroups: (groupId: string, direction: -1 | 1) => void;
   updateSettings: (settings: Partial<SettingsState>) => void;
   renameField: (name: string) => void;
@@ -467,6 +501,159 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
     return outcome;
   },
 
+  plannerAddAction(input) {
+    const before = get().field;
+    const timestamp = new Date().toISOString();
+    const prepared = preparePlannerField(before, timestamp);
+    if (prepared.preTurnPlanner.lifecycle.readOnly) return;
+    commitPlannerField(
+      normalizeField({
+        ...prepared,
+        preTurnPlanner: addPlannedAction(
+          prepared.preTurnPlanner,
+          input,
+          timestamp,
+        ),
+      }),
+      set,
+    );
+  },
+
+  plannerUpdateAction(actionId, update) {
+    const before = get().field;
+    const timestamp = new Date().toISOString();
+    const synced = syncPlannerField(before, timestamp);
+    if (synced.preTurnPlanner.lifecycle.readOnly) return;
+    commitPlannerField(
+      normalizeField({
+        ...synced,
+        preTurnPlanner: updatePlannedAction(
+          synced.preTurnPlanner,
+          actionId,
+          update,
+          timestamp,
+        ),
+      }),
+      set,
+    );
+  },
+
+  plannerRemoveAction(actionId) {
+    const before = get().field;
+    const timestamp = new Date().toISOString();
+    const synced = syncPlannerField(before, timestamp);
+    if (synced.preTurnPlanner.lifecycle.readOnly) return;
+    commitPlannerField(
+      normalizeField({
+        ...synced,
+        preTurnPlanner: removePlannedAction(
+          synced.preTurnPlanner,
+          actionId,
+          timestamp,
+        ),
+      }),
+      set,
+    );
+  },
+
+  plannerReorderAction(actionId, direction) {
+    const before = get().field;
+    const timestamp = new Date().toISOString();
+    const synced = syncPlannerField(before, timestamp);
+    if (synced.preTurnPlanner.lifecycle.readOnly) return;
+    commitPlannerField(
+      normalizeField({
+        ...synced,
+        preTurnPlanner: reorderPlannedAction(
+          synced.preTurnPlanner,
+          actionId,
+          direction,
+          timestamp,
+        ),
+      }),
+      set,
+    );
+  },
+
+  plannerSetActionStatus(actionId, status) {
+    const before = get().field;
+    const timestamp = new Date().toISOString();
+    const synced = syncPlannerField(before, timestamp);
+    if (synced.preTurnPlanner.lifecycle.readOnly) return;
+    commitPlannerField(
+      normalizeField({
+        ...synced,
+        preTurnPlanner: setPlannedActionStatus(
+          synced.preTurnPlanner,
+          actionId,
+          status,
+          timestamp,
+        ),
+      }),
+      set,
+    );
+  },
+
+  plannerClearCompleted() {
+    const before = get().field;
+    const timestamp = new Date().toISOString();
+    const synced = syncPlannerField(before, timestamp);
+    if (synced.preTurnPlanner.lifecycle.readOnly) return;
+    commitPlannerField(
+      normalizeField({
+        ...synced,
+        preTurnPlanner: clearCompletedPlans(synced.preTurnPlanner, timestamp),
+      }),
+      set,
+    );
+  },
+
+  plannerClearAll() {
+    const before = get().field;
+    const timestamp = new Date().toISOString();
+    const synced = syncPlannerField(before, timestamp);
+    if (synced.preTurnPlanner.lifecycle.readOnly) return;
+    commitPlannerField(
+      normalizeField({
+        ...synced,
+        preTurnPlanner: clearAllPlans(synced.preTurnPlanner, timestamp),
+      }),
+      set,
+    );
+  },
+
+  plannerReset() {
+    const before = get().field;
+    const timestamp = new Date().toISOString();
+    const synced = syncPlannerField(before, timestamp);
+    if (synced.preTurnPlanner.lifecycle.readOnly) return;
+    commitPlannerField(
+      normalizeField({
+        ...synced,
+        preTurnPlanner: resetPreTurnPlanner(synced.preTurnPlanner, timestamp),
+      }),
+      set,
+    );
+  },
+
+  plannerSetGroupCollapsed(group, collapsed) {
+    const before = get().field;
+    const timestamp = new Date().toISOString();
+    const synced = syncPlannerField(before, timestamp);
+    commitPlannerField(
+      normalizeField({
+        ...synced,
+        preTurnPlanner: setPlannerGroupCollapsed(
+          synced.preTurnPlanner,
+          group,
+          collapsed,
+          timestamp,
+        ),
+      }),
+      set,
+    );
+  },
+
   reorderGroups(groupId, direction) {
     const before = get().field;
     const sorted = [...before.groups].sort((a, b) => a.order - b.order);
@@ -604,6 +791,47 @@ function commitField(
     modal: result ? { kind: "summary" } : current.modal,
   });
   void saveField(after);
+}
+
+function commitPlannerField(
+  field: FieldState,
+  set: (partial: Partial<FieldStore>) => void,
+): void {
+  set({ field, lastResult: null });
+  void saveField(field);
+}
+
+function preparePlannerField(field: FieldState, timestamp: string): FieldState {
+  if (field.ambient.currentMode !== "passive") {
+    return syncPlannerField(field, timestamp);
+  }
+  const engine = new AmbientGameplayEngine(field.ambient);
+  const transition = engine.requestTransition({
+    targetMode: "preTurnPreparation",
+    reason: "manual",
+    timestamp,
+  });
+  const nextAmbient = transition.ok ? transition.state : field.ambient;
+  return normalizeField({
+    ...field,
+    ambient: nextAmbient,
+    preTurnPlanner: syncPlannerWithAmbientMode(
+      field.preTurnPlanner,
+      nextAmbient.currentMode,
+      timestamp,
+    ),
+  });
+}
+
+function syncPlannerField(field: FieldState, timestamp: string): FieldState {
+  return normalizeField({
+    ...field,
+    preTurnPlanner: syncPlannerWithAmbientMode(
+      field.preTurnPlanner,
+      field.ambient.currentMode,
+      timestamp,
+    ),
+  });
 }
 
 function adjustManualTotal(

@@ -36,6 +36,26 @@ export {
   transitionAmbientPreview,
 } from "./ambientConfidence";
 export {
+  PRE_TURN_PLANNER_ACTION_TYPES,
+  actionTypeLabel,
+  addPlannedAction,
+  clearAllPlans,
+  clearCompletedPlans,
+  createActionStripPlan,
+  createDefaultPreTurnPlannerState,
+  getPreTurnPlannerAvailability,
+  getPreTurnPlannerDiagnostics,
+  plannedActionToAmbientIntent,
+  removePlannedAction,
+  reorderPlannedAction,
+  resetPreTurnPlanner,
+  setPlannedActionStatus,
+  setPlannerGroupCollapsed,
+  sortPlannedActions,
+  syncPlannerWithAmbientMode,
+  updatePlannedAction,
+} from "./preTurnPlanner";
+export {
   AMBIENT_GAMEPLAY_MODES,
   AMBIENT_GAMEPLAY_STATE_VERSION,
 } from "./ambientTypes";
@@ -43,6 +63,10 @@ export {
   AMBIENT_EVENT_PIPELINE_VERSION,
   AMBIENT_EVENT_SERIALIZATION_VERSION,
 } from "./ambientEventTypes";
+export {
+  PRE_TURN_PLANNER_ACTION_STRIP_VERSION,
+  PRE_TURN_PLANNER_VERSION,
+} from "./preTurnPlannerTypes";
 export {
   ECHO_CAPABILITIES,
   ECHO_COMPATIBILITY_VERSION,
@@ -109,6 +133,20 @@ export type {
   AmbientPreviewLifecycleRecord,
   AmbientPreviewStatus,
 } from "./ambientConfidenceTypes";
+export type {
+  PlannedAction,
+  PlannedActionInput,
+  PlannedActionUpdate,
+  PlannedLandOptions,
+  PlannedManaUse,
+  PreTurnPlannerActionStatus,
+  PreTurnPlannerActionStripItem,
+  PreTurnPlannerActionType,
+  PreTurnPlannerAvailability,
+  PreTurnPlannerDiagnostics,
+  PreTurnPlannerLifecycleStatus,
+  PreTurnPlannerState,
+} from "./preTurnPlannerTypes";
 export type {
   EchoAmbientContext,
   EchoCapability,

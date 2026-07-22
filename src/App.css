@@ -1383,6 +1383,257 @@ textarea {
   padding: 10px;
 }
 
+.planner-sheet {
+  display: grid;
+  gap: 14px;
+}
+
+.planner-header {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.planner-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: var(--hairline-blue);
+  border-radius: 13px;
+  color: #d8f1ff;
+  background: rgba(113, 200, 255, 0.09);
+  box-shadow: var(--glow-blue);
+}
+
+.planner-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.planner-header h2 {
+  margin-bottom: 4px;
+}
+
+.planner-header p,
+.planner-readonly,
+.planned-action-copy p {
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.planner-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.planner-summary span {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  border: 1px solid rgba(143, 211, 255, 0.22);
+  border-radius: var(--radius-pill);
+  color: #edf9ff;
+  background: rgba(5, 12, 20, 0.54);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.planner-readonly {
+  border: 1px solid rgba(255, 216, 117, 0.32);
+  border-radius: 10px;
+  padding: 9px;
+  background: rgba(76, 52, 12, 0.22);
+}
+
+.planner-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 11px;
+  padding: 12px;
+  border: 1px solid rgba(119, 255, 176, 0.2);
+  border-radius: 14px;
+  background: rgba(5, 10, 15, 0.28);
+}
+
+.planner-fieldset {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 11px;
+  border: 1px solid rgba(143, 211, 255, 0.2);
+  border-radius: 12px;
+}
+
+.planner-fieldset legend {
+  padding: 0 6px;
+  color: #c9ffdc;
+  font-size: 0.78rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.planner-notes,
+.mana-notes {
+  grid-column: 1 / -1;
+}
+
+.mana-grid input {
+  min-height: 38px;
+}
+
+.planner-form-actions,
+.planner-actions-toolbar {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.planner-actions-toolbar button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.planner-actions-toolbar svg {
+  width: 16px;
+  height: 16px;
+}
+
+.planner-section-list {
+  display: grid;
+  gap: 8px;
+}
+
+.planner-section {
+  border: 1px solid rgba(143, 211, 255, 0.2);
+  border-radius: 13px;
+  background: rgba(5, 10, 15, 0.08);
+  overflow: hidden;
+}
+
+.planner-section-heading {
+  width: 100%;
+  min-height: 38px;
+  display: grid;
+  grid-template-columns: 1fr 18px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 0;
+  background: rgba(7, 15, 22, 0.52);
+  text-align: left;
+}
+
+.planner-section-heading strong {
+  color: #dfffe7;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+}
+
+.planner-section-heading span {
+  color: rgba(223, 255, 231, 0.68);
+}
+
+.planner-section-heading svg {
+  width: 16px;
+  height: 16px;
+}
+
+.planned-action-list {
+  display: grid;
+  gap: 7px;
+  padding: 8px;
+}
+
+.planned-action {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 8px;
+  padding: 9px;
+  border: 1px solid rgba(119, 255, 176, 0.18);
+  border-radius: 12px;
+  background: rgba(3, 9, 13, 0.62);
+}
+
+.planned-order {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #f7fff9;
+  border: 1px solid rgba(119, 255, 176, 0.32);
+  background: rgba(119, 255, 176, 0.1);
+  font-weight: 900;
+}
+
+.planned-action-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.planned-action-copy strong {
+  color: #f7fff9;
+  font-size: 0.95rem;
+}
+
+.planned-action-copy span {
+  color: #9ddaff;
+  font-size: 0.72rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.planned-reminder,
+.planned-dependency {
+  font-size: 0.78rem;
+}
+
+.planned-action-controls {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.planned-action-controls button {
+  width: 38px;
+  min-height: 34px;
+  display: grid;
+  place-items: center;
+  border-color: rgba(143, 211, 255, 0.24);
+}
+
+.planned-action-controls svg {
+  width: 16px;
+  height: 16px;
+}
+
+.planned-action-completed {
+  border-color: rgba(119, 255, 176, 0.32);
+}
+
+.planned-action-skipped,
+.planned-action-cancelled {
+  border-color: rgba(191, 201, 211, 0.22);
+  filter: saturate(0.78);
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
