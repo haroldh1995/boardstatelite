@@ -25,6 +25,7 @@ import type { HubSnapshot } from "../hub/types";
 import type { AmbientGameplayState } from "../echo/ambientTypes";
 import type { PreTurnPlannerState } from "../echo/preTurnPlannerTypes";
 import type { ActiveTurnActionStripState } from "../echo/activeTurnActionStripTypes";
+import type { EchoListeningSnapshot } from "../echo/listeningTypes";
 import { APP_NAME, APP_VERSION } from "../appMetadata";
 
 export const RULES_ADAPTER_VERSION = "0.1.0";
@@ -97,6 +98,7 @@ export interface LiteFieldSnapshot {
   ambient: AmbientGameplayState;
   preTurnPlanner: PreTurnPlannerState;
   activeTurnActionStrip: ActiveTurnActionStripState;
+  listening: EchoListeningSnapshot;
   player: {
     life: number;
     startingLife: number;

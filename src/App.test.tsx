@@ -185,6 +185,40 @@ describe("Baord State Lite app shell", () => {
     ).toBe("completed");
   });
 
+  it("exposes opt-in microphone settings without enabling unfinished voice features", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(
+      await screen.findByRole("button", { name: /continue to field/i }),
+    );
+    await user.click(screen.getByRole("button", { name: /^tools$/i }));
+
+    expect(
+      screen.getByRole("heading", { name: /voice & microphone/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/enable voice features/i)).not.toBeChecked();
+    expect(screen.getByLabelText(/enable ambient listening/i)).toBeDisabled();
+    expect(screen.getByLabelText(/push-to-talk \(future\)/i)).toBeDisabled();
+    expect(
+      screen.getByLabelText(/always listening \(future\)/i),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: /microphone test/i }),
+    ).toBeDisabled();
+
+    await user.click(screen.getByLabelText(/enable voice features/i));
+    await waitFor(() =>
+      expect(
+        useFieldStore.getState().field.settings.voice.voiceFeaturesEnabled,
+      ).toBe(true),
+    );
+    expect(screen.getByLabelText(/enable ambient listening/i)).toBeEnabled();
+    expect(
+      useFieldStore.getState().field.listening.privacy.rawAudioRetention,
+    ).toBe("none");
+  });
+
   it("shows the active turn action strip and routes planned actions through undoable Ambient events", async () => {
     const user = userEvent.setup();
     render(<App />);

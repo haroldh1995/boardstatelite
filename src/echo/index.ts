@@ -71,6 +71,19 @@ export {
   synchronizeActionStripWithPlanner,
 } from "./activeTurnActionStrip";
 export {
+  EchoMicrophoneService,
+  createDefaultEchoListeningState,
+  createDefaultEchoVoiceSettings,
+  createWebMicrophonePlatformAdapter,
+  deriveEchoListeningIndicator,
+  echoMicrophoneService,
+  getEchoListeningDiagnostics,
+  isEchoListeningTransitionAllowed,
+  normalizeEchoListeningState,
+  normalizeEchoVoiceSettings,
+  transitionEchoListeningState,
+} from "./microphoneService";
+export {
   AMBIENT_GAMEPLAY_MODES,
   AMBIENT_GAMEPLAY_STATE_VERSION,
 } from "./ambientTypes";
@@ -83,6 +96,10 @@ export {
   PRE_TURN_PLANNER_VERSION,
 } from "./preTurnPlannerTypes";
 export { ACTIVE_TURN_ACTION_STRIP_VERSION } from "./activeTurnActionStripTypes";
+export {
+  ECHO_LISTENING_STATE_VERSION,
+  ECHO_VOICE_SETTINGS_VERSION,
+} from "./listeningTypes";
 export {
   ECHO_CAPABILITIES,
   ECHO_COMPATIBILITY_VERSION,
@@ -180,3 +197,17 @@ export type {
   EchoFoundationStatus,
   EchoPermanentContext,
 } from "./types";
+export type {
+  EchoAudioSessionInterruption,
+  EchoAudioSessionState,
+  EchoListeningDiagnostics,
+  EchoListeningIndicator,
+  EchoListeningPermissionStatus,
+  EchoListeningSnapshot,
+  EchoListeningState,
+  EchoListeningStatus,
+  EchoListeningTransitionReason,
+  EchoListeningTransitionRecord,
+  EchoMicrophoneAvailability,
+  EchoVoiceSettings,
+} from "./listeningTypes";

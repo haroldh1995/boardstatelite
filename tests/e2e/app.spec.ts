@@ -128,6 +128,29 @@ test("pre-turn planner creates editable plans without mutating the battlefield",
   ).toBeVisible();
 });
 
+test("voice settings remain opt-in and do not expose unfinished controls", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 430, height: 900 });
+  await page.goto("/");
+  await continuePastStartup(page);
+
+  await page.getByRole("button", { name: /^Tools$/ }).click();
+  await expect(
+    page.getByRole("heading", { name: /Voice & Microphone/i }),
+  ).toBeVisible();
+  await expect(page.getByLabel(/Enable Voice Features/i)).not.toBeChecked();
+  await expect(page.getByLabel(/Enable Ambient Listening/i)).toBeDisabled();
+  await expect(page.getByLabel(/Push-to-Talk \(future\)/i)).toBeDisabled();
+  await expect(page.getByLabel(/Always Listening \(future\)/i)).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: /Microphone Test/i }),
+  ).toBeDisabled();
+
+  await page.getByLabel(/Enable Voice Features/i).check();
+  await expect(page.getByLabel(/Enable Ambient Listening/i)).toBeEnabled();
+});
+
 async function continuePastStartup(page: import("@playwright/test").Page) {
   const startupDialog = page.getByRole("dialog", {
     name: /Only add cards whose abilities should be tracked/i,

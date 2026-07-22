@@ -21,6 +21,7 @@ import {
   calculateTotals,
   createDefaultField,
   normalizeField,
+  normalizeSettings,
   sanitizeImportedField,
 } from "../domain/field";
 import type {
@@ -64,12 +65,17 @@ import {
   setActionStripItemStatus,
   synchronizeActionStripWithPlanner,
 } from "../echo/activeTurnActionStrip";
+import {
+  echoMicrophoneService,
+  normalizeEchoVoiceSettings,
+} from "../echo/microphoneService";
 import type {
   AmbientFieldMutation,
   AmbientIntent,
   AmbientIntentInput,
   AmbientPipelineResult,
 } from "../echo/ambientEventTypes";
+import type { AmbientLifecycleEvent } from "../echo/ambientTypes";
 import type {
   PlannedActionInput,
   PlannedActionUpdate,
@@ -77,6 +83,7 @@ import type {
   PreTurnPlannerActionType,
 } from "../echo/preTurnPlannerTypes";
 import type { ActiveTurnActionStatus } from "../echo/activeTurnActionStripTypes";
+import type { EchoVoiceSettings } from "../echo/listeningTypes";
 
 const HISTORY_LIMIT = 80;
 
@@ -176,6 +183,15 @@ interface FieldStore {
   actionStripClearCompleted: () => void;
   actionStripSetExpanded: (expanded: boolean) => void;
   actionStripSetCompletedCollapsed: (completedCollapsed: boolean) => void;
+  initializeListening: () => Promise<void>;
+  setVoiceSettings: (settings: Partial<EchoVoiceSettings>) => Promise<void>;
+  requestMicrophonePermission: () => Promise<void>;
+  startMicrophoneTest: () => Promise<void>;
+  stopListening: () => Promise<void>;
+  resetVoiceConfiguration: () => Promise<void>;
+  handleListeningLifecycleEvent: (
+    event: AmbientLifecycleEvent,
+  ) => Promise<void>;
   reorderGroups: (groupId: string, direction: -1 | 1) => void;
   updateSettings: (settings: Partial<SettingsState>) => void;
   renameField: (name: string) => void;
@@ -748,6 +764,90 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
     );
   },
 
+  async initializeListening() {
+    ensureMicrophoneStoreSubscription(set);
+    const field = get().field;
+    echoMicrophoneService.hydrate(
+      field.listening,
+      field.settings.voice,
+      field.ambient.currentMode,
+      field.updatedAt,
+    );
+    await echoMicrophoneService.refreshAvailability(field.ambient.currentMode);
+    persistMicrophoneStateFromService(set);
+  },
+
+  async setVoiceSettings(settings) {
+    ensureMicrophoneStoreSubscription(set);
+    const before = get().field;
+    const voice = normalizeEchoVoiceSettings({
+      ...before.settings.voice,
+      ...settings,
+    });
+    const next = normalizeField({
+      ...before,
+      settings: normalizeSettings({
+        ...before.settings,
+        voice,
+      }),
+    });
+    commitField(
+      "Voice settings updated",
+      before,
+      next,
+      ["Voice settings saved."],
+      set,
+    );
+    echoMicrophoneService.hydrate(
+      next.listening,
+      next.settings.voice,
+      next.ambient.currentMode,
+      next.updatedAt,
+    );
+    await echoMicrophoneService.configure(voice, next.ambient.currentMode);
+    persistMicrophoneStateFromService(set);
+  },
+
+  async requestMicrophonePermission() {
+    ensureMicrophoneStoreSubscription(set);
+    syncMicrophoneServiceFromField(get().field);
+    await echoMicrophoneService.requestPermission(
+      get().field.ambient.currentMode,
+    );
+    persistMicrophoneStateFromService(set);
+  },
+
+  async startMicrophoneTest() {
+    ensureMicrophoneStoreSubscription(set);
+    syncMicrophoneServiceFromField(get().field);
+    await echoMicrophoneService.startListening({
+      ambientMode: get().field.ambient.currentMode,
+      testSession: true,
+    });
+    persistMicrophoneStateFromService(set);
+  },
+
+  async stopListening() {
+    ensureMicrophoneStoreSubscription(set);
+    syncMicrophoneServiceFromField(get().field);
+    await echoMicrophoneService.stop();
+    persistMicrophoneStateFromService(set);
+  },
+
+  async resetVoiceConfiguration() {
+    ensureMicrophoneStoreSubscription(set);
+    syncMicrophoneServiceFromField(get().field);
+    echoMicrophoneService.resetVoiceConfiguration();
+    persistMicrophoneStateFromService(set);
+  },
+
+  async handleListeningLifecycleEvent(event) {
+    ensureMicrophoneStoreSubscription(set);
+    syncMicrophoneServiceFromField(get().field);
+    await echoMicrophoneService.handleLifecycleEvent(event);
+    persistMicrophoneStateFromService(set);
+  },
+
   reorderGroups(groupId, direction) {
     const before = get().field;
     const sorted = [...before.groups].sort((a, b) => a.order - b.order);
@@ -771,7 +871,17 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
     const before = get().field;
     const next = normalizeField({
       ...before,
-      settings: { ...before.settings, ...settings },
+      settings: normalizeSettings({
+        ...before.settings,
+        ...settings,
+        voice:
+          settings.voice === undefined
+            ? before.settings.voice
+            : {
+                ...before.settings.voice,
+                ...settings.voice,
+              },
+      }),
     });
     commitField("Settings updated", before, next, ["Settings saved."], set);
   },
@@ -825,6 +935,7 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
       redoStack: [entry, ...redoStack].slice(0, HISTORY_LIMIT),
       lastResult: null,
     });
+    syncSubscribedMicrophoneService(entry.before);
     void saveField(entry.before);
   },
 
@@ -838,9 +949,52 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
       redoStack: redoStack.slice(1),
       lastResult: null,
     });
+    syncSubscribedMicrophoneService(entry.after);
     void saveField(entry.after);
   },
 }));
+
+let microphoneStoreUnsubscribe: (() => void) | null = null;
+
+function ensureMicrophoneStoreSubscription(
+  set: (partial: Partial<FieldStore>) => void,
+): void {
+  if (microphoneStoreUnsubscribe) return;
+  microphoneStoreUnsubscribe = echoMicrophoneService.subscribe(() => {
+    persistMicrophoneStateFromService(set);
+  });
+  echoMicrophoneService.startEnvironmentListeners();
+}
+
+function syncMicrophoneServiceFromField(field: FieldState): void {
+  echoMicrophoneService.hydrate(
+    field.listening,
+    field.settings.voice,
+    field.ambient.currentMode,
+    field.updatedAt,
+  );
+}
+
+function syncSubscribedMicrophoneService(field: FieldState): void {
+  if (!microphoneStoreUnsubscribe) return;
+  syncMicrophoneServiceFromField(field);
+}
+
+function persistMicrophoneStateFromService(
+  set: (partial: Partial<FieldStore>) => void,
+): void {
+  const current = useFieldStore.getState();
+  const next = normalizeField({
+    ...current.field,
+    settings: normalizeSettings({
+      ...current.field.settings,
+      voice: echoMicrophoneService.getSettings(),
+    }),
+    listening: echoMicrophoneService.getState(),
+  });
+  set({ field: next });
+  void saveField(next);
+}
 
 function commitResult(
   label: string,
@@ -884,6 +1038,7 @@ function commitField(
     lastResult: result,
     modal: result ? { kind: "summary" } : current.modal,
   });
+  syncSubscribedMicrophoneService(after);
   void saveField(after);
 }
 
@@ -892,6 +1047,7 @@ function commitPlannerField(
   set: (partial: Partial<FieldStore>) => void,
 ): void {
   set({ field, lastResult: null });
+  syncSubscribedMicrophoneService(field);
   void saveField(field);
 }
 
@@ -994,6 +1150,7 @@ function processActionStripItem(
       redoStack: [],
       lastResult: null,
     });
+    syncSubscribedMicrophoneService(outcome.field);
     void saveField(outcome.field);
     return outcome;
   }
@@ -1016,6 +1173,7 @@ function processActionStripItem(
     ),
   });
   set({ field: blocked, lastResult: null });
+  syncSubscribedMicrophoneService(blocked);
   void saveField(blocked);
   return outcome;
 }

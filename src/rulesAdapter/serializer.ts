@@ -13,6 +13,10 @@ import { normalizeAmbientGameplayState } from "../echo/ambientEngine";
 import { normalizePreTurnPlannerState } from "../echo/preTurnPlanner";
 import { normalizeActiveTurnActionStripState } from "../echo/activeTurnActionStrip";
 import {
+  normalizeEchoListeningState,
+  normalizeEchoVoiceSettings,
+} from "../echo/microphoneService";
+import {
   LITE_APP_VERSION,
   LITE_SNAPSHOT_VERSION,
   RULES_ADAPTER_SERIALIZATION_VERSION,
@@ -59,6 +63,13 @@ export function createLiteFieldSnapshot(field: FieldState): LiteFieldSnapshot {
       planner: preTurnPlanner,
     },
   );
+  const voiceSettings = normalizeEchoVoiceSettings(field.settings.voice);
+  const listening = normalizeEchoListeningState(field.listening, {
+    fallbackTimestamp: field.updatedAt,
+    ambientMode: ambient.currentMode,
+    settings: voiceSettings,
+    allowActiveSession: true,
+  });
   const sortedGroups = [...field.groups].sort(
     (a, b) => a.order - b.order || a.id.localeCompare(b.id),
   );
@@ -82,6 +93,14 @@ export function createLiteFieldSnapshot(field: FieldState): LiteFieldSnapshot {
     ambient,
     preTurnPlanner,
     activeTurnActionStrip,
+    listening: {
+      status: listening.status,
+      permission: listening.permission,
+      availability: listening.availability,
+      indicator: listening.indicator,
+      ambientMode: listening.ambientMode,
+      settings: voiceSettings,
+    },
     player: {
       life: field.player.life,
       startingLife: field.player.startingLife,

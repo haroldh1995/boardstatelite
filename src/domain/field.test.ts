@@ -56,4 +56,33 @@ describe("Lite field persistence guardrails", () => {
       reason: "original BoardState not connected",
     });
   });
+
+  it("migrates legacy saves with safe voice and listening defaults", () => {
+    const legacyField = createDefaultField() as unknown as {
+      settings?: unknown;
+      listening?: unknown;
+    };
+    delete legacyField.listening;
+    legacyField.settings = {
+      startingLife: 40,
+      cardSize: "standard",
+      tappedStyle: "rotate",
+      animationSpeed: "normal",
+      reducedMotion: false,
+      backgroundWatchers: true,
+      optionalEffects: "ask",
+      triggerOrdering: "ask-when-needed",
+      themeAccent: "verdant",
+      sound: false,
+      haptics: true,
+    };
+
+    const imported = sanitizeImportedField(legacyField);
+
+    expect(imported?.settings.voice.voiceFeaturesEnabled).toBe(false);
+    expect(imported?.settings.voice.ambientListeningEnabled).toBe(false);
+    expect(imported?.listening.status).toBe("idle");
+    expect(imported?.listening.indicator).toBe("hidden");
+    expect(imported?.groups).toHaveLength(1);
+  });
 });

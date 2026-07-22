@@ -12,6 +12,7 @@ import type {
 import { useFieldStore } from "../state/useFieldStore";
 import { PreTurnPlannerSheet } from "./PreTurnPlannerSheet";
 import { ScryfallSearch } from "./ScryfallSearch";
+import { VoiceSettingsPanel } from "./VoiceSettingsPanel";
 
 export function ModalRoot() {
   const modal = useFieldStore((state) => state.modal);
@@ -1117,6 +1118,7 @@ function SettingsSheet() {
             Reset App Data
           </button>
         </section>
+        <VoiceSettingsPanel />
         <section>
           <h3>Scryfall Attribution</h3>
           <p>

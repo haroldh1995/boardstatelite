@@ -373,7 +373,7 @@ Hub coverage includes standalone profile defaults, application registry defaults
 
 Final ecosystem readiness coverage validates all prepared integration layers together: local-only defaults, canonical metadata, deterministic snapshots, export/import metadata, Lite helper fallback, compact renderer output, unavailable future hooks, corrupt future metadata recovery, and centralized app identity.
 
-Echo coverage validates the Ambient Gameplay core architecture and canonical Ambient Event Pipeline: internal mode capabilities are available, user-facing Echo capabilities remain disabled, ambient context creation is read-only, context serialization is deterministic, stable-mode persistence is safe, invalid transitions fail without mutating battlefield state, session/lifecycle recovery is deterministic, existing Lite snapshots include normalized ambient state, pipeline stages are deterministic, canonical Ambient events reuse existing HistoryEntry undo snapshots, local-only synchronization metadata remains honest, and Activate Field remains on the Lite-helper path.
+Echo coverage validates the Ambient Gameplay core architecture and canonical Ambient Event Pipeline: internal mode capabilities are available, user-facing Echo capabilities remain disabled, ambient context creation is read-only, context serialization is deterministic, stable-mode persistence is safe, invalid transitions fail without mutating battlefield state, session/lifecycle recovery is deterministic, existing Lite snapshots include normalized ambient state, pipeline stages are deterministic, canonical Ambient events reuse existing HistoryEntry undo snapshots, local-only synchronization metadata remains honest, the opt-in microphone lifecycle preserves privacy defaults without speech recognition, and Activate Field remains on the Lite-helper path.
 
 Known coverage gaps to preserve for future prompts:
 
@@ -407,4 +407,5 @@ Known coverage gaps to preserve for future prompts:
 - Echo architecture must remain internal until real milestones add concrete user-facing services; do not expose mode controls, voice, AI recommendations, combat prediction, or turn planning from capability metadata alone.
 - Ambient Gameplay mode state is not a turn or phase authority. Future integrations must feed trusted turn/phase events into the engine instead of creating parallel ownership or phase trackers.
 - Future Echo mutation sources must use the canonical Ambient Event Pipeline and the store-level Ambient intent entry point rather than direct field mutation.
+- Future Echo listening, voice, speaker verification, and command systems must use the single microphone service and must not open competing audio streams or bypass privacy opt-in defaults.
 - User-facing copy must not claim Hub, shared sessions, sync, or Advanced Mode before those systems exist.

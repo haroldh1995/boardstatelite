@@ -147,6 +147,22 @@ Lite now has Hub-ready architecture, but it remains standalone and local-only. C
 
 Lite must not claim Hub, shared-session, profile sync, friends, tournament, notification, cloud backup, sync, cross-app launching, or Advanced Mode availability before those systems exist. Internal placeholders may be documented or typed, but production UI must not present them as connected or working.
 
+## Echo Listening Boundary
+
+Lite may own an opt-in microphone lifecycle and privacy framework for future
+Ambient Gameplay features. That framework is allowed to check availability,
+request permission, start and stop local audio sessions, show honest microphone
+status, and persist safe listening metadata.
+
+Lite must not treat microphone access as speech recognition, command parsing,
+speaker verification, AI recommendation, combat prediction, rules authority, or
+automatic gameplay. Future interpreted actions must still pass through the
+Canonical Ambient Event Pipeline and the current undo/history boundaries.
+
+Voice features remain disabled by default. The app must never retain raw audio,
+enable cloud transcription, or present always-listening behavior unless a later
+implemented feature explicitly adds it with matching privacy controls.
+
 ## Local-Only Workflow Preservation
 
 Every ecosystem step must preserve the current local-only physical-table workflow:

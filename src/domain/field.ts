@@ -38,6 +38,12 @@ import {
   createDefaultActiveTurnActionStripState,
   normalizeActiveTurnActionStripState,
 } from "../echo/activeTurnActionStrip";
+import {
+  createDefaultEchoListeningState,
+  createDefaultEchoVoiceSettings,
+  normalizeEchoListeningState,
+  normalizeEchoVoiceSettings,
+} from "../echo/microphoneService";
 import type {
   FieldState,
   OpponentValues,
@@ -128,6 +134,10 @@ export function createDefaultField(): FieldState {
     activeTurnActionStrip: createDefaultActiveTurnActionStripState({
       timestamp: now,
       sessionId: session.id,
+    }),
+    listening: createDefaultEchoListeningState({
+      timestamp: now,
+      ambientMode: "passive",
     }),
     name: "Baord State Lite Field",
     createdAt: now,
@@ -226,6 +236,18 @@ export function createDefaultSettings(): SettingsState {
     themeAccent: "verdant",
     sound: false,
     haptics: true,
+    voice: createDefaultEchoVoiceSettings(),
+  };
+}
+
+export function normalizeSettings(value: unknown): SettingsState {
+  const defaults = createDefaultSettings();
+  if (!value || typeof value !== "object") return defaults;
+  const candidate = value as Partial<SettingsState>;
+  return {
+    ...defaults,
+    ...candidate,
+    voice: normalizeEchoVoiceSettings(candidate.voice),
   };
 }
 
@@ -280,10 +302,7 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
       objectIds,
     },
   );
-  const settings = {
-    ...defaults.settings,
-    ...candidate.settings,
-  };
+  const settings = normalizeSettings(candidate.settings);
   const hub = normalizeHubState(candidate.hub ?? unwrapped.hub, {
     fallbackTimestamp: updatedAt,
     settings,
@@ -311,6 +330,12 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
       planner: preTurnPlanner,
     },
   );
+  const listening = normalizeEchoListeningState(candidate.listening, {
+    fallbackTimestamp: updatedAt,
+    ambientMode: ambient.currentMode,
+    settings: settings.voice,
+    allowActiveSession: false,
+  });
   return {
     ...defaults,
     ...candidate,
@@ -322,6 +347,7 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
     ambient,
     preTurnPlanner,
     activeTurnActionStrip,
+    listening,
     name: sanitizeText(candidate.name, "Imported Baord State Lite Field"),
     player: {
       ...defaults.player,
@@ -455,6 +481,7 @@ export function calculateTotals(
 
 export function normalizeField(field: FieldState): FieldState {
   const updatedAt = new Date().toISOString();
+  const settings = normalizeSettings(field.settings);
   const session = normalizeSessionMetadata(field.session, {
     fallbackTimestamp: updatedAt,
   });
@@ -478,7 +505,7 @@ export function normalizeField(field: FieldState): FieldState {
   });
   const hub = normalizeHubState(field.hub, {
     fallbackTimestamp: updatedAt,
-    settings: field.settings,
+    settings,
   });
   const sessionWithHub = applyHubSessionMetadata(sessionWithOwnership, hub);
   const ambient = normalizeAmbientGameplayState(field.ambient, {
@@ -501,6 +528,12 @@ export function normalizeField(field: FieldState): FieldState {
       planner: preTurnPlanner,
     },
   );
+  const listening = normalizeEchoListeningState(field.listening, {
+    fallbackTimestamp: updatedAt,
+    ambientMode: ambient.currentMode,
+    settings: settings.voice,
+    allowActiveSession: true,
+  });
   return {
     ...field,
     session: sessionWithHub,
@@ -510,7 +543,9 @@ export function normalizeField(field: FieldState): FieldState {
     ambient,
     preTurnPlanner,
     activeTurnActionStrip,
+    listening,
     groups,
+    settings,
     updatedAt,
   };
 }

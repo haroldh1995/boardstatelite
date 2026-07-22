@@ -1,6 +1,6 @@
 # Echo Ambient Foundation Audit
 
-This document records the ECHO-01 preparation pass, the ECHO-02 Ambient Gameplay core architecture, and the ECHO-03 Canonical Ambient Event Pipeline for BoardState Lite. It is intentionally an internal architecture note. The application does not expose Ambient Gameplay controls, voice controls, AI recommendations, combat prediction, speaker verification, or new user workflows after these milestones.
+This document records the ECHO-01 preparation pass and the active Project Echo foundation work for BoardState Lite. It is intentionally an internal architecture note. The application does not expose AI recommendations, combat prediction, speaker verification, speech recognition, Magic command parsing, or fake voice automation after these milestones.
 
 ## Scope
 
@@ -37,6 +37,7 @@ The `src/echo` module provides an internal, local-only foundation for future Ech
 - Diagnostics that report architecture-ready, local-only, user-facing Echo disabled.
 - A deterministic Ambient Gameplay state machine with Passive, Pre-Turn Preparation, Active Turn, Combat, Resolution, Recovery, and Post-Turn modes.
 - A canonical Ambient Event Pipeline that future Echo features must use for battlefield mutations.
+- A microphone and listening lifecycle service for future opt-in voice features, with no speech recognition or command parsing.
 
 This module deliberately does not:
 
@@ -49,6 +50,16 @@ This module deliberately does not:
 - Add UI, settings, buttons, routes, or tutorials.
 
 Future Echo milestones should build on this foundation instead of duplicating field snapshots, totals aggregation, session metadata, or authority-boundary logic.
+
+## ECHO-07 Listening Lifecycle And Privacy
+
+`src/echo/microphoneService.ts` is the single microphone entry point for future Echo listening features. It owns permission checks, availability checks, audio-session creation and shutdown, interruption handling, device-change hooks, lifecycle recovery, diagnostics, and privacy invariants.
+
+Voice features remain disabled by default. Enabling voice in Settings is an explicit opt-in and does not start speech recognition. Push-to-talk and always-listening are represented only as disabled future settings. The current app never retains raw audio, never enables cloud transcription, and never records conversations continuously.
+
+Listening state is persisted as safe metadata in `FieldState.listening`; active audio sessions are normalized to stopped on imported or unsafe restores. The canonical Lite snapshot includes listening metadata so future BoardState and Echo systems can reason about whether listening was available without reading transient audio resources.
+
+Ambient Gameplay remains the mode authority. The microphone service observes ambient mode and application lifecycle events, but it does not create turn or phase state and does not mutate battlefield state.
 
 ## ECHO-02 Ambient Gameplay Engine
 

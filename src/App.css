@@ -44,6 +44,12 @@ button:hover {
   border-color: rgba(126, 211, 255, 0.62);
 }
 
+button:disabled,
+input:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .pwa-update-toast {
   position: fixed;
   z-index: 40;
@@ -108,6 +114,7 @@ textarea:focus-visible {
 
 .life-panel,
 .totals-strip,
+.microphone-indicator,
 .action-strip,
 .battlefield,
 .bottom-dock {
@@ -386,6 +393,57 @@ textarea:focus-visible {
   box-shadow:
     inset 0 0 22px rgba(119, 255, 176, 0.035),
     0 0 16px rgba(119, 255, 176, 0.06);
+}
+
+.microphone-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 32px;
+  gap: 7px;
+  margin-top: 7px;
+  margin-bottom: 4px;
+  padding: 5px 10px;
+  border: 1px solid rgba(143, 211, 255, 0.28);
+  border-radius: var(--radius-pill);
+  color: #f4fbff;
+  background: rgba(5, 12, 18, 0.42);
+  box-shadow:
+    0 8px 22px rgba(0, 0, 0, 0.24),
+    0 0 14px rgba(143, 211, 255, 0.08);
+  font-size: 0.68rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.microphone-indicator svg {
+  width: 15px;
+  height: 15px;
+}
+
+.microphone-indicator button {
+  width: 26px;
+  min-height: 26px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.microphone-indicator-listening {
+  border-color: rgba(119, 255, 176, 0.44);
+  color: #e9fff3;
+  box-shadow:
+    0 0 16px rgba(119, 255, 176, 0.12),
+    0 8px 24px rgba(0, 0, 0, 0.24);
+}
+
+.microphone-indicator-permission-needed,
+.microphone-indicator-failed,
+.microphone-indicator-unavailable {
+  border-color: rgba(255, 216, 117, 0.36);
+  color: #fff2c4;
 }
 
 .action-strip-preview {
@@ -1447,6 +1505,130 @@ textarea {
 
 .inline-check input {
   min-height: auto;
+}
+
+.unavailable-setting {
+  color: rgba(204, 229, 216, 0.64);
+}
+
+.voice-settings-panel {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+}
+
+.microphone-status-card {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  padding: 9px;
+  border: 1px solid rgba(143, 211, 255, 0.22);
+  border-radius: 12px;
+  color: #f5fbff;
+  background:
+    radial-gradient(
+      circle at 12% 50%,
+      rgba(143, 211, 255, 0.1),
+      transparent 54%
+    ),
+    rgba(4, 10, 16, 0.48);
+}
+
+.microphone-status-listening,
+.microphone-status-ready {
+  border-color: rgba(119, 255, 176, 0.36);
+}
+
+.microphone-status-failed,
+.microphone-status-unavailable,
+.microphone-status-permission-needed {
+  border-color: rgba(255, 216, 117, 0.34);
+}
+
+.microphone-status-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(143, 211, 255, 0.24);
+  border-radius: 50%;
+  color: #d9f2ff;
+  background: rgba(143, 211, 255, 0.08);
+}
+
+.microphone-status-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.microphone-status-card strong,
+.microphone-status-card span {
+  display: block;
+}
+
+.microphone-status-card strong {
+  font-size: 0.82rem;
+  text-transform: uppercase;
+}
+
+.microphone-status-card span {
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  line-height: 1.25;
+}
+
+.voice-settings-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: 7px;
+}
+
+.voice-settings-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 7px 10px;
+  font-size: 0.7rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.voice-settings-actions svg,
+.privacy-note summary svg {
+  width: 15px;
+  height: 15px;
+}
+
+.voice-settings-actions .quiet-action {
+  border-color: rgba(191, 201, 211, 0.22);
+}
+
+.privacy-note {
+  border: 1px solid rgba(143, 211, 255, 0.18);
+  border-radius: 12px;
+  padding: 8px 10px;
+  background: rgba(4, 10, 16, 0.32);
+}
+
+.privacy-note summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #e5f6ff;
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.privacy-note p {
+  margin-top: 8px;
+  font-size: 0.78rem;
+  line-height: 1.35;
 }
 
 .search-panel {

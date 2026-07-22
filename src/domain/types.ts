@@ -8,6 +8,10 @@ import type { HubIntegrationState } from "../hub/types";
 import type { AmbientGameplayState } from "../echo/ambientTypes";
 import type { PreTurnPlannerState } from "../echo/preTurnPlannerTypes";
 import type { ActiveTurnActionStripState } from "../echo/activeTurnActionStripTypes";
+import type {
+  EchoListeningState,
+  EchoVoiceSettings,
+} from "../echo/listeningTypes";
 
 export type Zone =
   | "battlefield"
@@ -234,6 +238,7 @@ export interface SettingsState {
   themeAccent: "verdant" | "sapphire" | "violet";
   sound: boolean;
   haptics: boolean;
+  voice: EchoVoiceSettings;
 }
 
 export interface WatcherPreferences {
@@ -291,6 +296,7 @@ export interface FieldState {
   ambient: AmbientGameplayState;
   preTurnPlanner: PreTurnPlannerState;
   activeTurnActionStrip: ActiveTurnActionStripState;
+  listening: EchoListeningState;
   name: string;
   createdAt: string;
   updatedAt: string;
