@@ -80,6 +80,14 @@ describe("final ecosystem readiness guardrails", () => {
       },
     });
     expect(field.settings.voice.enrollment.phrases).toHaveLength(5);
+    expect(field.settings.voice.verification).toMatchObject({
+      enabled: false,
+      sensitivity: "commanderStrict",
+      privacy: {
+        rawAudioRetained: false,
+        cloudVerificationEnabled: false,
+      },
+    });
   });
 
   it("preserves IDs and user battlefield data through normalize, export, import, undo-shaped snapshots, and snapshots", () => {
@@ -235,6 +243,23 @@ describe("final ecosystem readiness guardrails", () => {
               },
             },
           },
+          verification: {
+            enabled: true,
+            sensitivity: "unsafe",
+            lifecycle: {
+              status: "verified",
+              lastResult: {
+                decision: "verifiedUser",
+                rawAudio: "unsafe",
+                rawAudioRetained: true,
+              },
+            },
+            privacy: {
+              rawAudioRetained: true,
+              storedData: "raw-audio",
+              cloudVerificationEnabled: true,
+            },
+          },
         },
       },
     };
@@ -256,5 +281,16 @@ describe("final ecosystem readiness guardrails", () => {
       cloudUploadEnabled: false,
     });
     expect(normalized.settings.voice.enrollment.profile.samples).toEqual([]);
+    expect(normalized.settings.voice.verification).toMatchObject({
+      sensitivity: "commanderStrict",
+      privacy: {
+        rawAudioRetained: false,
+        cloudVerificationEnabled: false,
+      },
+    });
+    expect(
+      normalized.settings.voice.verification.lifecycle.lastResult
+        ?.rawAudioRetained,
+    ).toBe(false);
   });
 });

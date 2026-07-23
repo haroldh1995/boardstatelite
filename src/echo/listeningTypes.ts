@@ -1,4 +1,5 @@
 import type { AmbientGameplayMode } from "./ambientTypes";
+import type { EchoSpeakerVerificationSettings } from "./speakerVerificationTypes";
 import type { EchoVoiceEnrollmentSettings } from "./voiceEnrollmentTypes";
 
 export const ECHO_LISTENING_STATE_VERSION = 1;
@@ -86,6 +87,7 @@ export interface EchoVoiceSettings {
   privacyAcknowledged: boolean;
   lastResetAt: string | null;
   enrollment: EchoVoiceEnrollmentSettings;
+  verification: EchoSpeakerVerificationSettings;
 }
 
 export interface EchoAudioSessionState {
@@ -103,7 +105,8 @@ export interface EchoAudioSessionState {
 export type EchoAudioSamplePurpose =
   | "microphone-test"
   | "voice-enrollment"
-  | "environment-calibration";
+  | "environment-calibration"
+  | "speaker-verification";
 
 export interface EchoAudioSampleRequest {
   purpose: EchoAudioSamplePurpose;

@@ -28,6 +28,10 @@ export function createDormantEchoCapabilities(): EchoCapabilityMap {
     combatMode: true,
     resolutionMode: true,
     postTurnMode: true,
+    turnPlanner: true,
+    actionPipeline: true,
+    voiceServices: true,
+    speakerVerification: true,
   };
 }
 

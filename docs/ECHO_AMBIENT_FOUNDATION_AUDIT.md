@@ -1,6 +1,10 @@
 # Echo Ambient Foundation Audit
 
-This document records the ECHO-01 preparation pass and the active Project Echo foundation work for BoardState Lite. It is intentionally an internal architecture note. The application does not expose AI recommendations, combat prediction, speaker verification, speech recognition, Magic command parsing, or fake voice automation after these milestones.
+This document records the ECHO-01 preparation pass and the active Project Echo
+foundation work for BoardState Lite. It is intentionally an internal
+architecture note. The application does not expose AI recommendations, combat
+prediction, speech recognition, Magic command parsing, or fake voice automation
+after these milestones.
 
 ## Scope
 
@@ -29,26 +33,26 @@ No Android wrapper exists in this repository. Deployment is GitHub Pages through
 
 ## Echo Preparation Added
 
-The `src/echo` module provides an internal, local-only foundation for future Echo milestones:
+The `src/echo` module provides a local-only foundation for Echo milestones:
 
-- A complete capability contract for future Ambient Gameplay systems. Only the internal mode architecture reports available today; voice, AI, prediction, recognition, and planner features remain unavailable.
+- A complete capability contract for Ambient Gameplay systems. Voice features remain opt-in and recognition, AI, and prediction features remain unavailable.
 - A read-only ambient context derived from the existing field, session, totals, and canonical Lite snapshot.
 - Deterministic serialization for that context.
-- Diagnostics that report architecture-ready, local-only, user-facing Echo disabled.
+- Diagnostics that report local-only status and unavailable future services honestly.
 - A deterministic Ambient Gameplay state machine with Passive, Pre-Turn Preparation, Active Turn, Combat, Resolution, Recovery, and Post-Turn modes.
 - A canonical Ambient Event Pipeline that future Echo features must use for battlefield mutations.
 - A microphone and listening lifecycle service for future opt-in voice features, with no speech recognition or command parsing.
-- A personal voice enrollment and acoustic calibration layer for future speaker verification, storing only local acoustic features and no raw audio.
+- A personal voice enrollment and acoustic calibration layer, storing only local acoustic features and no raw audio.
+- A speaker verification layer that identifies whether incoming audio matches the enrolled user before future voice interactions can proceed.
 
 This module deliberately does not:
 
-- Listen to audio.
 - Parse commands.
 - Predict combat.
 - Recommend actions.
 - Create network calls.
-- Mutate field state.
-- Add UI, settings, buttons, routes, or tutorials.
+- Mutate field state outside the existing store, undo, and Ambient Event Pipeline boundaries.
+- Add fake command, recognition, AI, automation, networking, or authority UI.
 
 Future Echo milestones should build on this foundation instead of duplicating field snapshots, totals aggregation, session metadata, or authority-boundary logic.
 
@@ -68,7 +72,28 @@ Ambient Gameplay remains the mode authority. The microphone service observes amb
 
 The enrollment layer stores acoustic feature vectors, quality scores, sample metadata, and calibration summaries only. It does not retain raw audio, recognize speech, parse commands, identify cards, or execute gameplay actions. Profile management is exposed in the existing Voice & Microphone settings area and remains opt-in.
 
-Future speaker verification code must reuse the microphone service and enrollment profile instead of opening a separate audio stream or creating a second profile store.
+Future speech and command code must reuse the microphone service, enrollment
+profile, and speaker verification result instead of opening a separate audio
+stream or creating a second profile store.
+
+## ECHO-09 Speaker Verification And Multi-Speaker Identification
+
+`src/echo/speakerVerification.ts` owns local speaker verification. It uses the
+single microphone service and the ECHO-08 speaker profile to evaluate incoming
+audio metrics through a deterministic pipeline: incoming audio, voice activity,
+cleanup, feature extraction, profile comparison, similarity scoring, confidence
+assignment, decision, and result publication.
+
+The verification result answers only who is speaking. It never recognizes
+words, parses Magic commands, searches cards, predicts actions, or mutates the
+battlefield. Results are integrated with the existing Ambient Confidence
+Framework so future voice, planner, and contextual listening milestones can
+combine speaker confidence with speech, context, and battlefield confidence.
+
+Commander-table safety is intentionally conservative. Possible overlapping
+speakers, noisy venues, clipping, missing enrollment, calibration mismatches, or
+corrupted profile data reject verification and expose retry/recovery metadata
+instead of accepting another player's voice.
 
 ## ECHO-02 Ambient Gameplay Engine
 

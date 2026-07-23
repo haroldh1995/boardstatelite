@@ -7,10 +7,11 @@ infer actions, or send audio to any remote service.
 ## Boundary
 
 Lite remains a local-first tabletop companion. The listening foundation may
-prepare audio sessions and expose deterministic lifecycle state, but future
-speech recognition, command interpretation, speaker verification, AI
-recommendations, and authoritative rules decisions must be layered on top of
-the existing Ambient Gameplay Engine and Canonical Ambient Event Pipeline.
+prepare audio sessions and expose deterministic lifecycle state. Speaker
+verification now compares privacy-safe audio metrics against the enrolled local
+profile, but speech recognition, command interpretation, AI recommendations,
+and authoritative rules decisions remain future layers on top of the existing
+Ambient Gameplay Engine and Canonical Ambient Event Pipeline.
 
 The original BoardState application remains responsible for authoritative
 rules, advanced gameplay, simulations, and shared authority. BoardState Hub
@@ -100,3 +101,22 @@ Voice enrollment state lives under `field.settings.voice.enrollment` and
 migrates missing or corrupted older data to safe local defaults. Deleting a
 profile removes all samples, calibration records, and acoustic model data while
 leaving microphone settings under the user's control.
+
+## Speaker Verification
+
+The ECHO-09 verification layer determines who is speaking, not what is being
+said. It compares incoming privacy-safe acoustic metrics against the completed
+speaker profile and publishes one of four decisions: verified user, unknown
+speaker, low-confidence match, or no match.
+
+Verification is deliberately strict for Commander tables. If background
+conversation, overlapping speakers, clipping, noisy venues, missing enrollment,
+or corrupted profile data make the result uncertain, Lite rejects the speaker
+and exposes recovery actions for future workflows. False positives are avoided
+even when that means a valid user may need to retry.
+
+Verification state lives under `field.settings.voice.verification`. It stores
+only thresholds, lifecycle metadata, the last verification result, confidence
+metadata, and privacy-safe feature summaries. Raw microphone audio is not
+retained, cloud verification is disabled, and no speech recognition or Magic
+command parsing occurs.

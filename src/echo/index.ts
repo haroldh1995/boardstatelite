@@ -86,6 +86,7 @@ export {
 export {
   DEFAULT_VOICE_ENROLLMENT_PHRASES,
   addEnvironmentCalibration,
+  createAcousticFeatureVector,
   createDefaultEnrollmentSession,
   createDefaultSpeakerProfile,
   createDefaultVoiceEnrollmentSettings,
@@ -98,6 +99,18 @@ export {
   startVoiceEnrollment,
   updateEnrollmentContext,
 } from "./voiceEnrollment";
+export {
+  EchoSpeakerVerificationEngine,
+  applySpeakerVerificationResult,
+  createDefaultSpeakerVerificationSettings,
+  echoSpeakerVerificationEngine,
+  getSpeakerVerificationDiagnostics,
+  isSpeakerVerificationTransitionAllowed,
+  normalizeSpeakerVerificationSettings,
+  resetSpeakerVerificationSettings,
+  transitionSpeakerVerificationLifecycle,
+  verifySpeaker,
+} from "./speakerVerification";
 export {
   AMBIENT_GAMEPLAY_MODES,
   AMBIENT_GAMEPLAY_STATE_VERSION,
@@ -119,6 +132,7 @@ export {
   ECHO_SPEAKER_PROFILE_VERSION,
   ECHO_VOICE_ENROLLMENT_VERSION,
 } from "./voiceEnrollmentTypes";
+export { ECHO_SPEAKER_VERIFICATION_VERSION } from "./speakerVerificationTypes";
 export {
   ECHO_CAPABILITIES,
   ECHO_COMPATIBILITY_VERSION,
@@ -251,3 +265,21 @@ export type {
   EchoVoiceEnrollmentSettings,
   EchoVoiceSample,
 } from "./voiceEnrollmentTypes";
+export type {
+  EchoMultiSpeakerRisk,
+  EchoSpeakerVerificationComparison,
+  EchoSpeakerVerificationDecision,
+  EchoSpeakerVerificationDiagnostics,
+  EchoSpeakerVerificationInput,
+  EchoSpeakerVerificationLifecycle,
+  EchoSpeakerVerificationLifecycleStatus,
+  EchoSpeakerVerificationRecoveryAction,
+  EchoSpeakerVerificationResult,
+  EchoSpeakerVerificationSensitivity,
+  EchoSpeakerVerificationSettings,
+  EchoSpeakerVerificationStageName,
+  EchoSpeakerVerificationStageRecord,
+  EchoSpeakerVerificationStageStatus,
+  EchoSpeakerVerificationThresholds,
+  EchoSpeakerVerificationTransitionReason,
+} from "./speakerVerificationTypes";

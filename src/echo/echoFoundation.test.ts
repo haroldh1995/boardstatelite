@@ -35,7 +35,8 @@ describe("Echo ambient foundation", () => {
       userFacingEchoEnabled: false,
     });
     expect(context.capabilities.ambientGameplayEngine).toBe(true);
-    expect(context.capabilities.voiceServices).toBe(false);
+    expect(context.capabilities.voiceServices).toBe(true);
+    expect(context.capabilities.speakerVerification).toBe(true);
     expect(context.capabilities.aiRecommendations).toBe(false);
     expect(context.liteSnapshot.metadata.fieldId).toBe(field.id);
     expect(context.sessionId).toBe(field.session.id);
@@ -56,8 +57,10 @@ describe("Echo ambient foundation", () => {
       combatMode: true,
       resolutionMode: true,
       postTurnMode: true,
-      turnPlanner: false,
-      voiceServices: false,
+      turnPlanner: true,
+      actionPipeline: true,
+      voiceServices: true,
+      speakerVerification: true,
       combatPrediction: false,
     });
   });

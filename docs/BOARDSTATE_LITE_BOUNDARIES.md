@@ -150,21 +150,23 @@ Lite must not claim Hub, shared-session, profile sync, friends, tournament, noti
 ## Echo Listening Boundary
 
 Lite may own an opt-in microphone lifecycle, personal voice enrollment, acoustic
-calibration, and privacy framework for future Ambient Gameplay features. That
-framework is allowed to check availability, request permission, start and stop
-local audio sessions, show honest microphone status, validate enrollment sample
-quality, store local acoustic features, and persist safe listening/profile
-metadata.
+calibration, speaker verification, and privacy framework for future Ambient
+Gameplay features. That framework is allowed to check availability, request
+permission, start and stop local audio sessions, show honest microphone status,
+validate enrollment sample quality, store local acoustic features, determine
+whether incoming audio matches the enrolled user, and persist safe
+listening/profile/verification metadata.
 
 Lite must not treat microphone access as speech recognition, command parsing,
-speaker verification, AI recommendation, combat prediction, rules authority, or
-automatic gameplay. Future interpreted actions must still pass through the
-Canonical Ambient Event Pipeline and the current undo/history boundaries.
+AI recommendation, combat prediction, rules authority, or automatic gameplay.
+Speaker verification answers who is speaking only; it must not infer what was
+said or execute an action. Future interpreted actions must still pass through
+the Canonical Ambient Event Pipeline and the current undo/history boundaries.
 
-Voice features remain disabled by default. Voice enrollment is for future
-speaker verification only and must not be presented as speech recognition or
-command automation. The app must never retain raw audio, enable cloud
-transcription, or present always-listening behavior unless a later implemented
+Voice features remain disabled by default. Voice enrollment and verification
+must not be presented as speech recognition or command automation. The app must
+never retain raw audio, enable cloud transcription, accept uncertain speakers as
+the user, or present always-listening behavior unless a later implemented
 feature explicitly adds it with matching privacy controls.
 
 ## Local-Only Workflow Preservation

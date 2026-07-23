@@ -7,9 +7,16 @@ import {
   ShieldCheck,
   Square,
   Trash2,
+  UserCheck,
   Volume1,
   Waves,
 } from "lucide-react";
+import type {
+  EchoMultiSpeakerRisk,
+  EchoSpeakerVerificationDecision,
+  EchoSpeakerVerificationLifecycleStatus,
+  EchoSpeakerVerificationSensitivity,
+} from "../echo/speakerVerificationTypes";
 import { getCurrentEnrollmentPhrase } from "../echo/voiceEnrollment";
 import type {
   EchoCalibrationEnvironment,
@@ -46,6 +53,15 @@ const DEVICE_POSITION_OPTIONS: Array<{
   { value: "custom", label: "Custom" },
 ];
 
+const VERIFICATION_SENSITIVITY_OPTIONS: Array<{
+  value: EchoSpeakerVerificationSensitivity;
+  label: string;
+}> = [
+  { value: "commanderStrict", label: "Commander strict" },
+  { value: "balanced", label: "Balanced" },
+  { value: "lenient", label: "Lenient" },
+];
+
 export function VoiceSettingsPanel() {
   const voice = useFieldStore((state) => state.field.settings.voice);
   const listening = useFieldStore((state) => state.field.listening);
@@ -69,13 +85,21 @@ export function VoiceSettingsPanel() {
   const recordEnvironmentCalibration = useFieldStore(
     (state) => state.recordEnvironmentCalibration,
   );
+  const runSpeakerVerificationTest = useFieldStore(
+    (state) => state.runSpeakerVerificationTest,
+  );
+  const resetSpeakerVerificationData = useFieldStore(
+    (state) => state.resetSpeakerVerificationData,
+  );
   const stopListening = useFieldStore((state) => state.stopListening);
   const resetVoiceConfiguration = useFieldStore(
     (state) => state.resetVoiceConfiguration,
   );
   const enrollment = voice.enrollment;
+  const verification = voice.verification;
   const profile = enrollment.profile;
   const session = enrollment.session;
+  const verificationResult = verification.lifecycle.lastResult;
   const currentPhrase = getCurrentEnrollmentPhrase(enrollment);
   const active = isActiveListeningStatus(listening.status);
   const enrollmentActive =
@@ -85,6 +109,8 @@ export function VoiceSettingsPanel() {
     session.status === "sampleRejected";
   const canUseMicrophone =
     voice.voiceFeaturesEnabled && listening.availability !== "unsupported";
+  const canVerifySpeaker =
+    canUseMicrophone && profile.status === "complete" && !active;
   const acceptedCount = profile.samples.filter(
     (sample) => sample.status === "accepted",
   ).length;
@@ -345,6 +371,97 @@ export function VoiceSettingsPanel() {
         </div>
       </div>
 
+      <div className="voice-enrollment-card" aria-live="polite">
+        <div className="voice-enrollment-header">
+          <div>
+            <strong>Speaker Verification</strong>
+            <span>
+              Status: {verificationStatusLabel(verification.lifecycle.status)} -{" "}
+              {verificationDecisionLabel(verificationResult?.decision ?? null)}
+            </span>
+          </div>
+          <span
+            className={`voice-enrollment-status status-${
+              verificationResult?.verified ? "complete" : "notStarted"
+            }`}
+            aria-label={`Speaker verification status: ${verificationStatusLabel(
+              verification.lifecycle.status,
+            )}`}
+          >
+            {verificationResult?.verified ? <UserCheck /> : <ShieldCheck />}
+          </span>
+        </div>
+
+        <div className="voice-profile-metadata">
+          <span>
+            Score:{" "}
+            {typeof verificationResult?.score === "number"
+              ? Math.round(verificationResult.score * 100)
+              : "Not tested"}
+          </span>
+          <span>
+            Table noise: {riskLabel(verificationResult?.multiSpeakerRisk)}
+          </span>
+          <span>Raw audio: discarded</span>
+        </div>
+
+        <p className="voice-settings-copy">
+          Verification checks whether incoming audio matches your enrolled voice
+          before future voice interactions can proceed. It does not recognize or
+          transcribe words.
+        </p>
+
+        {verification.lifecycle.lastError ? (
+          <p className="voice-enrollment-error" role="status">
+            {verification.lifecycle.lastError}
+          </p>
+        ) : null}
+
+        <div className="voice-context-grid">
+          <label>
+            Verification sensitivity
+            <select
+              value={verification.sensitivity}
+              onChange={(event) =>
+                void setVoiceSettings({
+                  verification: {
+                    ...verification,
+                    sensitivity: event.target
+                      .value as EchoSpeakerVerificationSensitivity,
+                  },
+                })
+              }
+            >
+              {VERIFICATION_SENSITIVITY_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <div className="voice-settings-actions voice-enrollment-actions">
+          <button
+            type="button"
+            onClick={() => void runSpeakerVerificationTest()}
+            disabled={!canVerifySpeaker}
+          >
+            <UserCheck />
+            <span>Verification Test</span>
+          </button>
+          <button
+            type="button"
+            className="quiet-action"
+            onClick={() => resetSpeakerVerificationData()}
+            disabled={verification.verificationAttempts === 0}
+          >
+            <RotateCcw />
+            <span>Reset Verification Data</span>
+          </button>
+        </div>
+      </div>
+
       <details className="privacy-note">
         <summary>
           <Info />
@@ -443,4 +560,36 @@ function volumeLabel(volume: EchoEnrollmentVolume): string {
 
 function volumeCoverageLabel(volumes: EchoEnrollmentVolume[]): string {
   return volumes.length === 0 ? "None" : volumes.map(volumeLabel).join(", ");
+}
+
+function verificationStatusLabel(
+  status: EchoSpeakerVerificationLifecycleStatus,
+): string {
+  return status
+    .replace(/([A-Z])/g, " $1")
+    .replace(/^./, (letter) => letter.toUpperCase());
+}
+
+function verificationDecisionLabel(
+  decision: EchoSpeakerVerificationDecision | null,
+): string {
+  switch (decision) {
+    case "verifiedUser":
+      return "Verified user";
+    case "lowConfidenceMatch":
+      return "Low confidence match";
+    case "noMatch":
+      return "No match";
+    case "unknownSpeaker":
+      return "Unknown speaker";
+    default:
+      return "Not tested";
+  }
+}
+
+function riskLabel(risk: EchoMultiSpeakerRisk | null | undefined): string {
+  if (risk === "likely") return "Likely multiple speakers";
+  if (risk === "possible") return "Possible table noise";
+  if (risk === "none") return "Low";
+  return "Not tested";
 }

@@ -24,6 +24,10 @@ import {
   createDefaultVoiceEnrollmentSettings,
   normalizeVoiceEnrollmentSettings,
 } from "./voiceEnrollment";
+import {
+  createDefaultSpeakerVerificationSettings,
+  normalizeSpeakerVerificationSettings,
+} from "./speakerVerification";
 
 const DEFAULT_AUDIO_BUFFER_MS = 0;
 
@@ -116,6 +120,7 @@ export function createDefaultEchoVoiceSettings(): EchoVoiceSettings {
     privacyAcknowledged: false,
     lastResetAt: null,
     enrollment: createDefaultVoiceEnrollmentSettings(),
+    verification: createDefaultSpeakerVerificationSettings(),
   };
 }
 
@@ -141,6 +146,7 @@ export function normalizeEchoVoiceSettings(value: unknown): EchoVoiceSettings {
     lastResetAt:
       typeof candidate.lastResetAt === "string" ? candidate.lastResetAt : null,
     enrollment: normalizeVoiceEnrollmentSettings(candidate.enrollment),
+    verification: normalizeSpeakerVerificationSettings(candidate.verification),
   };
 }
 

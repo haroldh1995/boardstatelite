@@ -458,7 +458,7 @@ function createVoiceSample(input: {
     capturedAt: input.timestamp,
     status: "accepted",
     quality: input.quality,
-    features: createFeatureVector(input.metrics, input.phrase.volume),
+    features: createAcousticFeatureVector(input.metrics, input.phrase.volume),
     deviceId: input.metrics.activeDeviceId,
     deviceLabel: input.metrics.activeDeviceLabel,
     devicePosition: input.devicePosition,
@@ -467,9 +467,9 @@ function createVoiceSample(input: {
   };
 }
 
-function createFeatureVector(
+export function createAcousticFeatureVector(
   metrics: EchoAudioSampleMetrics,
-  volume: EchoEnrollmentVolume,
+  volume: EchoEnrollmentVolume = "normal",
 ): EchoAcousticFeatureVector {
   const featureBuckets = [
     volume,
@@ -771,7 +771,7 @@ function normalizeCalibration(
 
 function normalizeFeatureVector(value: unknown): EchoAcousticFeatureVector {
   if (!value || typeof value !== "object") {
-    return createFeatureVector(createFallbackMetrics(), "normal");
+    return createAcousticFeatureVector(createFallbackMetrics(), "normal");
   }
   const candidate = value as Partial<EchoAcousticFeatureVector>;
   return {

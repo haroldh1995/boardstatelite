@@ -230,6 +230,19 @@ describe("Baord State Lite app shell", () => {
       useFieldStore.getState().field.settings.voice.enrollment.profile.privacy
         .rawAudioRetained,
     ).toBe(false);
+    expect(screen.getAllByText(/speaker verification/i).length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getByLabelText(/verification sensitivity/i)).toHaveValue(
+      "commanderStrict",
+    );
+    expect(
+      screen.getByRole("button", { name: /verification test/i }),
+    ).toBeDisabled();
+    expect(
+      useFieldStore.getState().field.settings.voice.verification.privacy
+        .rawAudioRetained,
+    ).toBe(false);
   }, 20_000);
 
   it("shows the active turn action strip and routes planned actions through undoable Ambient events", async () => {

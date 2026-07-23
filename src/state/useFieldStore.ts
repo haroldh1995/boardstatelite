@@ -77,6 +77,11 @@ import {
   startVoiceEnrollment,
   updateEnrollmentContext,
 } from "../echo/voiceEnrollment";
+import {
+  applySpeakerVerificationResult,
+  echoSpeakerVerificationEngine,
+  resetSpeakerVerificationSettings,
+} from "../echo/speakerVerification";
 import type {
   AmbientFieldMutation,
   AmbientIntent,
@@ -212,6 +217,8 @@ interface FieldStore {
   recordVoiceEnrollmentSample: () => Promise<void>;
   deleteVoiceProfile: () => void;
   recordEnvironmentCalibration: () => Promise<void>;
+  runSpeakerVerificationTest: () => Promise<void>;
+  resetSpeakerVerificationData: () => void;
   stopListening: () => Promise<void>;
   resetVoiceConfiguration: () => Promise<void>;
   handleListeningLifecycleEvent: (
@@ -868,6 +875,13 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
         voiceFeaturesEnabled: true,
         privacyAcknowledged: true,
         enrollment,
+        verification:
+          mode === "new" || mode === "replace"
+            ? resetSpeakerVerificationSettings(
+                before.settings.voice.verification,
+                timestamp,
+              )
+            : before.settings.voice.verification,
       },
       ["Voice enrollment started."],
       set,
@@ -944,6 +958,9 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
       {
         ...before.settings.voice,
         enrollment: clearVoiceProfile(before.settings.voice.enrollment),
+        verification: resetSpeakerVerificationSettings(
+          before.settings.voice.verification,
+        ),
       },
       ["Voice profile deleted."],
       set,
@@ -1007,6 +1024,73 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
         enrollment,
       },
       ["Environment calibration recorded."],
+      set,
+    );
+  },
+
+  async runSpeakerVerificationTest() {
+    ensureMicrophoneStoreSubscription(set);
+    syncMicrophoneServiceFromField(get().field);
+    const before = get().field;
+    let metrics: EchoAudioSampleMetrics;
+    try {
+      metrics = await echoMicrophoneService.captureAudioSample(
+        {
+          purpose: "speaker-verification",
+          durationMs: 1_400,
+        },
+        before.ambient.currentMode,
+      );
+    } catch (error) {
+      metrics = createFailedAudioSampleMetrics(
+        error instanceof Error
+          ? error.message
+          : "The microphone could not record.",
+      );
+    }
+    persistMicrophoneStateFromService(set);
+    const latest = get().field;
+    const session = latest.settings.voice.enrollment.session;
+    echoSpeakerVerificationEngine.hydrate(latest.settings.voice.verification);
+    const result = echoSpeakerVerificationEngine.verify({
+      profile: latest.settings.voice.enrollment.profile,
+      metrics,
+      environment: session.currentEnvironment,
+      devicePosition: session.currentDevicePosition,
+      ambientMode: latest.ambient.currentMode,
+      sensitivity: latest.settings.voice.verification.sensitivity,
+    });
+    commitVoiceSettingsField(
+      result.verified
+        ? "Speaker verification passed"
+        : "Speaker verification rejected",
+      latest,
+      {
+        ...latest.settings.voice,
+        voiceFeaturesEnabled: true,
+        privacyAcknowledged: true,
+        verification: applySpeakerVerificationResult(
+          latest.settings.voice.verification,
+          result,
+        ),
+      },
+      [result.reasons[0] ?? "Speaker verification completed."],
+      set,
+    );
+  },
+
+  resetSpeakerVerificationData() {
+    const before = get().field;
+    commitVoiceSettingsField(
+      "Speaker verification reset",
+      before,
+      {
+        ...before.settings.voice,
+        verification: resetSpeakerVerificationSettings(
+          before.settings.voice.verification,
+        ),
+      },
+      ["Speaker verification data reset."],
       set,
     );
   },
