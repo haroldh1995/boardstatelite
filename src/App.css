@@ -1607,6 +1607,163 @@ textarea {
   border-color: rgba(191, 201, 211, 0.22);
 }
 
+.voice-enrollment-card {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(143, 211, 255, 0.22);
+  border-radius: 12px;
+  background:
+    radial-gradient(
+      circle at 8% 0%,
+      rgba(119, 255, 176, 0.08),
+      transparent 48%
+    ),
+    rgba(4, 10, 16, 0.3);
+}
+
+.voice-enrollment-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px;
+  gap: 8px;
+  align-items: center;
+}
+
+.voice-enrollment-header strong,
+.voice-enrollment-header span,
+.voice-profile-metadata span,
+.enrollment-step-kicker {
+  display: block;
+}
+
+.voice-enrollment-header strong {
+  color: #f5fbff;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+}
+
+.voice-enrollment-header span,
+.voice-profile-metadata,
+.voice-settings-copy {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  line-height: 1.32;
+}
+
+.voice-enrollment-status {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(143, 211, 255, 0.24);
+  border-radius: 50%;
+  color: #d9f2ff;
+  background: rgba(143, 211, 255, 0.08);
+}
+
+.voice-enrollment-status svg {
+  width: 18px;
+  height: 18px;
+}
+
+.voice-enrollment-status.status-complete {
+  border-color: rgba(119, 255, 176, 0.44);
+  color: #dfffee;
+  background: rgba(119, 255, 176, 0.08);
+}
+
+.voice-enrollment-progress {
+  height: 7px;
+  overflow: hidden;
+  border: 1px solid rgba(143, 211, 255, 0.18);
+  border-radius: var(--radius-pill);
+  background: rgba(1, 6, 10, 0.42);
+}
+
+.voice-enrollment-progress span {
+  display: block;
+  height: 100%;
+  min-width: 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #77ffb0, #8fd3ff);
+  transition: width 160ms ease;
+}
+
+.voice-profile-metadata {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.voice-profile-metadata span {
+  padding: 4px 7px;
+  border: 1px solid rgba(191, 201, 211, 0.16);
+  border-radius: var(--radius-pill);
+  background: rgba(5, 12, 18, 0.34);
+}
+
+.enrollment-step {
+  display: grid;
+  gap: 8px;
+  padding: 9px;
+  border: 1px solid rgba(119, 255, 176, 0.2);
+  border-radius: 12px;
+  background: rgba(8, 20, 18, 0.26);
+}
+
+.enrollment-step-kicker {
+  color: #bce9cf;
+  font-size: 0.66rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.enrollment-phrase {
+  margin: 0;
+  color: #ffffff;
+  font-size: 0.92rem;
+  font-weight: 850;
+  line-height: 1.25;
+}
+
+.enrollment-step button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 7px 10px;
+  font-size: 0.7rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.enrollment-step button svg {
+  width: 15px;
+  height: 15px;
+}
+
+.voice-enrollment-error {
+  margin: 0;
+  padding: 7px 9px;
+  border: 1px solid rgba(255, 216, 117, 0.28);
+  border-radius: 10px;
+  color: #fff1c4;
+  background: rgba(80, 48, 10, 0.22);
+  font-size: 0.72rem;
+  line-height: 1.3;
+}
+
+.voice-context-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+  gap: 8px;
+}
+
+.voice-enrollment-actions {
+  grid-template-columns: repeat(auto-fit, minmax(142px, 1fr));
+}
+
 .privacy-note {
   border: 1px solid rgba(143, 211, 255, 0.18);
   border-radius: 12px;

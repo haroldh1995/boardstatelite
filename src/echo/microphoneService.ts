@@ -7,6 +7,8 @@ import {
   ECHO_LISTENING_STATE_VERSION,
   ECHO_VOICE_SETTINGS_VERSION,
   type EchoAudioSessionInterruption,
+  type EchoAudioSampleMetrics,
+  type EchoAudioSampleRequest,
   type EchoAudioSessionState,
   type EchoListeningDiagnostics,
   type EchoListeningIndicator,
@@ -18,6 +20,10 @@ import {
   type EchoMicrophoneAvailability,
   type EchoVoiceSettings,
 } from "./listeningTypes";
+import {
+  createDefaultVoiceEnrollmentSettings,
+  normalizeVoiceEnrollmentSettings,
+} from "./voiceEnrollment";
 
 const DEFAULT_AUDIO_BUFFER_MS = 0;
 
@@ -47,6 +53,7 @@ const VALID_LISTENING_TRANSITIONS: Record<
   permissionDenied: ["requestingPermission", "stopped", "failed"],
   initializing: ["ready", "listening", "interrupted", "stopping", "failed"],
   ready: [
+    "initializing",
     "listening",
     "temporarilyPaused",
     "interrupted",
@@ -83,6 +90,9 @@ export interface MicrophonePlatformAdapter {
   queryPermission(): Promise<EchoListeningPermissionStatus>;
   requestPermission(): Promise<EchoListeningPermissionStatus>;
   createAudioSession(): Promise<EchoAudioSession>;
+  captureAudioSample?(
+    request: EchoAudioSampleRequest,
+  ): Promise<EchoAudioSampleMetrics>;
   openPermissionSettings?(): Promise<boolean>;
   subscribeToPermissionChanges?(
     callback: (permission: EchoListeningPermissionStatus) => void,
@@ -105,6 +115,7 @@ export function createDefaultEchoVoiceSettings(): EchoVoiceSettings {
     permissionPrimed: false,
     privacyAcknowledged: false,
     lastResetAt: null,
+    enrollment: createDefaultVoiceEnrollmentSettings(),
   };
 }
 
@@ -129,6 +140,7 @@ export function normalizeEchoVoiceSettings(value: unknown): EchoVoiceSettings {
     privacyAcknowledged: Boolean(candidate.privacyAcknowledged),
     lastResetAt:
       typeof candidate.lastResetAt === "string" ? candidate.lastResetAt : null,
+    enrollment: normalizeVoiceEnrollmentSettings(candidate.enrollment),
   };
 }
 
@@ -412,6 +424,9 @@ export function createWebMicrophonePlatformAdapter(
           for (const entry of stream.getTracks()) entry.stop();
         },
       };
+    },
+    async captureAudioSample(request) {
+      return captureWebAudioSample(browserNavigator, request);
     },
     async openPermissionSettings() {
       return false;
@@ -698,6 +713,92 @@ export class EchoMicrophoneService {
     return this.getState();
   }
 
+  async captureAudioSample(
+    request: EchoAudioSampleRequest,
+    ambientMode: AmbientGameplayMode = this.state.ambientMode,
+  ): Promise<EchoAudioSampleMetrics> {
+    if (!this.settings.voiceFeaturesEnabled) {
+      this.transition("failed", {
+        reason: "failure",
+        error: "Voice features are disabled.",
+        ambientMode,
+      });
+      throw new Error("Voice features are disabled.");
+    }
+    if (!this.adapter.captureAudioSample) {
+      this.transition("failed", {
+        reason: "failure",
+        error: "Audio sampling is unavailable on this platform.",
+        ambientMode,
+      });
+      throw new Error("Audio sampling is unavailable on this platform.");
+    }
+    if (this.state.status === "idle" || this.state.status === "stopped") {
+      this.transition("preparing", {
+        reason: "initialization",
+        ambientMode,
+      });
+    }
+    await this.refreshAvailability(ambientMode);
+    if (this.state.availability !== "available") {
+      this.transition("failed", {
+        reason: "failure",
+        error: "Microphone is unavailable.",
+        ambientMode,
+      });
+      throw new Error("Microphone is unavailable.");
+    }
+    if (this.state.permission !== "granted") {
+      const permissionResult = await this.requestPermission(ambientMode);
+      if (permissionResult.permission !== "granted") {
+        throw new Error("Microphone permission was not granted.");
+      }
+    }
+    this.transition("initializing", {
+      reason: "audio-initialization",
+      ambientMode,
+    });
+    const sampleSession = createSampleSessionState();
+    this.transition("listening", {
+      reason: "listening-started",
+      activeSession: sampleSession,
+      permission: "granted",
+      availability: "available",
+      ambientMode,
+    });
+    try {
+      return await this.adapter.captureAudioSample(request);
+    } catch (error) {
+      this.transition("failed", {
+        reason: "failure",
+        error:
+          error instanceof Error ? error.message : "Audio sampling failed.",
+        ambientMode,
+      });
+      throw error;
+    } finally {
+      const stoppedAt = new Date().toISOString();
+      const interruption =
+        request.purpose === "microphone-test" ? "test-complete" : "manual-stop";
+      if (this.state.status !== "failed") {
+        this.transition("stopping", {
+          reason: "session-stopped",
+          interruption,
+          activeSession: {
+            ...sampleSession,
+            stoppedAt,
+            sessionId: null,
+          },
+        });
+      }
+      this.transition("stopped", {
+        reason: "session-stopped",
+        interruption,
+        activeSession: createInactiveAudioSession({ stoppedAt }),
+      });
+    }
+  }
+
   async stop(
     reason: EchoListeningTransitionReason = "manual-stop",
     interruption: EchoAudioSessionInterruption = "manual-stop",
@@ -930,6 +1031,21 @@ function createInactiveAudioSession(
   };
 }
 
+function createSampleSessionState(): EchoAudioSessionState {
+  const timestamp = new Date().toISOString();
+  return {
+    sessionId: makeId("audio-sample"),
+    startedAt: timestamp,
+    stoppedAt: null,
+    sampleRate: null,
+    channelCount: null,
+    bufferMilliseconds: DEFAULT_AUDIO_BUFFER_MS,
+    activeDeviceId: null,
+    activeDeviceLabel: null,
+    rawAudioRetained: false,
+  };
+}
+
 function audioSessionToState(session: EchoAudioSession): EchoAudioSessionState {
   return {
     sessionId: session.id,
@@ -953,6 +1069,134 @@ function createPrivacyState() {
     localProcessingPreferred: true as const,
     activeIndicatorRequired: true as const,
   };
+}
+
+async function captureWebAudioSample(
+  browserNavigator: Navigator | undefined,
+  request: EchoAudioSampleRequest,
+): Promise<EchoAudioSampleMetrics> {
+  if (!browserNavigator?.mediaDevices?.getUserMedia) {
+    throw new Error("Microphone API is unavailable on this platform.");
+  }
+  const durationMs = clampSampleDuration(request.durationMs);
+  const stream = await browserNavigator.mediaDevices.getUserMedia({
+    audio: {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
+    },
+  });
+  const track = stream.getAudioTracks()[0] ?? stream.getTracks()[0] ?? null;
+  const settings = track?.getSettings?.() ?? {};
+  const audioWindow = globalThis as typeof globalThis & {
+    AudioContext?: typeof AudioContext;
+    webkitAudioContext?: typeof AudioContext;
+  };
+  const AudioContextCtor =
+    audioWindow.AudioContext ?? audioWindow.webkitAudioContext;
+  if (!AudioContextCtor) {
+    for (const entry of stream.getTracks()) entry.stop();
+    throw new Error("Web Audio API is unavailable on this platform.");
+  }
+  const audioContext = new AudioContextCtor();
+  const analyser = audioContext.createAnalyser();
+  analyser.fftSize = 2048;
+  analyser.smoothingTimeConstant = 0.25;
+  const source = audioContext.createMediaStreamSource(stream);
+  source.connect(analyser);
+  const timeData = new Float32Array(analyser.fftSize);
+  const frequencyData = new Uint8Array(analyser.frequencyBinCount);
+  const rmsValues: number[] = [];
+  const peakValues: number[] = [];
+  let zeroCrossings = 0;
+  let frameCount = 0;
+  let weightedFrequency = 0;
+  let frequencyMagnitude = 0;
+  const startedAt = globalThis.performance?.now?.() ?? Date.now();
+
+  try {
+    while (
+      (globalThis.performance?.now?.() ?? Date.now()) - startedAt <
+      durationMs
+    ) {
+      analyser.getFloatTimeDomainData(timeData);
+      analyser.getByteFrequencyData(frequencyData);
+      let squareSum = 0;
+      let peak = 0;
+      let previous = timeData[0] ?? 0;
+      for (const value of timeData) {
+        squareSum += value * value;
+        peak = Math.max(peak, Math.abs(value));
+        if ((previous < 0 && value >= 0) || (previous >= 0 && value < 0)) {
+          zeroCrossings += 1;
+        }
+        previous = value;
+      }
+      const rms = Math.sqrt(squareSum / Math.max(timeData.length, 1));
+      rmsValues.push(amplitudeToDb(rms));
+      peakValues.push(amplitudeToDb(peak));
+      for (let index = 0; index < frequencyData.length; index += 1) {
+        const magnitude = frequencyData[index];
+        const frequency =
+          (index * audioContext.sampleRate) / Math.max(analyser.fftSize, 1);
+        weightedFrequency += frequency * magnitude;
+        frequencyMagnitude += magnitude;
+      }
+      frameCount += 1;
+      await new Promise((resolve) => globalThis.setTimeout(resolve, 80));
+    }
+  } finally {
+    source.disconnect();
+    for (const entry of stream.getTracks()) entry.stop();
+    await audioContext.close().catch(() => undefined);
+  }
+
+  const sortedRms = [...rmsValues].sort((a, b) => a - b);
+  const rmsDb = average(rmsValues);
+  const peakDb = Math.max(...peakValues, -120);
+  const noiseFloorDb = sortedRms[Math.floor(sortedRms.length * 0.18)] ?? -120;
+  const clippingRatio =
+    peakValues.filter((value) => value >= -1).length /
+    Math.max(peakValues.length, 1);
+
+  return {
+    capturedAt: new Date().toISOString(),
+    durationMs,
+    sampleRate:
+      typeof settings.sampleRate === "number"
+        ? settings.sampleRate
+        : audioContext.sampleRate,
+    channelCount:
+      typeof settings.channelCount === "number" ? settings.channelCount : null,
+    activeDeviceId:
+      typeof settings.deviceId === "string" ? settings.deviceId : null,
+    activeDeviceLabel: track?.label || null,
+    rmsDb,
+    peakDb,
+    noiseFloorDb,
+    dynamicRangeDb: peakDb - noiseFloorDb,
+    clippingRatio,
+    zeroCrossingRate: zeroCrossings / Math.max(frameCount * timeData.length, 1),
+    spectralCentroidHz:
+      frequencyMagnitude > 0 ? weightedFrequency / frequencyMagnitude : 0,
+    corrupted: rmsValues.length === 0 || !Number.isFinite(rmsDb),
+    rawAudioRetained: false,
+  };
+}
+
+function clampSampleDuration(value: number): number {
+  if (!Number.isFinite(value)) return 1_400;
+  return Math.min(5_000, Math.max(700, Math.trunc(value)));
+}
+
+function amplitudeToDb(value: number): number {
+  if (!Number.isFinite(value) || value <= 0) return -120;
+  return Math.max(-120, 20 * Math.log10(value));
+}
+
+function average(values: number[]): number {
+  if (values.length === 0) return -120;
+  return values.reduce((sum, value) => sum + value, 0) / values.length;
 }
 
 function createTransition(input: {

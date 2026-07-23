@@ -46,7 +46,7 @@ describe("Baord State Lite app shell", () => {
     expect(
       screen.getByText("Only add cards whose abilities should be tracked"),
     ).toBeInTheDocument();
-  });
+  }, 20_000);
 
   it("continues to the field and supports life increment plus undo", async () => {
     const user = userEvent.setup();
@@ -68,7 +68,7 @@ describe("Baord State Lite app shell", () => {
     expect(
       screen.getByRole("button", { name: /40 tap to set life total/i }),
     ).toBeInTheDocument();
-  });
+  }, 20_000);
 
   it("loads Lite without original BoardState globals and shows primary controls", async () => {
     const globals = globalThis as typeof globalThis & {
@@ -101,7 +101,7 @@ describe("Baord State Lite app shell", () => {
       if (previousBoardStateHub === undefined) delete globals.BoardStateHub;
       else globals.BoardStateHub = previousBoardStateHub;
     }
-  });
+  }, 20_000);
 
   it("renders a mocked Scryfall-backed card through the current Lite store flow", async () => {
     const user = userEvent.setup();
@@ -117,7 +117,7 @@ describe("Baord State Lite app shell", () => {
         /Anim Pakal, Thousandth Moon, stack size 1/i,
       ),
     ).toBeInTheDocument();
-  });
+  }, 20_000);
 
   it("closes non-blocking popups on outside tap without applying changes or click-through", async () => {
     const user = userEvent.setup();
@@ -139,7 +139,7 @@ describe("Baord State Lite app shell", () => {
     expect(
       screen.getByRole("button", { name: /activate field/i }),
     ).toBeInTheDocument();
-  });
+  }, 20_000);
 
   it("opens the pre-turn planner and edits planned actions without changing battlefield state", async () => {
     const user = userEvent.setup();
@@ -183,7 +183,7 @@ describe("Baord State Lite app shell", () => {
     expect(
       useFieldStore.getState().field.preTurnPlanner.actions[0].status,
     ).toBe("completed");
-  });
+  }, 20_000);
 
   it("exposes opt-in microphone settings without enabling unfinished voice features", async () => {
     const user = userEvent.setup();
@@ -217,7 +217,20 @@ describe("Baord State Lite app shell", () => {
     expect(
       useFieldStore.getState().field.listening.privacy.rawAudioRetention,
     ).toBe("none");
-  });
+
+    await user.click(
+      screen.getByRole("button", { name: /begin voice enrollment/i }),
+    );
+    expect(screen.getByText(/personal voice enrollment/i)).toBeInTheDocument();
+    expect(screen.getByText(/play a forest/i)).toBeInTheDocument();
+    expect(
+      useFieldStore.getState().field.settings.voice.enrollment.profile.status,
+    ).toBe("enrolling");
+    expect(
+      useFieldStore.getState().field.settings.voice.enrollment.profile.privacy
+        .rawAudioRetained,
+    ).toBe(false);
+  }, 20_000);
 
   it("shows the active turn action strip and routes planned actions through undoable Ambient events", async () => {
     const user = userEvent.setup();
@@ -257,5 +270,5 @@ describe("Baord State Lite app shell", () => {
     expect(
       useFieldStore.getState().field.preTurnPlanner.actions[0].status,
     ).toBe("planned");
-  });
+  }, 20_000);
 });

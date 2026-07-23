@@ -146,9 +146,17 @@ test("voice settings remain opt-in and do not expose unfinished controls", async
   await expect(
     page.getByRole("button", { name: /Microphone Test/i }),
   ).toBeDisabled();
+  await expect(
+    page.getByRole("button", { name: /Begin Voice Enrollment/i }),
+  ).toBeVisible();
 
   await page.getByLabel(/Enable Voice Features/i).check();
   await expect(page.getByLabel(/Enable Ambient Listening/i)).toBeEnabled();
+  await page.getByRole("button", { name: /Begin Voice Enrollment/i }).click();
+  await expect(page.getByText(/Play a Forest/i)).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Record Current Sample/i }),
+  ).toBeVisible();
 });
 
 async function continuePastStartup(page: import("@playwright/test").Page) {

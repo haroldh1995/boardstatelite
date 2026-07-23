@@ -67,6 +67,19 @@ describe("final ecosystem readiness guardrails", () => {
       crossAppLaunching: false,
       rulesAuthority: false,
     });
+    expect(field.settings.voice).toMatchObject({
+      voiceFeaturesEnabled: false,
+      ambientListeningEnabled: false,
+    });
+    expect(field.settings.voice.enrollment.profile).toMatchObject({
+      status: "notStarted",
+      samples: [],
+      privacy: {
+        rawAudioRetained: false,
+        cloudUploadEnabled: false,
+      },
+    });
+    expect(field.settings.voice.enrollment.phrases).toHaveLength(5);
   });
 
   it("preserves IDs and user battlefield data through normalize, export, import, undo-shaped snapshots, and snapshots", () => {
@@ -200,6 +213,30 @@ describe("final ecosystem readiness guardrails", () => {
         status: "connected",
         hubAvailability: "available",
       },
+      settings: {
+        ...field.settings,
+        voice: {
+          ...field.settings.voice,
+          voiceFeaturesEnabled: true,
+          enrollment: {
+            profile: {
+              status: "complete",
+              samples: [
+                {
+                  phraseId: "legacy",
+                  phrase: "Legacy",
+                  rawAudio: "unsafe",
+                  rawAudioRetained: true,
+                },
+              ],
+              privacy: {
+                rawAudioRetained: true,
+                cloudUploadEnabled: true,
+              },
+            },
+          },
+        },
+      },
     };
 
     const normalized = normalizeField(
@@ -214,5 +251,10 @@ describe("final ecosystem readiness guardrails", () => {
     expect(normalized.multiplayer.status).toBe("localOnly");
     expect(normalized.hub.status).toBe("standalone");
     expect(normalized.hub.hubAvailability).toBe("unavailable");
+    expect(normalized.settings.voice.enrollment.profile.privacy).toMatchObject({
+      rawAudioRetained: false,
+      cloudUploadEnabled: false,
+    });
+    expect(normalized.settings.voice.enrollment.profile.samples).toEqual([]);
   });
 });

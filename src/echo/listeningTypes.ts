@@ -1,4 +1,5 @@
 import type { AmbientGameplayMode } from "./ambientTypes";
+import type { EchoVoiceEnrollmentSettings } from "./voiceEnrollmentTypes";
 
 export const ECHO_LISTENING_STATE_VERSION = 1;
 export const ECHO_VOICE_SETTINGS_VERSION = 1;
@@ -84,6 +85,7 @@ export interface EchoVoiceSettings {
   permissionPrimed: boolean;
   privacyAcknowledged: boolean;
   lastResetAt: string | null;
+  enrollment: EchoVoiceEnrollmentSettings;
 }
 
 export interface EchoAudioSessionState {
@@ -95,6 +97,34 @@ export interface EchoAudioSessionState {
   bufferMilliseconds: number;
   activeDeviceId: string | null;
   activeDeviceLabel: string | null;
+  rawAudioRetained: false;
+}
+
+export type EchoAudioSamplePurpose =
+  | "microphone-test"
+  | "voice-enrollment"
+  | "environment-calibration";
+
+export interface EchoAudioSampleRequest {
+  purpose: EchoAudioSamplePurpose;
+  durationMs: number;
+}
+
+export interface EchoAudioSampleMetrics {
+  capturedAt: string;
+  durationMs: number;
+  sampleRate: number | null;
+  channelCount: number | null;
+  activeDeviceId: string | null;
+  activeDeviceLabel: string | null;
+  rmsDb: number;
+  peakDb: number;
+  noiseFloorDb: number;
+  dynamicRangeDb: number;
+  clippingRatio: number;
+  zeroCrossingRate: number;
+  spectralCentroidHz: number;
+  corrupted: boolean;
   rawAudioRetained: false;
 }
 

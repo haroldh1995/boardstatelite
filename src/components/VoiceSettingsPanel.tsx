@@ -1,17 +1,50 @@
 import {
+  CheckCircle2,
   Info,
   Mic,
   MicOff,
   RotateCcw,
   ShieldCheck,
   Square,
+  Trash2,
+  Volume1,
+  Waves,
 } from "lucide-react";
-import { useFieldStore } from "../state/useFieldStore";
+import { getCurrentEnrollmentPhrase } from "../echo/voiceEnrollment";
+import type {
+  EchoCalibrationEnvironment,
+  EchoEnrollmentStatus,
+  EchoEnrollmentVolume,
+  EchoMicrophonePosition,
+} from "../echo/voiceEnrollmentTypes";
 import type {
   EchoListeningIndicator,
   EchoListeningPermissionStatus,
   EchoListeningStatus,
 } from "../echo/listeningTypes";
+import { useFieldStore } from "../state/useFieldStore";
+
+const ENVIRONMENT_OPTIONS: Array<{
+  value: EchoCalibrationEnvironment;
+  label: string;
+}> = [
+  { value: "home", label: "Home" },
+  { value: "localGameStore", label: "Local Game Store" },
+  { value: "tournament", label: "Tournament" },
+  { value: "quietRoom", label: "Quiet Room" },
+  { value: "custom", label: "Custom" },
+];
+
+const DEVICE_POSITION_OPTIONS: Array<{
+  value: EchoMicrophonePosition;
+  label: string;
+}> = [
+  { value: "phoneInHand", label: "Phone in hand" },
+  { value: "phoneOnTable", label: "Phone on table" },
+  { value: "besidePlaymat", label: "Beside playmat" },
+  { value: "chargingStand", label: "Charging stand" },
+  { value: "custom", label: "Custom" },
+];
 
 export function VoiceSettingsPanel() {
   const voice = useFieldStore((state) => state.field.settings.voice);
@@ -23,13 +56,40 @@ export function VoiceSettingsPanel() {
   const startMicrophoneTest = useFieldStore(
     (state) => state.startMicrophoneTest,
   );
+  const beginVoiceEnrollment = useFieldStore(
+    (state) => state.beginVoiceEnrollment,
+  );
+  const setVoiceEnrollmentContext = useFieldStore(
+    (state) => state.setVoiceEnrollmentContext,
+  );
+  const recordVoiceEnrollmentSample = useFieldStore(
+    (state) => state.recordVoiceEnrollmentSample,
+  );
+  const deleteVoiceProfile = useFieldStore((state) => state.deleteVoiceProfile);
+  const recordEnvironmentCalibration = useFieldStore(
+    (state) => state.recordEnvironmentCalibration,
+  );
   const stopListening = useFieldStore((state) => state.stopListening);
   const resetVoiceConfiguration = useFieldStore(
     (state) => state.resetVoiceConfiguration,
   );
+  const enrollment = voice.enrollment;
+  const profile = enrollment.profile;
+  const session = enrollment.session;
+  const currentPhrase = getCurrentEnrollmentPhrase(enrollment);
   const active = isActiveListeningStatus(listening.status);
+  const enrollmentActive =
+    session.status === "active" ||
+    session.status === "recording" ||
+    session.status === "sampleAccepted" ||
+    session.status === "sampleRejected";
   const canUseMicrophone =
     voice.voiceFeaturesEnabled && listening.availability !== "unsupported";
+  const acceptedCount = profile.samples.filter(
+    (sample) => sample.status === "accepted",
+  ).length;
+  const progressMax = Math.max(enrollment.phrases.length, 1);
+  const progressText = `${Math.min(acceptedCount, progressMax)}/${progressMax}`;
 
   return (
     <section className="voice-settings-panel">
@@ -43,7 +103,7 @@ export function VoiceSettingsPanel() {
         <div>
           <strong>{statusLabel(listening.indicator)}</strong>
           <span>
-            Permission: {permissionLabel(listening.permission)} • Session:{" "}
+            Permission: {permissionLabel(listening.permission)} - Session:{" "}
             {listeningStatusLabel(listening.status)}
           </span>
         </div>
@@ -117,16 +177,184 @@ export function VoiceSettingsPanel() {
           <span>Reset Voice Configuration</span>
         </button>
       </div>
+
+      <div className="voice-enrollment-card" aria-live="polite">
+        <div className="voice-enrollment-header">
+          <div>
+            <strong>Personal Voice Enrollment</strong>
+            <span>
+              {enrollmentStatusLabel(profile.status)} - Progress {progressText}
+            </span>
+          </div>
+          <span
+            className={`voice-enrollment-status status-${profile.status}`}
+            aria-label={`Enrollment status: ${enrollmentStatusLabel(
+              profile.status,
+            )}`}
+          >
+            {profile.status === "complete" ? <CheckCircle2 /> : <Volume1 />}
+          </span>
+        </div>
+
+        <div
+          className="voice-enrollment-progress"
+          aria-label={`Enrollment progress ${progressText}`}
+        >
+          <span style={{ width: `${(acceptedCount / progressMax) * 100}%` }} />
+        </div>
+
+        <div className="voice-profile-metadata">
+          <span>Samples: {profile.acousticModel.sampleCount}</span>
+          <span>
+            Volumes: {volumeCoverageLabel(profile.acousticModel.volumeCoverage)}
+          </span>
+          <span>
+            Raw audio:{" "}
+            {profile.privacy.rawAudioRetained ? "retained" : "discarded"}
+          </span>
+        </div>
+
+        {currentPhrase ? (
+          <div className="enrollment-step">
+            <span className="enrollment-step-kicker">
+              {volumeLabel(currentPhrase.volume)} voice
+            </span>
+            <p className="enrollment-phrase">"{currentPhrase.text}"</p>
+            <button
+              type="button"
+              disabled={!canUseMicrophone || active}
+              onClick={() => void recordVoiceEnrollmentSample()}
+            >
+              <Mic />
+              <span>Record Current Sample</span>
+            </button>
+          </div>
+        ) : (
+          <p className="voice-settings-copy">
+            Enrollment stores compact acoustic features for future speaker
+            verification. It does not transcribe speech or retain raw audio.
+          </p>
+        )}
+
+        {session.lastError ? (
+          <p className="voice-enrollment-error" role="status">
+            {session.lastError}
+          </p>
+        ) : null}
+
+        <div className="voice-context-grid">
+          <label>
+            Environment
+            <select
+              value={session.currentEnvironment}
+              onChange={(event) =>
+                setVoiceEnrollmentContext({
+                  environment: event.target.value as EchoCalibrationEnvironment,
+                })
+              }
+            >
+              {ENVIRONMENT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Microphone position
+            <select
+              value={session.currentDevicePosition}
+              onChange={(event) =>
+                setVoiceEnrollmentContext({
+                  devicePosition: event.target.value as EchoMicrophonePosition,
+                })
+              }
+            >
+              {DEVICE_POSITION_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <label className="inline-check">
+          <input
+            type="checkbox"
+            checked={session.alternativePacing}
+            onChange={(event) =>
+              setVoiceEnrollmentContext({
+                alternativePacing: event.target.checked,
+              })
+            }
+          />
+          Alternative enrollment pacing
+        </label>
+
+        <div className="voice-settings-actions voice-enrollment-actions">
+          <button
+            type="button"
+            onClick={() => beginVoiceEnrollment("new")}
+            disabled={enrollmentActive || profile.status !== "notStarted"}
+          >
+            <Volume1 />
+            <span>Begin Voice Enrollment</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => beginVoiceEnrollment("replace")}
+            disabled={enrollmentActive || profile.status === "notStarted"}
+          >
+            <RotateCcw />
+            <span>Replace Voice Profile</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => beginVoiceEnrollment("recalibration")}
+            disabled={enrollmentActive || profile.status === "notStarted"}
+          >
+            <Waves />
+            <span>Recalibrate Voice Profile</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => beginVoiceEnrollment("additional")}
+            disabled={enrollmentActive || profile.status === "notStarted"}
+          >
+            <Mic />
+            <span>Add Additional Samples</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => void recordEnvironmentCalibration()}
+            disabled={!canUseMicrophone || active}
+          >
+            <Waves />
+            <span>Environmental Calibration</span>
+          </button>
+          <button
+            type="button"
+            className="danger-action"
+            onClick={() => deleteVoiceProfile()}
+            disabled={profile.status === "notStarted"}
+          >
+            <Trash2 />
+            <span>Delete Voice Profile</span>
+          </button>
+        </div>
+      </div>
+
       <details className="privacy-note">
         <summary>
           <Info />
           <span>Privacy Information</span>
         </summary>
         <p>
-          Voice features are opt-in. The microphone is inactive unless enabled
-          and started by an explicit action. Raw audio is not retained, cloud
-          transcription is not enabled, and stopping voice features shuts down
-          any active audio session immediately.
+          Voice features are opt-in. Enrollment records short samples only when
+          you press a recording button, stores acoustic features for future
+          speaker verification, discards raw audio, and never uploads audio for
+          cloud transcription.
         </p>
       </details>
     </section>
@@ -193,4 +421,26 @@ function listeningStatusLabel(status: EchoListeningStatus): string {
   return status
     .replace(/([A-Z])/g, " $1")
     .replace(/^./, (letter) => letter.toUpperCase());
+}
+
+function enrollmentStatusLabel(status: EchoEnrollmentStatus): string {
+  switch (status) {
+    case "enrolling":
+      return "Enrolling";
+    case "complete":
+      return "Complete";
+    case "needsRecalibration":
+      return "Needs Recalibration";
+    default:
+      return "Not Started";
+  }
+}
+
+function volumeLabel(volume: EchoEnrollmentVolume): string {
+  if (volume === "acrossTable") return "Across-the-table";
+  return volume.replace(/^./, (letter) => letter.toUpperCase());
+}
+
+function volumeCoverageLabel(volumes: EchoEnrollmentVolume[]): string {
+  return volumes.length === 0 ? "None" : volumes.map(volumeLabel).join(", ");
 }

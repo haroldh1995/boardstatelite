@@ -38,6 +38,7 @@ The `src/echo` module provides an internal, local-only foundation for future Ech
 - A deterministic Ambient Gameplay state machine with Passive, Pre-Turn Preparation, Active Turn, Combat, Resolution, Recovery, and Post-Turn modes.
 - A canonical Ambient Event Pipeline that future Echo features must use for battlefield mutations.
 - A microphone and listening lifecycle service for future opt-in voice features, with no speech recognition or command parsing.
+- A personal voice enrollment and acoustic calibration layer for future speaker verification, storing only local acoustic features and no raw audio.
 
 This module deliberately does not:
 
@@ -60,6 +61,14 @@ Voice features remain disabled by default. Enabling voice in Settings is an expl
 Listening state is persisted as safe metadata in `FieldState.listening`; active audio sessions are normalized to stopped on imported or unsafe restores. The canonical Lite snapshot includes listening metadata so future BoardState and Echo systems can reason about whether listening was available without reading transient audio resources.
 
 Ambient Gameplay remains the mode authority. The microphone service observes ambient mode and application lifecycle events, but it does not create turn or phase state and does not mutate battlefield state.
+
+## ECHO-08 Voice Enrollment And Acoustic Calibration
+
+`src/echo/voiceEnrollment.ts` owns local speaker-profile enrollment for future verification. It builds one unified speaker profile from quiet, normal, and loud Magic-themed samples, validates recording quality, records calibration metadata for play environments and microphone positions, and normalizes legacy data safely.
+
+The enrollment layer stores acoustic feature vectors, quality scores, sample metadata, and calibration summaries only. It does not retain raw audio, recognize speech, parse commands, identify cards, or execute gameplay actions. Profile management is exposed in the existing Voice & Microphone settings area and remains opt-in.
+
+Future speaker verification code must reuse the microphone service and enrollment profile instead of opening a separate audio stream or creating a second profile store.
 
 ## ECHO-02 Ambient Gameplay Engine
 

@@ -84,6 +84,21 @@ export {
   transitionEchoListeningState,
 } from "./microphoneService";
 export {
+  DEFAULT_VOICE_ENROLLMENT_PHRASES,
+  addEnvironmentCalibration,
+  createDefaultEnrollmentSession,
+  createDefaultSpeakerProfile,
+  createDefaultVoiceEnrollmentSettings,
+  deleteVoiceProfile,
+  evaluateRecordingQuality,
+  getCurrentEnrollmentPhrase,
+  isSpeakerProfileComplete,
+  normalizeVoiceEnrollmentSettings,
+  recordVoiceEnrollmentSample,
+  startVoiceEnrollment,
+  updateEnrollmentContext,
+} from "./voiceEnrollment";
+export {
   AMBIENT_GAMEPLAY_MODES,
   AMBIENT_GAMEPLAY_STATE_VERSION,
 } from "./ambientTypes";
@@ -100,6 +115,10 @@ export {
   ECHO_LISTENING_STATE_VERSION,
   ECHO_VOICE_SETTINGS_VERSION,
 } from "./listeningTypes";
+export {
+  ECHO_SPEAKER_PROFILE_VERSION,
+  ECHO_VOICE_ENROLLMENT_VERSION,
+} from "./voiceEnrollmentTypes";
 export {
   ECHO_CAPABILITIES,
   ECHO_COMPATIBILITY_VERSION,
@@ -198,6 +217,9 @@ export type {
   EchoPermanentContext,
 } from "./types";
 export type {
+  EchoAudioSampleMetrics,
+  EchoAudioSamplePurpose,
+  EchoAudioSampleRequest,
   EchoAudioSessionInterruption,
   EchoAudioSessionState,
   EchoListeningDiagnostics,
@@ -211,3 +233,21 @@ export type {
   EchoMicrophoneAvailability,
   EchoVoiceSettings,
 } from "./listeningTypes";
+export type {
+  EchoAcousticFeatureVector,
+  EchoCalibrationEnvironment,
+  EchoEnrollmentPhrase,
+  EchoEnrollmentSampleStatus,
+  EchoEnrollmentStatus,
+  EchoEnrollmentVolume,
+  EchoEnvironmentCalibrationInput,
+  EchoEnvironmentCalibrationProfile,
+  EchoMicrophonePosition,
+  EchoRecordingQuality,
+  EchoRecordingQualityIssue,
+  EchoSpeakerProfile,
+  EchoVoiceEnrollmentResult,
+  EchoVoiceEnrollmentSession,
+  EchoVoiceEnrollmentSettings,
+  EchoVoiceSample,
+} from "./voiceEnrollmentTypes";

@@ -13,6 +13,8 @@ import type {
 } from "./microphoneService";
 import type {
   EchoAudioSessionInterruption,
+  EchoAudioSampleMetrics,
+  EchoAudioSampleRequest,
   EchoListeningPermissionStatus,
 } from "./listeningTypes";
 
@@ -22,6 +24,8 @@ class FakeMicrophoneAdapter implements MicrophonePlatformAdapter {
   permission: EchoListeningPermissionStatus = "prompt";
   createdSessions = 0;
   stoppedSessions = 0;
+  capturedSamples = 0;
+  captureFailure: Error | null = null;
   permissionListener:
     | ((permission: EchoListeningPermissionStatus) => void)
     | null = null;
@@ -56,6 +60,30 @@ class FakeMicrophoneAdapter implements MicrophonePlatformAdapter {
       stop: () => {
         this.stoppedSessions += 1;
       },
+    };
+  }
+
+  async captureAudioSample(
+    request: EchoAudioSampleRequest,
+  ): Promise<EchoAudioSampleMetrics> {
+    if (this.captureFailure) throw this.captureFailure;
+    this.capturedSamples += 1;
+    return {
+      capturedAt: "2026-07-22T00:00:00.000Z",
+      durationMs: request.durationMs,
+      sampleRate: 48_000,
+      channelCount: 1,
+      activeDeviceId: "fake-device",
+      activeDeviceLabel: "Fake microphone",
+      rmsDb: -36,
+      peakDb: -8,
+      noiseFloorDb: -64,
+      dynamicRangeDb: 56,
+      clippingRatio: 0.001,
+      zeroCrossingRate: 0.05,
+      spectralCentroidHz: 1_200,
+      corrupted: false,
+      rawAudioRetained: false,
     };
   }
 
@@ -276,5 +304,27 @@ describe("Echo listening lifecycle and microphone privacy architecture", () => {
 
     service.dispose();
     vi.useRealTimers();
+  });
+
+  it("captures short privacy-safe audio samples through the single microphone service", async () => {
+    const adapter = new FakeMicrophoneAdapter();
+    adapter.permission = "granted";
+    const service = new EchoMicrophoneService(adapter, {
+      settings: {
+        ...createDefaultEchoVoiceSettings(),
+        voiceFeaturesEnabled: true,
+      },
+    });
+
+    const metrics = await service.captureAudioSample({
+      purpose: "voice-enrollment",
+      durationMs: 1_500,
+    });
+
+    expect(metrics.rawAudioRetained).toBe(false);
+    expect(metrics.rmsDb).toBe(-36);
+    expect(adapter.capturedSamples).toBe(1);
+    expect(service.getState().status).toBe("stopped");
+    expect(service.getState().activeSession.rawAudioRetained).toBe(false);
   });
 });

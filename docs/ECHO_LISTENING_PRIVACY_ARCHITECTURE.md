@@ -77,3 +77,26 @@ should route interpreted actions through the Canonical Ambient Event Pipeline.
 No future milestone should open a separate microphone stream, keep a competing
 lifecycle state machine, or mutate battlefield state directly from listening
 code.
+
+## Personal Voice Enrollment
+
+The ECHO-08 enrollment layer creates a local speaker profile for future speaker
+verification only. It does not recognize speech, transcribe words, parse Magic
+commands, or infer gameplay actions.
+
+Enrollment is one unified profile made from multiple Magic-themed phrases at
+quiet, normal, and loud table voices. Each accepted sample stores compact
+acoustic metrics, quality metadata, volume coverage, environment, microphone
+position, and a deterministic feature fingerprint. Raw audio is discarded after
+quality analysis and is never serialized into saved fields or exports.
+
+The profile supports replacement, deletion, additional samples, recalibration,
+environment calibration, and device-position calibration. Calibration records
+only aggregate noise and microphone-position metadata so future confidence
+systems can account for a home table, local game store, tournament, quiet room,
+or custom setting without retaining recordings.
+
+Voice enrollment state lives under `field.settings.voice.enrollment` and
+migrates missing or corrupted older data to safe local defaults. Deleting a
+profile removes all samples, calibration records, and acoustic model data while
+leaving microphone settings under the user's control.

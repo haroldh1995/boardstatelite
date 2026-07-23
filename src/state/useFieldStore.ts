@@ -69,6 +69,14 @@ import {
   echoMicrophoneService,
   normalizeEchoVoiceSettings,
 } from "../echo/microphoneService";
+import {
+  addEnvironmentCalibration,
+  deleteVoiceProfile as clearVoiceProfile,
+  getCurrentEnrollmentPhrase,
+  recordVoiceEnrollmentSample as applyVoiceEnrollmentSample,
+  startVoiceEnrollment,
+  updateEnrollmentContext,
+} from "../echo/voiceEnrollment";
 import type {
   AmbientFieldMutation,
   AmbientIntent,
@@ -77,13 +85,21 @@ import type {
 } from "../echo/ambientEventTypes";
 import type { AmbientLifecycleEvent } from "../echo/ambientTypes";
 import type {
+  EchoCalibrationEnvironment,
+  EchoMicrophonePosition,
+  EchoVoiceEnrollmentSession,
+} from "../echo/voiceEnrollmentTypes";
+import type {
   PlannedActionInput,
   PlannedActionUpdate,
   PreTurnPlannerActionStatus,
   PreTurnPlannerActionType,
 } from "../echo/preTurnPlannerTypes";
 import type { ActiveTurnActionStatus } from "../echo/activeTurnActionStripTypes";
-import type { EchoVoiceSettings } from "../echo/listeningTypes";
+import type {
+  EchoAudioSampleMetrics,
+  EchoVoiceSettings,
+} from "../echo/listeningTypes";
 
 const HISTORY_LIMIT = 80;
 
@@ -187,6 +203,15 @@ interface FieldStore {
   setVoiceSettings: (settings: Partial<EchoVoiceSettings>) => Promise<void>;
   requestMicrophonePermission: () => Promise<void>;
   startMicrophoneTest: () => Promise<void>;
+  beginVoiceEnrollment: (mode?: EchoVoiceEnrollmentSession["mode"]) => void;
+  setVoiceEnrollmentContext: (context: {
+    environment?: EchoCalibrationEnvironment;
+    devicePosition?: EchoMicrophonePosition;
+    alternativePacing?: boolean;
+  }) => void;
+  recordVoiceEnrollmentSample: () => Promise<void>;
+  deleteVoiceProfile: () => void;
+  recordEnvironmentCalibration: () => Promise<void>;
   stopListening: () => Promise<void>;
   resetVoiceConfiguration: () => Promise<void>;
   handleListeningLifecycleEvent: (
@@ -827,6 +852,165 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
     persistMicrophoneStateFromService(set);
   },
 
+  beginVoiceEnrollment(mode = "new") {
+    const before = get().field;
+    const timestamp = new Date().toISOString();
+    const enrollment = startVoiceEnrollment(
+      before.settings.voice.enrollment,
+      mode,
+      timestamp,
+    );
+    commitVoiceSettingsField(
+      "Voice enrollment started",
+      before,
+      {
+        ...before.settings.voice,
+        voiceFeaturesEnabled: true,
+        privacyAcknowledged: true,
+        enrollment,
+      },
+      ["Voice enrollment started."],
+      set,
+    );
+  },
+
+  setVoiceEnrollmentContext(context) {
+    const before = get().field;
+    const enrollment = updateEnrollmentContext(
+      before.settings.voice.enrollment,
+      context,
+    );
+    commitVoiceSettingsField(
+      "Voice enrollment context updated",
+      before,
+      {
+        ...before.settings.voice,
+        enrollment,
+      },
+      ["Voice enrollment context updated."],
+      set,
+    );
+  },
+
+  async recordVoiceEnrollmentSample() {
+    ensureMicrophoneStoreSubscription(set);
+    syncMicrophoneServiceFromField(get().field);
+    const before = get().field;
+    const phrase = getCurrentEnrollmentPhrase(before.settings.voice.enrollment);
+    if (!phrase) return;
+    let metrics: EchoAudioSampleMetrics;
+    try {
+      metrics = await echoMicrophoneService.captureAudioSample(
+        {
+          purpose: "voice-enrollment",
+          durationMs: before.settings.voice.enrollment.session.alternativePacing
+            ? 2_400
+            : 1_500,
+        },
+        before.ambient.currentMode,
+      );
+    } catch (error) {
+      metrics = createFailedAudioSampleMetrics(
+        error instanceof Error
+          ? error.message
+          : "The microphone could not record.",
+      );
+    }
+    persistMicrophoneStateFromService(set);
+    const latest = get().field;
+    const result = applyVoiceEnrollmentSample(
+      latest.settings.voice.enrollment,
+      metrics,
+    );
+    commitVoiceSettingsField(
+      result.accepted ? "Voice sample recorded" : "Voice sample rejected",
+      latest,
+      {
+        ...latest.settings.voice,
+        voiceFeaturesEnabled: true,
+        privacyAcknowledged: true,
+        enrollment: result.settings,
+      },
+      [result.message],
+      set,
+    );
+  },
+
+  deleteVoiceProfile() {
+    const before = get().field;
+    commitVoiceSettingsField(
+      "Voice profile deleted",
+      before,
+      {
+        ...before.settings.voice,
+        enrollment: clearVoiceProfile(before.settings.voice.enrollment),
+      },
+      ["Voice profile deleted."],
+      set,
+    );
+  },
+
+  async recordEnvironmentCalibration() {
+    ensureMicrophoneStoreSubscription(set);
+    syncMicrophoneServiceFromField(get().field);
+    const before = get().field;
+    let metrics: EchoAudioSampleMetrics;
+    try {
+      metrics = await echoMicrophoneService.captureAudioSample(
+        {
+          purpose: "environment-calibration",
+          durationMs: 1_400,
+        },
+        before.ambient.currentMode,
+      );
+    } catch (error) {
+      metrics = createFailedAudioSampleMetrics(
+        error instanceof Error
+          ? error.message
+          : "The microphone could not record.",
+      );
+    }
+    persistMicrophoneStateFromService(set);
+    const latest = get().field;
+    if (metrics.corrupted) {
+      commitVoiceSettingsField(
+        "Environment calibration failed",
+        latest,
+        {
+          ...latest.settings.voice,
+          enrollment: updateEnrollmentContext(
+            latest.settings.voice.enrollment,
+            {},
+          ),
+        },
+        ["Environment calibration could not use the recorded sample."],
+        set,
+      );
+      return;
+    }
+    const session = latest.settings.voice.enrollment.session;
+    const enrollment = addEnvironmentCalibration(
+      latest.settings.voice.enrollment,
+      {
+        environment: session.currentEnvironment,
+        devicePosition: session.currentDevicePosition,
+        metrics,
+      },
+    );
+    commitVoiceSettingsField(
+      "Environment calibration recorded",
+      latest,
+      {
+        ...latest.settings.voice,
+        voiceFeaturesEnabled: true,
+        privacyAcknowledged: true,
+        enrollment,
+      },
+      ["Environment calibration recorded."],
+      set,
+    );
+  },
+
   async stopListening() {
     ensureMicrophoneStoreSubscription(set);
     syncMicrophoneServiceFromField(get().field);
@@ -994,6 +1178,43 @@ function persistMicrophoneStateFromService(
   });
   set({ field: next });
   void saveField(next);
+}
+
+function commitVoiceSettingsField(
+  label: string,
+  before: FieldState,
+  voice: EchoVoiceSettings,
+  summary: string[],
+  set: (partial: Partial<FieldStore>) => void,
+): void {
+  const next = normalizeField({
+    ...before,
+    settings: normalizeSettings({
+      ...before.settings,
+      voice: normalizeEchoVoiceSettings(voice),
+    }),
+  });
+  commitField(label, before, next, summary, set);
+}
+
+function createFailedAudioSampleMetrics(error: string): EchoAudioSampleMetrics {
+  return {
+    capturedAt: new Date().toISOString(),
+    durationMs: 0,
+    sampleRate: null,
+    channelCount: null,
+    activeDeviceId: null,
+    activeDeviceLabel: error,
+    rmsDb: -120,
+    peakDb: -120,
+    noiseFloorDb: -120,
+    dynamicRangeDb: 0,
+    clippingRatio: 0,
+    zeroCrossingRate: 0,
+    spectralCentroidHz: 0,
+    corrupted: true,
+    rawAudioRetained: false,
+  };
 }
 
 function commitResult(
