@@ -1,17 +1,18 @@
 # Echo Listening Lifecycle and Privacy Architecture
 
 BoardState Lite owns only the local microphone framework required for future
-Echo listening features. It does not recognize speech, parse Magic commands,
-infer actions, or send audio to any remote service.
+Echo listening features. The microphone layer does not recognize speech, parse
+Magic commands, infer actions, or send audio to any remote service.
 
 ## Boundary
 
 Lite remains a local-first tabletop companion. The listening foundation may
 prepare audio sessions and expose deterministic lifecycle state. Speaker
-verification now compares privacy-safe audio metrics against the enrolled local
-profile, but speech recognition, command interpretation, AI recommendations,
-and authoritative rules decisions remain future layers on top of the existing
-Ambient Gameplay Engine and Canonical Ambient Event Pipeline.
+verification compares privacy-safe audio metrics against the enrolled local
+profile. Magic command grammar now converts already-recognized text into
+structured intents after speaker verification, but speech recognition, AI
+recommendations, combat prediction, and authoritative rules decisions remain
+outside Lite.
 
 The original BoardState application remains responsible for authoritative
 rules, advanced gameplay, simulations, and shared authority. BoardState Hub
@@ -120,3 +121,23 @@ only thresholds, lifecycle metadata, the last verification result, confidence
 metadata, and privacy-safe feature summaries. Raw microphone audio is not
 retained, cloud verification is disabled, and no speech recognition or Magic
 command parsing occurs.
+
+## Magic Command Grammar
+
+The ECHO-10 grammar layer determines what an already-verified, already
+recognized phrase appears to mean. It is deterministic and constrained to Magic
+gameplay vocabulary. It normalizes common table phrases such as "I'll play a
+Forest", "Drop a Forest", "End my turn", and "Go ahead" into structured
+Ambient intents.
+
+The grammar layer does not access the microphone, perform speech recognition,
+search Scryfall, execute actions, predict combat, or mutate battlefield state.
+Future voice flows must pass through speaker verification first, then grammar,
+then the Canonical Ambient Event Pipeline and Confidence Framework. Ambiguous
+or incomplete phrases produce correction/recovery metadata instead of unsafe
+assumptions.
+
+Grammar settings live under `field.settings.voice.grammar`. They default to
+disabled for current production voice workflows, require verified speakers when
+used by voice input, preserve localization-ready metadata, and expose no
+production debugging controls.

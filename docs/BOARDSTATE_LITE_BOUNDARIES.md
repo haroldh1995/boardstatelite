@@ -150,24 +150,30 @@ Lite must not claim Hub, shared-session, profile sync, friends, tournament, noti
 ## Echo Listening Boundary
 
 Lite may own an opt-in microphone lifecycle, personal voice enrollment, acoustic
-calibration, speaker verification, and privacy framework for future Ambient
-Gameplay features. That framework is allowed to check availability, request
-permission, start and stop local audio sessions, show honest microphone status,
-validate enrollment sample quality, store local acoustic features, determine
-whether incoming audio matches the enrolled user, and persist safe
-listening/profile/verification metadata.
+calibration, speaker verification, deterministic Magic command grammar, and
+privacy framework for future Ambient Gameplay features. That framework is
+allowed to check availability, request permission, start and stop local audio
+sessions, show honest microphone status, validate enrollment sample quality,
+store local acoustic features, determine whether incoming audio matches the
+enrolled user, convert already recognized Magic phrases into structured
+Ambient intents, and persist safe listening/profile/verification/grammar
+metadata.
 
-Lite must not treat microphone access as speech recognition, command parsing,
-AI recommendation, combat prediction, rules authority, or automatic gameplay.
+Lite must not treat microphone access as speech recognition, AI
+recommendation, combat prediction, rules authority, or automatic gameplay.
 Speaker verification answers who is speaking only; it must not infer what was
-said or execute an action. Future interpreted actions must still pass through
-the Canonical Ambient Event Pipeline and the current undo/history boundaries.
+said or execute an action. Magic command grammar answers what a verified
+recognized phrase appears to mean; it must not listen, transcribe, search
+Scryfall, mutate the battlefield, or execute gameplay. Future interpreted
+actions must still pass through the Canonical Ambient Event Pipeline and the
+current undo/history boundaries.
 
-Voice features remain disabled by default. Voice enrollment and verification
-must not be presented as speech recognition or command automation. The app must
-never retain raw audio, enable cloud transcription, accept uncertain speakers as
-the user, or present always-listening behavior unless a later implemented
-feature explicitly adds it with matching privacy controls.
+Voice features remain disabled by default. Voice enrollment, verification, and
+grammar settings must not be presented as speech recognition or automatic
+gameplay. The app must never retain raw audio, enable cloud transcription,
+accept uncertain speakers as the user, or present always-listening behavior
+unless a later implemented feature explicitly adds it with matching privacy
+controls.
 
 ## Local-Only Workflow Preservation
 

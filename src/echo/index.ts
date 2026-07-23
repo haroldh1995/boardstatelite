@@ -112,6 +112,15 @@ export {
   verifySpeaker,
 } from "./speakerVerification";
 export {
+  EchoMagicCommandGrammarEngine,
+  createDefaultMagicCommandGrammarSettings,
+  echoMagicCommandGrammarEngine,
+  magicCommandResultToAmbientIntent,
+  normalizeMagicCommandGrammarSettings,
+  parseMagicCommand,
+  recognizeMagicCommand,
+} from "./magicCommandGrammar";
+export {
   AMBIENT_GAMEPLAY_MODES,
   AMBIENT_GAMEPLAY_STATE_VERSION,
 } from "./ambientTypes";
@@ -133,6 +142,7 @@ export {
   ECHO_VOICE_ENROLLMENT_VERSION,
 } from "./voiceEnrollmentTypes";
 export { ECHO_SPEAKER_VERIFICATION_VERSION } from "./speakerVerificationTypes";
+export { ECHO_MAGIC_COMMAND_GRAMMAR_VERSION } from "./magicCommandGrammarTypes";
 export {
   ECHO_CAPABILITIES,
   ECHO_COMPATIBILITY_VERSION,
@@ -283,3 +293,17 @@ export type {
   EchoSpeakerVerificationThresholds,
   EchoSpeakerVerificationTransitionReason,
 } from "./speakerVerificationTypes";
+export type {
+  EchoMagicCommandAction,
+  EchoMagicCommandAmbiguity,
+  EchoMagicCommandGrammarDiagnostics,
+  EchoMagicCommandGrammarInput,
+  EchoMagicCommandGrammarResult,
+  EchoMagicCommandGrammarSettings,
+  EchoMagicCommandLocale,
+  EchoMagicCommandObject,
+  EchoMagicCommandObjectKind,
+  EchoMagicCommandObjectMatch,
+  EchoMagicCommandParseInput,
+  EchoMagicCommandStatus,
+} from "./magicCommandGrammarTypes";

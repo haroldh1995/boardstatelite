@@ -158,6 +158,8 @@ test("voice settings remain opt-in and do not expose unfinished controls", async
   await expect(
     page.getByRole("button", { name: /Verification Test/i }),
   ).toBeDisabled();
+  await expect(page.getByText(/Grammar Diagnostics/i)).toHaveCount(0);
+  await expect(page.getByText(/Grammar Testing/i)).toHaveCount(0);
 
   await page.getByLabel(/Enable Voice Features/i).check();
   await expect(page.getByLabel(/Enable Ambient Listening/i)).toBeEnabled();

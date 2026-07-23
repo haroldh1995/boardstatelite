@@ -60,6 +60,7 @@ export type AmbientIntentKind =
   | "untap"
   | "add-counters"
   | "remove-counters"
+  | "add-mana"
   | "end-turn"
   | "pass-priority"
   | "draw-cards"
@@ -68,6 +69,15 @@ export type AmbientIntentKind =
   | "exile-permanent"
   | "modify-life"
   | "modify-commander-damage"
+  | "counter-spell"
+  | "hold-priority"
+  | "activate-ability"
+  | "equip"
+  | "attach"
+  | "transform-permanent"
+  | "explore"
+  | "surveil"
+  | "mill-cards"
   | "manual-correction"
   | "custom";
 

@@ -239,6 +239,8 @@ describe("Baord State Lite app shell", () => {
     expect(
       screen.getByRole("button", { name: /verification test/i }),
     ).toBeDisabled();
+    expect(screen.queryByText(/grammar diagnostics/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/grammar testing/i)).not.toBeInTheDocument();
     expect(
       useFieldStore.getState().field.settings.voice.verification.privacy
         .rawAudioRetained,

@@ -32,6 +32,7 @@ export function createDormantEchoCapabilities(): EchoCapabilityMap {
     actionPipeline: true,
     voiceServices: true,
     speakerVerification: true,
+    magicCommandGrammar: true,
   };
 }
 

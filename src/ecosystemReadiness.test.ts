@@ -88,6 +88,14 @@ describe("final ecosystem readiness guardrails", () => {
         cloudVerificationEnabled: false,
       },
     });
+    expect(field.settings.voice.grammar).toMatchObject({
+      enabled: false,
+      requireVerifiedSpeaker: true,
+      locale: "en-US",
+      diagnosticsEnabled: false,
+      testingEnabled: false,
+      languageSelectionPrepared: true,
+    });
   });
 
   it("preserves IDs and user battlefield data through normalize, export, import, undo-shaped snapshots, and snapshots", () => {
@@ -260,6 +268,14 @@ describe("final ecosystem readiness guardrails", () => {
               cloudVerificationEnabled: true,
             },
           },
+          grammar: {
+            enabled: true,
+            requireVerifiedSpeaker: false,
+            locale: "unsafe",
+            diagnosticsEnabled: true,
+            testingEnabled: true,
+            languageSelectionPrepared: false,
+          },
         },
       },
     };
@@ -292,5 +308,11 @@ describe("final ecosystem readiness guardrails", () => {
       normalized.settings.voice.verification.lifecycle.lastResult
         ?.rawAudioRetained,
     ).toBe(false);
+    expect(normalized.settings.voice.grammar).toMatchObject({
+      enabled: true,
+      requireVerifiedSpeaker: false,
+      locale: "en-US",
+      languageSelectionPrepared: true,
+    });
   });
 });

@@ -25,6 +25,10 @@ import {
   normalizeVoiceEnrollmentSettings,
 } from "./voiceEnrollment";
 import {
+  createDefaultMagicCommandGrammarSettings,
+  normalizeMagicCommandGrammarSettings,
+} from "./magicCommandGrammar";
+import {
   createDefaultSpeakerVerificationSettings,
   normalizeSpeakerVerificationSettings,
 } from "./speakerVerification";
@@ -121,6 +125,7 @@ export function createDefaultEchoVoiceSettings(): EchoVoiceSettings {
     lastResetAt: null,
     enrollment: createDefaultVoiceEnrollmentSettings(),
     verification: createDefaultSpeakerVerificationSettings(),
+    grammar: createDefaultMagicCommandGrammarSettings(),
   };
 }
 
@@ -147,6 +152,7 @@ export function normalizeEchoVoiceSettings(value: unknown): EchoVoiceSettings {
       typeof candidate.lastResetAt === "string" ? candidate.lastResetAt : null,
     enrollment: normalizeVoiceEnrollmentSettings(candidate.enrollment),
     verification: normalizeSpeakerVerificationSettings(candidate.verification),
+    grammar: normalizeMagicCommandGrammarSettings(candidate.grammar),
   };
 }
 

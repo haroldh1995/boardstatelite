@@ -3,8 +3,8 @@
 This document records the ECHO-01 preparation pass and the active Project Echo
 foundation work for BoardState Lite. It is intentionally an internal
 architecture note. The application does not expose AI recommendations, combat
-prediction, speech recognition, Magic command parsing, or fake voice automation
-after these milestones.
+prediction, speech recognition, fake voice automation, or user-facing command
+automation after these milestones.
 
 ## Scope
 
@@ -44,10 +44,12 @@ The `src/echo` module provides a local-only foundation for Echo milestones:
 - A microphone and listening lifecycle service for future opt-in voice features, with no speech recognition or command parsing.
 - A personal voice enrollment and acoustic calibration layer, storing only local acoustic features and no raw audio.
 - A speaker verification layer that identifies whether incoming audio matches the enrolled user before future voice interactions can proceed.
+- A deterministic Magic command grammar layer that converts verified recognized text into structured Ambient intents without executing gameplay.
 
 This module deliberately does not:
 
-- Parse commands.
+- Recognize speech.
+- Execute parsed commands.
 - Predict combat.
 - Recommend actions.
 - Create network calls.
@@ -94,6 +96,25 @@ Commander-table safety is intentionally conservative. Possible overlapping
 speakers, noisy venues, clipping, missing enrollment, calibration mismatches, or
 corrupted profile data reject verification and expose retry/recovery metadata
 instead of accepting another player's voice.
+
+## ECHO-10 Magic Command Grammar And Contextual Intent Recognition
+
+`src/echo/magicCommandGrammar.ts` owns deterministic Magic command parsing for
+already recognized text. It does not open microphones, transcribe speech, verify
+speakers, search Scryfall, mutate the battlefield, predict combat, or run AI.
+
+The grammar maps natural Commander-table phrasing into reusable
+`AmbientIntentInput` objects for the Canonical Ambient Event Pipeline. It
+recognizes common verbs such as play, cast, attack, block, create, sacrifice,
+destroy, exile, return, draw, discard, tap, untap, add/remove counters, pass,
+hold priority, activate, equip, attach, transform, explore, surveil, and mill.
+
+Speaker verification is a mandatory high-level gate for voice-originated
+grammar recognition. The lower-level parser can still be tested with text
+fixtures, but production voice settings default grammar to disabled and require
+verified speakers when enabled by future listening milestones. Ambiguous card
+names, missing objects, missing quantities, and context-dependent phrases return
+confidence and correction metadata instead of guessing.
 
 ## ECHO-02 Ambient Gameplay Engine
 
@@ -162,7 +183,7 @@ The pipeline owns Ambient request structure, canonical event metadata, preview s
 
 It deliberately does not:
 
-- Parse voice or text commands.
+- Recognize speech.
 - Search Scryfall.
 - Predict combat.
 - Calculate AI recommendations.

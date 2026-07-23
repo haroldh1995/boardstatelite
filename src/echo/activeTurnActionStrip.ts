@@ -812,6 +812,7 @@ function normalizeIntentKind(value: unknown): AmbientIntentKind {
     value === "untap" ||
     value === "add-counters" ||
     value === "remove-counters" ||
+    value === "add-mana" ||
     value === "end-turn" ||
     value === "pass-priority" ||
     value === "draw-cards" ||
@@ -820,6 +821,15 @@ function normalizeIntentKind(value: unknown): AmbientIntentKind {
     value === "exile-permanent" ||
     value === "modify-life" ||
     value === "modify-commander-damage" ||
+    value === "counter-spell" ||
+    value === "hold-priority" ||
+    value === "activate-ability" ||
+    value === "equip" ||
+    value === "attach" ||
+    value === "transform-permanent" ||
+    value === "explore" ||
+    value === "surveil" ||
+    value === "mill-cards" ||
     value === "manual-correction" ||
     value === "custom"
     ? value
