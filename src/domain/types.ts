@@ -8,6 +8,7 @@ import type { HubIntegrationState } from "../hub/types";
 import type { AmbientGameplayState } from "../echo/ambientTypes";
 import type { PreTurnPlannerState } from "../echo/preTurnPlannerTypes";
 import type { ActiveTurnActionStripState } from "../echo/activeTurnActionStripTypes";
+import type { EchoContextualListeningState } from "../echo/contextualListeningTypes";
 import type {
   EchoListeningState,
   EchoVoiceSettings,
@@ -297,6 +298,7 @@ export interface FieldState {
   preTurnPlanner: PreTurnPlannerState;
   activeTurnActionStrip: ActiveTurnActionStripState;
   listening: EchoListeningState;
+  contextualListening: EchoContextualListeningState;
   name: string;
   createdAt: string;
   updatedAt: string;

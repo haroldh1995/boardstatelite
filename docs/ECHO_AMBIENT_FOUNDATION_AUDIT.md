@@ -45,6 +45,7 @@ The `src/echo` module provides a local-only foundation for Echo milestones:
 - A personal voice enrollment and acoustic calibration layer, storing only local acoustic features and no raw audio.
 - A speaker verification layer that identifies whether incoming audio matches the enrolled user before future voice interactions can proceed.
 - A deterministic Magic command grammar layer that converts verified recognized text into structured Ambient intents without executing gameplay.
+- A contextual listening window layer that narrows future recognized text by current gameplay context without adding combat prediction, AI, or automatic execution.
 
 This module deliberately does not:
 
@@ -115,6 +116,31 @@ fixtures, but production voice settings default grammar to disabled and require
 verified speakers when enabled by future listening milestones. Ambiguous card
 names, missing objects, missing quantities, and context-dependent phrases return
 confidence and correction metadata instead of guessing.
+
+## ECHO-11 Contextual Listening Windows
+
+`src/echo/contextualListening.ts` owns the Contextual Listening Window system.
+It defines expected command categories for future listening sessions without
+opening microphones, recognizing speech, predicting combat, or changing
+battlefield state.
+
+Supported window kinds are general gameplay, land play, spell casting,
+activated ability, trigger resolution, counter modification, token creation,
+token removal, life adjustment, commander damage, combat preparation, combat
+declaration, combat resolution, end step, and end turn. Each window contains
+constrained vocabulary, expected Ambient intent kinds, entity priority signals,
+lifecycle records, timeout metadata, and an accessibility label.
+
+Window lifecycle is deterministic: created, activated, updated, suspended,
+resumed, expired, cancelled, completed, recovered, and destroyed. Nested
+windows allow a focused workflow such as combat declaration to temporarily open
+a narrower context and then restore the parent context safely.
+
+The window layer integrates with Ambient Gameplay mode state, Magic command
+grammar, and the Confidence Framework. It may raise or lower confidence when a
+parsed intent matches or conflicts with the active context, but it never
+executes the intent. Any future committed action must still pass through the
+Canonical Ambient Event Pipeline and existing undo/history boundaries.
 
 ## ECHO-02 Ambient Gameplay Engine
 
@@ -207,6 +233,7 @@ Future Echo work should observe these constraints:
 - Do not bypass the rules adapter or rules-result renderer when applying automated outcomes.
 - Do not expose unavailable Echo functions in the production UI.
 - Do not treat Lite as the authoritative rules engine.
+- Use the centralized contextual listening window manager for future focused vocabularies instead of creating competing command filters or direct execution paths.
 
 ## Regression Guardrails
 

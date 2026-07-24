@@ -69,6 +69,7 @@ import {
   echoMicrophoneService,
   normalizeEchoVoiceSettings,
 } from "../echo/microphoneService";
+import { syncContextualListeningWithAmbientMode } from "../echo/contextualListening";
 import {
   addEnvironmentCalibration,
   deleteVoiceProfile as clearVoiceProfile,
@@ -1375,6 +1376,14 @@ function preparePlannerField(field: FieldState, timestamp: string): FieldState {
       nextAmbient.currentMode,
       timestamp,
     ),
+    contextualListening: syncContextualListeningWithAmbientMode(
+      field.contextualListening,
+      {
+        ambientMode: nextAmbient.currentMode,
+        timestamp,
+        source: "planner",
+      },
+    ),
   });
 }
 
@@ -1385,6 +1394,14 @@ function syncPlannerField(field: FieldState, timestamp: string): FieldState {
       field.preTurnPlanner,
       field.ambient.currentMode,
       timestamp,
+    ),
+    contextualListening: syncContextualListeningWithAmbientMode(
+      field.contextualListening,
+      {
+        ambientMode: field.ambient.currentMode,
+        timestamp,
+        source: "planner",
+      },
     ),
   });
 }
@@ -1408,6 +1425,14 @@ function syncActionStripField(
         ambientMode: field.ambient.currentMode,
         timestamp,
         sessionId: field.session.id,
+      },
+    ),
+    contextualListening: syncContextualListeningWithAmbientMode(
+      field.contextualListening,
+      {
+        ambientMode: field.ambient.currentMode,
+        timestamp,
+        source: "action-strip",
       },
     ),
   });
@@ -1536,6 +1561,14 @@ function applyActionStripMutation(
       timestamp,
       sessionId: synced.session.id,
     }),
+    contextualListening: syncContextualListeningWithAmbientMode(
+      synced.contextualListening,
+      {
+        ambientMode: nextAmbient.currentMode,
+        timestamp,
+        source: "action-strip",
+      },
+    ),
   });
 }
 

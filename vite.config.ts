@@ -5,6 +5,9 @@ import { APP_GITHUB_PAGES_BASE, APP_NAME } from "./src/appMetadata.js";
 
 export default defineConfig({
   base: process.env.GITHUB_ACTIONS ? APP_GITHUB_PAGES_BASE : "/",
+  build: {
+    chunkSizeWarningLimit: 750,
+  },
   plugins: [
     react(),
     VitePWA({

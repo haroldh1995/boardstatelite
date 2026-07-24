@@ -16,6 +16,7 @@ import {
   normalizeEchoListeningState,
   normalizeEchoVoiceSettings,
 } from "../echo/microphoneService";
+import { normalizeContextualListeningState } from "../echo/contextualListening";
 import {
   LITE_APP_VERSION,
   LITE_SNAPSHOT_VERSION,
@@ -70,6 +71,17 @@ export function createLiteFieldSnapshot(field: FieldState): LiteFieldSnapshot {
     settings: voiceSettings,
     allowActiveSession: true,
   });
+  const contextualListening = normalizeContextualListeningState(
+    field.contextualListening,
+    {
+      fallbackTimestamp: field.updatedAt,
+      sessionId: field.session.id,
+      ambientMode: ambient.currentMode,
+      defaultTimeoutMs: voiceSettings.contextualListening.defaultTimeoutMs,
+      preserveWindowStackOnRestore:
+        voiceSettings.contextualListening.preserveWindowStackOnRestore,
+    },
+  );
   const sortedGroups = [...field.groups].sort(
     (a, b) => a.order - b.order || a.id.localeCompare(b.id),
   );
@@ -101,6 +113,7 @@ export function createLiteFieldSnapshot(field: FieldState): LiteFieldSnapshot {
       ambientMode: listening.ambientMode,
       settings: voiceSettings,
     },
+    contextualListening,
     player: {
       life: field.player.life,
       startingLife: field.player.startingLife,

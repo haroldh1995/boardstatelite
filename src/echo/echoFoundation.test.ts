@@ -38,7 +38,9 @@ describe("Echo ambient foundation", () => {
     expect(context.capabilities.voiceServices).toBe(true);
     expect(context.capabilities.speakerVerification).toBe(true);
     expect(context.capabilities.magicCommandGrammar).toBe(true);
+    expect(context.capabilities.contextualListening).toBe(true);
     expect(context.capabilities.aiRecommendations).toBe(false);
+    expect(context.contextualListening.activeWindowId).toBeNull();
     expect(context.liteSnapshot.metadata.fieldId).toBe(field.id);
     expect(context.sessionId).toBe(field.session.id);
   });
@@ -63,6 +65,7 @@ describe("Echo ambient foundation", () => {
       voiceServices: true,
       speakerVerification: true,
       magicCommandGrammar: true,
+      contextualListening: true,
       combatPrediction: false,
     });
   });

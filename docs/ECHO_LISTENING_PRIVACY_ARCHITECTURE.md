@@ -10,9 +10,10 @@ Lite remains a local-first tabletop companion. The listening foundation may
 prepare audio sessions and expose deterministic lifecycle state. Speaker
 verification compares privacy-safe audio metrics against the enrolled local
 profile. Magic command grammar now converts already-recognized text into
-structured intents after speaker verification, but speech recognition, AI
-recommendations, combat prediction, and authoritative rules decisions remain
-outside Lite.
+structured intents after speaker verification. Contextual listening windows
+now constrain which command categories are expected in each gameplay context,
+but speech recognition, AI recommendations, combat prediction, and
+authoritative rules decisions remain outside Lite.
 
 The original BoardState application remains responsible for authoritative
 rules, advanced gameplay, simulations, and shared authority. BoardState Hub
@@ -141,3 +142,22 @@ Grammar settings live under `field.settings.voice.grammar`. They default to
 disabled for current production voice workflows, require verified speakers when
 used by voice input, preserve localization-ready metadata, and expose no
 production debugging controls.
+
+## Contextual Listening Windows
+
+The ECHO-11 contextual listening layer defines focused windows for future
+listening sessions: general gameplay, land play, spell casting, activated
+abilities, trigger resolution, counters, tokens, life, commander damage, combat
+preparation/declaration/resolution, end step, and end turn.
+
+Window state lives in `field.contextualListening`. User-controlled feature
+settings live under `field.settings.voice.contextualListening` and remain
+disabled by default. The active window can constrain grammar results, prioritize
+relevant battlefield entities, provide accessibility labels, time out, recover,
+and restore a nested parent context. It does not open the microphone, recognize
+speech, execute commands, predict combat, or mutate the battlefield.
+
+Future listening code must use this single window system before routing parsed
+intents into the Canonical Ambient Event Pipeline. Window expiration,
+cancellation, recovery, and restoration must never retain raw audio or bypass
+the privacy and speaker-verification gates.

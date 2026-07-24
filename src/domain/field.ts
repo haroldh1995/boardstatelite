@@ -44,6 +44,10 @@ import {
   normalizeEchoListeningState,
   normalizeEchoVoiceSettings,
 } from "../echo/microphoneService";
+import {
+  createDefaultContextualListeningState,
+  normalizeContextualListeningState,
+} from "../echo/contextualListening";
 import type {
   FieldState,
   OpponentValues,
@@ -138,6 +142,10 @@ export function createDefaultField(): FieldState {
     listening: createDefaultEchoListeningState({
       timestamp: now,
       ambientMode: "passive",
+    }),
+    contextualListening: createDefaultContextualListeningState({
+      timestamp: now,
+      sessionId: session.id,
     }),
     name: "Baord State Lite Field",
     createdAt: now,
@@ -336,6 +344,17 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
     settings: settings.voice,
     allowActiveSession: false,
   });
+  const contextualListening = normalizeContextualListeningState(
+    candidate.contextualListening,
+    {
+      fallbackTimestamp: updatedAt,
+      sessionId: sessionWithHub.id,
+      ambientMode: ambient.currentMode,
+      defaultTimeoutMs: settings.voice.contextualListening.defaultTimeoutMs,
+      preserveWindowStackOnRestore:
+        settings.voice.contextualListening.preserveWindowStackOnRestore,
+    },
+  );
   return {
     ...defaults,
     ...candidate,
@@ -348,6 +367,7 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
     preTurnPlanner,
     activeTurnActionStrip,
     listening,
+    contextualListening,
     name: sanitizeText(candidate.name, "Imported Baord State Lite Field"),
     player: {
       ...defaults.player,
@@ -534,6 +554,17 @@ export function normalizeField(field: FieldState): FieldState {
     settings: settings.voice,
     allowActiveSession: true,
   });
+  const contextualListening = normalizeContextualListeningState(
+    field.contextualListening,
+    {
+      fallbackTimestamp: updatedAt,
+      sessionId: sessionWithHub.id,
+      ambientMode: ambient.currentMode,
+      defaultTimeoutMs: settings.voice.contextualListening.defaultTimeoutMs,
+      preserveWindowStackOnRestore:
+        settings.voice.contextualListening.preserveWindowStackOnRestore,
+    },
+  );
   return {
     ...field,
     session: sessionWithHub,
@@ -544,6 +575,7 @@ export function normalizeField(field: FieldState): FieldState {
     preTurnPlanner,
     activeTurnActionStrip,
     listening,
+    contextualListening,
     groups,
     settings,
     updatedAt,

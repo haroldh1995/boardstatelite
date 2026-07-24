@@ -121,6 +121,33 @@ export {
   recognizeMagicCommand,
 } from "./magicCommandGrammar";
 export {
+  EchoContextualListeningManager,
+  activateListeningWindow,
+  applyListeningWindowToGrammarResult,
+  cancelActiveListeningWindow,
+  completeActiveListeningWindow,
+  createDefaultContextualListeningSettings,
+  createDefaultContextualListeningState,
+  createListeningWindow,
+  deriveListeningWindowKindFromAmbientMode,
+  destroyListeningWindow,
+  echoContextualListeningManager,
+  expireListeningWindows,
+  getActiveListeningWindow,
+  getActiveVocabulary,
+  getContextualListeningDiagnostics,
+  getEntityPrioritySignalsForWindow,
+  getListeningWindowDefinition,
+  isContextualListeningWindowTransitionAllowed,
+  normalizeContextualListeningSettings,
+  normalizeContextualListeningState,
+  recognizeMagicCommandInWindow,
+  recoverListeningWindowStack,
+  suspendActiveListeningWindow,
+  syncContextualListeningWithAmbientMode,
+  transitionListeningWindow,
+} from "./contextualListening";
+export {
   AMBIENT_GAMEPLAY_MODES,
   AMBIENT_GAMEPLAY_STATE_VERSION,
 } from "./ambientTypes";
@@ -143,6 +170,10 @@ export {
 } from "./voiceEnrollmentTypes";
 export { ECHO_SPEAKER_VERIFICATION_VERSION } from "./speakerVerificationTypes";
 export { ECHO_MAGIC_COMMAND_GRAMMAR_VERSION } from "./magicCommandGrammarTypes";
+export {
+  ECHO_CONTEXTUAL_LISTENING_VERSION,
+  ECHO_LISTENING_WINDOW_KINDS,
+} from "./contextualListeningTypes";
 export {
   ECHO_CAPABILITIES,
   ECHO_COMPATIBILITY_VERSION,
@@ -307,3 +338,19 @@ export type {
   EchoMagicCommandParseInput,
   EchoMagicCommandStatus,
 } from "./magicCommandGrammarTypes";
+export type {
+  EchoContextualEntityPrioritySignal,
+  EchoContextualListeningDiagnostics,
+  EchoContextualListeningSettings,
+  EchoContextualListeningState,
+  EchoListeningWindow,
+  EchoListeningWindowActivationSource,
+  EchoListeningWindowEntityPriority,
+  EchoListeningWindowKind,
+  EchoListeningWindowLifecycleRecord,
+  EchoListeningWindowLifecycleStatus,
+  EchoListeningWindowVocabulary,
+  EchoWindowedMagicCommandInput,
+  EchoWindowedMagicCommandResult,
+  EchoWindowedMagicCommandStatus,
+} from "./contextualListeningTypes";

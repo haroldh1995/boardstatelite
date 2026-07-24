@@ -29,6 +29,10 @@ import {
   normalizeMagicCommandGrammarSettings,
 } from "./magicCommandGrammar";
 import {
+  createDefaultContextualListeningSettings,
+  normalizeContextualListeningSettings,
+} from "./contextualListening";
+import {
   createDefaultSpeakerVerificationSettings,
   normalizeSpeakerVerificationSettings,
 } from "./speakerVerification";
@@ -126,6 +130,7 @@ export function createDefaultEchoVoiceSettings(): EchoVoiceSettings {
     enrollment: createDefaultVoiceEnrollmentSettings(),
     verification: createDefaultSpeakerVerificationSettings(),
     grammar: createDefaultMagicCommandGrammarSettings(),
+    contextualListening: createDefaultContextualListeningSettings(),
   };
 }
 
@@ -153,6 +158,9 @@ export function normalizeEchoVoiceSettings(value: unknown): EchoVoiceSettings {
     enrollment: normalizeVoiceEnrollmentSettings(candidate.enrollment),
     verification: normalizeSpeakerVerificationSettings(candidate.verification),
     grammar: normalizeMagicCommandGrammarSettings(candidate.grammar),
+    contextualListening: normalizeContextualListeningSettings(
+      candidate.contextualListening,
+    ),
   };
 }
 

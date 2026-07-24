@@ -96,6 +96,16 @@ describe("final ecosystem readiness guardrails", () => {
       testingEnabled: false,
       languageSelectionPrepared: true,
     });
+    expect(field.settings.voice.contextualListening).toMatchObject({
+      enabled: false,
+      preserveWindowStackOnRestore: false,
+      accessibilityAnnouncementsPrepared: true,
+      localizationReady: true,
+    });
+    expect(field.contextualListening).toMatchObject({
+      activeWindowId: null,
+      windows: [],
+    });
   });
 
   it("preserves IDs and user battlefield data through normalize, export, import, undo-shaped snapshots, and snapshots", () => {
@@ -276,7 +286,25 @@ describe("final ecosystem readiness guardrails", () => {
             testingEnabled: true,
             languageSelectionPrepared: false,
           },
+          contextualListening: {
+            enabled: true,
+            defaultTimeoutMs: -100,
+            preserveWindowStackOnRestore: true,
+            accessibilityAnnouncementsPrepared: false,
+            localizationReady: false,
+          },
         },
+      },
+      contextualListening: {
+        activeWindowId: "stale-window",
+        windows: [
+          {
+            id: "stale-window",
+            kind: "combatDeclaration",
+            status: "activated",
+            expiresAt: "2020-01-01T00:00:00.000Z",
+          },
+        ],
       },
     };
 
@@ -314,5 +342,16 @@ describe("final ecosystem readiness guardrails", () => {
       locale: "en-US",
       languageSelectionPrepared: true,
     });
+    expect(normalized.settings.voice.contextualListening).toMatchObject({
+      enabled: true,
+      defaultTimeoutMs: 2000,
+      preserveWindowStackOnRestore: true,
+      accessibilityAnnouncementsPrepared: true,
+      localizationReady: true,
+    });
+    expect(normalized.contextualListening.activeWindowId).toBeNull();
+    expect(normalized.contextualListening.lastExpiredWindowId).toBe(
+      "stale-window",
+    );
   });
 });
