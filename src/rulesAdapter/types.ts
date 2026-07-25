@@ -101,6 +101,7 @@ export interface LiteFieldSnapshot {
   activeTurnActionStrip: ActiveTurnActionStripState;
   listening: EchoListeningSnapshot;
   contextualListening: EchoContextualListeningState;
+  adaptiveListeningTail: FieldState["adaptiveListeningTail"];
   player: {
     life: number;
     startingLife: number;

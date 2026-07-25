@@ -142,6 +142,28 @@ parsed intent matches or conflicts with the active context, but it never
 executes the intent. Any future committed action must still pass through the
 Canonical Ambient Event Pipeline and existing undo/history boundaries.
 
+## ECHO-12 Adaptive Listening Tail
+
+`src/echo/adaptiveListeningTail.ts` owns the Adaptive Listening Tail and voice
+session finalization architecture. It does not perform speech recognition,
+predict combat, recommend actions, run AI, or mutate battlefield state.
+
+The tail layer keeps a future voice session open while relevant gameplay
+phrases are still arriving. It can split natural Commander-table phrases such
+as "Play Forest, cast Sol Ring" into ordered window-constrained grammar
+results, suppress repeated partial transcripts, extend the finalization time
+after each accepted command, and finalize deterministically by natural timeout,
+explicit completion command, cancellation, recovery, mode transition, session
+timeout, or lifecycle interruption.
+
+Finalized commands are exposed as ordered `AmbientIntentInput` objects for the
+Canonical Ambient Event Pipeline. Publishing helpers route those intents into
+the pipeline without providing a battlefield mutation handler, so the current
+architecture remains a safe intent handoff and does not create automatic
+gameplay. Settings live under `field.settings.voice.adaptiveListeningTail`;
+runtime session metadata lives under `field.adaptiveListeningTail` and restores
+unsafe active sessions to safe finalized state after reload.
+
 ## ECHO-02 Ambient Gameplay Engine
 
 `src/echo/ambientEngine.ts` is the single deterministic source for Ambient Gameplay mode state. It is not a rules authority and does not replace Lite's existing turn, phase, battlefield, undo, persistence, or rules-helper systems.
@@ -234,6 +256,9 @@ Future Echo work should observe these constraints:
 - Do not expose unavailable Echo functions in the production UI.
 - Do not treat Lite as the authoritative rules engine.
 - Use the centralized contextual listening window manager for future focused vocabularies instead of creating competing command filters or direct execution paths.
+- Use the Adaptive Listening Tail for future multi-command voice sessions,
+  duplicate suppression, and deterministic session finalization instead of
+  adding separate transcript buffers or timers.
 
 ## Regression Guardrails
 

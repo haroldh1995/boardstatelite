@@ -160,6 +160,8 @@ test("voice settings remain opt-in and do not expose unfinished controls", async
   ).toBeDisabled();
   await expect(page.getByText(/Grammar Diagnostics/i)).toHaveCount(0);
   await expect(page.getByText(/Grammar Testing/i)).toHaveCount(0);
+  await expect(page.getByText(/Adaptive Listening Tail/i)).toBeVisible();
+  await expect(page.getByLabel(/Listening Tail Duration/i)).toHaveValue("3000");
 
   await page.getByLabel(/Enable Voice Features/i).check();
   await expect(page.getByLabel(/Enable Ambient Listening/i)).toBeEnabled();

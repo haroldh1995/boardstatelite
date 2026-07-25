@@ -1,5 +1,6 @@
 import {
   CheckCircle2,
+  Clock3,
   Info,
   Mic,
   MicOff,
@@ -11,6 +12,8 @@ import {
   Volume1,
   Waves,
 } from "lucide-react";
+import { createDefaultAdaptiveListeningTailSettings } from "../echo/adaptiveListeningTail";
+import type { EchoAdaptiveListeningTailSensitivity } from "../echo/adaptiveListeningTailTypes";
 import type {
   EchoMultiSpeakerRisk,
   EchoSpeakerVerificationDecision,
@@ -62,9 +65,21 @@ const VERIFICATION_SENSITIVITY_OPTIONS: Array<{
   { value: "lenient", label: "Lenient" },
 ];
 
+const TAIL_SENSITIVITY_OPTIONS: Array<{
+  value: EchoAdaptiveListeningTailSensitivity;
+  label: string;
+}> = [
+  { value: "balanced", label: "Balanced" },
+  { value: "strict", label: "Strict" },
+  { value: "extended", label: "Extended" },
+];
+
 export function VoiceSettingsPanel() {
   const voice = useFieldStore((state) => state.field.settings.voice);
   const listening = useFieldStore((state) => state.field.listening);
+  const adaptiveTail = useFieldStore(
+    (state) => state.field.adaptiveListeningTail,
+  );
   const setVoiceSettings = useFieldStore((state) => state.setVoiceSettings);
   const requestPermission = useFieldStore(
     (state) => state.requestMicrophonePermission,
@@ -97,6 +112,7 @@ export function VoiceSettingsPanel() {
   );
   const enrollment = voice.enrollment;
   const verification = voice.verification;
+  const listeningTail = voice.adaptiveListeningTail;
   const profile = enrollment.profile;
   const session = enrollment.session;
   const verificationResult = verification.lifecycle.lastResult;
@@ -202,6 +218,146 @@ export function VoiceSettingsPanel() {
           <RotateCcw />
           <span>Reset Voice Configuration</span>
         </button>
+      </div>
+
+      <div
+        className="voice-enrollment-card adaptive-tail-card"
+        aria-live={adaptiveTail.feedback.ariaLive}
+      >
+        <div className="voice-enrollment-header">
+          <div>
+            <strong>Adaptive Listening Tail</strong>
+            <span>
+              {adaptiveTail.feedback.label} - Tail{" "}
+              {formatSeconds(listeningTail.tailDurationMs)}
+            </span>
+          </div>
+          <span
+            className={`voice-enrollment-status status-${
+              adaptiveTail.diagnostics.status === "waitingForTail"
+                ? "complete"
+                : "notStarted"
+            }`}
+            aria-label={`Voice session status: ${adaptiveTail.feedback.label}`}
+          >
+            <Clock3 />
+          </span>
+        </div>
+
+        <div className="voice-profile-metadata">
+          <span>Captured: {adaptiveTail.diagnostics.capturedCommandCount}</span>
+          <span>
+            Duplicates: {adaptiveTail.diagnostics.duplicateSuppressionCount}
+          </span>
+          <span>
+            Auto-finalize: {listeningTail.automaticFinalization ? "On" : "Off"}
+          </span>
+        </div>
+
+        <p className="voice-settings-copy">
+          Voice sessions can wait briefly for related gameplay phrases, split
+          multiple commands in order, and finalize without retaining raw audio.
+        </p>
+
+        <div className="voice-context-grid">
+          <label>
+            Listening Tail Duration
+            <input
+              type="range"
+              min={1000}
+              max={9000}
+              step={500}
+              value={listeningTail.tailDurationMs}
+              onChange={(event) =>
+                void setVoiceSettings({
+                  adaptiveListeningTail: {
+                    ...listeningTail,
+                    tailDurationMs: Number(event.target.value),
+                  },
+                })
+              }
+            />
+            <span className="voice-range-value">
+              {formatSeconds(listeningTail.tailDurationMs)}
+            </span>
+          </label>
+          <label>
+            Session Timeout
+            <input
+              type="range"
+              min={8000}
+              max={90000}
+              step={1000}
+              value={listeningTail.sessionTimeoutMs}
+              onChange={(event) =>
+                void setVoiceSettings({
+                  adaptiveListeningTail: {
+                    ...listeningTail,
+                    sessionTimeoutMs: Number(event.target.value),
+                  },
+                })
+              }
+            />
+            <span className="voice-range-value">
+              {formatSeconds(listeningTail.sessionTimeoutMs)}
+            </span>
+          </label>
+          <label>
+            Listening Sensitivity
+            <select
+              value={listeningTail.sensitivity}
+              onChange={(event) =>
+                void setVoiceSettings({
+                  adaptiveListeningTail: {
+                    ...listeningTail,
+                    sensitivity: event.target
+                      .value as EchoAdaptiveListeningTailSensitivity,
+                  },
+                })
+              }
+            >
+              {TAIL_SENSITIVITY_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <label className="inline-check">
+          <input
+            type="checkbox"
+            checked={listeningTail.automaticFinalization}
+            onChange={(event) =>
+              void setVoiceSettings({
+                adaptiveListeningTail: {
+                  ...listeningTail,
+                  automaticFinalization: event.target.checked,
+                },
+              })
+            }
+          />
+          Automatic Finalization
+        </label>
+
+        <div className="voice-settings-actions voice-enrollment-actions">
+          <button
+            type="button"
+            className="quiet-action"
+            onClick={() =>
+              void setVoiceSettings({
+                adaptiveListeningTail:
+                  createDefaultAdaptiveListeningTailSettings({
+                    lastResetAt: new Date().toISOString(),
+                  }),
+              })
+            }
+          >
+            <RotateCcw />
+            <span>Restore Tail Defaults</span>
+          </button>
+        </div>
       </div>
 
       <div className="voice-enrollment-card" aria-live="polite">
@@ -538,6 +694,11 @@ function listeningStatusLabel(status: EchoListeningStatus): string {
   return status
     .replace(/([A-Z])/g, " $1")
     .replace(/^./, (letter) => letter.toUpperCase());
+}
+
+function formatSeconds(milliseconds: number): string {
+  const seconds = milliseconds / 1000;
+  return `${Number.isInteger(seconds) ? seconds : seconds.toFixed(1)}s`;
 }
 
 function enrollmentStatusLabel(status: EchoEnrollmentStatus): string {

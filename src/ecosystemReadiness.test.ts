@@ -102,9 +102,24 @@ describe("final ecosystem readiness guardrails", () => {
       accessibilityAnnouncementsPrepared: true,
       localizationReady: true,
     });
+    expect(field.settings.voice.adaptiveListeningTail).toMatchObject({
+      enabled: false,
+      tailDurationMs: 3000,
+      sessionTimeoutMs: 30000,
+      sensitivity: "balanced",
+      automaticFinalization: true,
+      duplicateSuppressionEnabled: true,
+      accessibilityAnnouncementsPrepared: true,
+      adjustableTimeoutsPrepared: true,
+    });
     expect(field.contextualListening).toMatchObject({
       activeWindowId: null,
       windows: [],
+    });
+    expect(field.adaptiveListeningTail).toMatchObject({
+      activeSessionId: null,
+      sessions: [],
+      feedback: { current: "hidden" },
     });
   });
 
@@ -293,6 +308,16 @@ describe("final ecosystem readiness guardrails", () => {
             accessibilityAnnouncementsPrepared: false,
             localizationReady: false,
           },
+          adaptiveListeningTail: {
+            enabled: true,
+            tailDurationMs: "bad",
+            sessionTimeoutMs: -1,
+            sensitivity: "unsafe",
+            automaticFinalization: false,
+            duplicateSuppressionEnabled: false,
+            accessibilityAnnouncementsPrepared: false,
+            adjustableTimeoutsPrepared: false,
+          },
         },
       },
       contextualListening: {
@@ -303,6 +328,18 @@ describe("final ecosystem readiness guardrails", () => {
             kind: "combatDeclaration",
             status: "activated",
             expiresAt: "2020-01-01T00:00:00.000Z",
+          },
+        ],
+      },
+      adaptiveListeningTail: {
+        activeSessionId: "active-tail",
+        sessions: [
+          {
+            id: "active-tail",
+            status: "waitingForTail",
+            startedAt: "2026-07-24T00:00:00.000Z",
+            updatedAt: "2026-07-24T00:00:01.000Z",
+            commands: [],
           },
         ],
       },
@@ -349,9 +386,23 @@ describe("final ecosystem readiness guardrails", () => {
       accessibilityAnnouncementsPrepared: true,
       localizationReady: true,
     });
+    expect(normalized.settings.voice.adaptiveListeningTail).toMatchObject({
+      enabled: true,
+      tailDurationMs: 3000,
+      sessionTimeoutMs: 8000,
+      sensitivity: "balanced",
+      automaticFinalization: false,
+      duplicateSuppressionEnabled: false,
+      accessibilityAnnouncementsPrepared: true,
+      adjustableTimeoutsPrepared: true,
+    });
     expect(normalized.contextualListening.activeWindowId).toBeNull();
     expect(normalized.contextualListening.lastExpiredWindowId).toBe(
       "stale-window",
+    );
+    expect(normalized.adaptiveListeningTail.activeSessionId).toBeNull();
+    expect(normalized.adaptiveListeningTail.sessions.at(-1)?.status).toBe(
+      "finalized",
     );
   });
 });

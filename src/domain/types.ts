@@ -9,6 +9,7 @@ import type { AmbientGameplayState } from "../echo/ambientTypes";
 import type { PreTurnPlannerState } from "../echo/preTurnPlannerTypes";
 import type { ActiveTurnActionStripState } from "../echo/activeTurnActionStripTypes";
 import type { EchoContextualListeningState } from "../echo/contextualListeningTypes";
+import type { EchoAdaptiveListeningTailState } from "../echo/adaptiveListeningTailTypes";
 import type {
   EchoListeningState,
   EchoVoiceSettings,
@@ -299,6 +300,7 @@ export interface FieldState {
   activeTurnActionStrip: ActiveTurnActionStripState;
   listening: EchoListeningState;
   contextualListening: EchoContextualListeningState;
+  adaptiveListeningTail: EchoAdaptiveListeningTailState;
   name: string;
   createdAt: string;
   updatedAt: string;

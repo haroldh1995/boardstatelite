@@ -4,6 +4,7 @@ import { createLiteFieldSnapshot } from "../rulesAdapter";
 import { localParticipantId } from "../sharedSession";
 import { serializeStable } from "../utils/stableSerialization";
 import { normalizeAmbientGameplayState } from "./ambientEngine";
+import { normalizeAdaptiveListeningTailState } from "./adaptiveListeningTail";
 import { normalizeContextualListeningState } from "./contextualListening";
 import {
   ECHO_CAPABILITIES,
@@ -35,6 +36,7 @@ export function createDormantEchoCapabilities(): EchoCapabilityMap {
     speakerVerification: true,
     magicCommandGrammar: true,
     contextualListening: true,
+    adaptiveListeningTail: true,
   };
 }
 
@@ -64,6 +66,14 @@ export class EchoFoundationManager {
           field.settings.voice.contextualListening.preserveWindowStackOnRestore,
       },
     );
+    const adaptiveListeningTail = normalizeAdaptiveListeningTailState(
+      field.adaptiveListeningTail,
+      {
+        fallbackTimestamp: field.updatedAt,
+        sessionId: field.session.id,
+        settings: field.settings.voice.adaptiveListeningTail,
+      },
+    );
     const context: EchoAmbientContext = {
       version: ECHO_FOUNDATION_VERSION,
       compatibilityVersion: ECHO_COMPATIBILITY_VERSION,
@@ -77,6 +87,7 @@ export class EchoFoundationManager {
       capabilities: this.getCapabilities(),
       ambient,
       contextualListening,
+      adaptiveListeningTail,
       player: structuredClone(field.player),
       relevantTotals: calculateTotals(field.groups),
       battlefield: field.groups

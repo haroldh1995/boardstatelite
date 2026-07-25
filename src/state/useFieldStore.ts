@@ -70,6 +70,7 @@ import {
   normalizeEchoVoiceSettings,
 } from "../echo/microphoneService";
 import { syncContextualListeningWithAmbientMode } from "../echo/contextualListening";
+import { syncAdaptiveListeningTailWithAmbientMode } from "../echo/adaptiveListeningTail";
 import {
   addEnvironmentCalibration,
   deleteVoiceProfile as clearVoiceProfile,
@@ -1384,6 +1385,14 @@ function preparePlannerField(field: FieldState, timestamp: string): FieldState {
         source: "planner",
       },
     ),
+    adaptiveListeningTail: syncAdaptiveListeningTailWithAmbientMode(
+      field.adaptiveListeningTail,
+      {
+        ambientMode: nextAmbient.currentMode,
+        timestamp,
+        settings: field.settings.voice.adaptiveListeningTail,
+      },
+    ),
   });
 }
 
@@ -1401,6 +1410,14 @@ function syncPlannerField(field: FieldState, timestamp: string): FieldState {
         ambientMode: field.ambient.currentMode,
         timestamp,
         source: "planner",
+      },
+    ),
+    adaptiveListeningTail: syncAdaptiveListeningTailWithAmbientMode(
+      field.adaptiveListeningTail,
+      {
+        ambientMode: field.ambient.currentMode,
+        timestamp,
+        settings: field.settings.voice.adaptiveListeningTail,
       },
     ),
   });
@@ -1433,6 +1450,14 @@ function syncActionStripField(
         ambientMode: field.ambient.currentMode,
         timestamp,
         source: "action-strip",
+      },
+    ),
+    adaptiveListeningTail: syncAdaptiveListeningTailWithAmbientMode(
+      field.adaptiveListeningTail,
+      {
+        ambientMode: field.ambient.currentMode,
+        timestamp,
+        settings: field.settings.voice.adaptiveListeningTail,
       },
     ),
   });
@@ -1567,6 +1592,14 @@ function applyActionStripMutation(
         ambientMode: nextAmbient.currentMode,
         timestamp,
         source: "action-strip",
+      },
+    ),
+    adaptiveListeningTail: syncAdaptiveListeningTailWithAmbientMode(
+      synced.adaptiveListeningTail,
+      {
+        ambientMode: nextAmbient.currentMode,
+        timestamp,
+        settings: synced.settings.voice.adaptiveListeningTail,
       },
     ),
   });

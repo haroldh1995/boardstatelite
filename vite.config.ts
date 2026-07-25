@@ -7,6 +7,11 @@ export default defineConfig({
   base: process.env.GITHUB_ACTIONS ? APP_GITHUB_PAGES_BASE : "/",
   build: {
     chunkSizeWarningLimit: 750,
+    rolldownOptions: {
+      checks: {
+        pluginTimings: false,
+      },
+    },
   },
   plugins: [
     react(),

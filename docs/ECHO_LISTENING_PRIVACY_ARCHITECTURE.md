@@ -12,8 +12,10 @@ verification compares privacy-safe audio metrics against the enrolled local
 profile. Magic command grammar now converts already-recognized text into
 structured intents after speaker verification. Contextual listening windows
 now constrain which command categories are expected in each gameplay context,
-but speech recognition, AI recommendations, combat prediction, and
-authoritative rules decisions remain outside Lite.
+and the Adaptive Listening Tail can keep a future voice session open long
+enough to capture related gameplay phrases naturally, but speech recognition,
+AI recommendations, combat prediction, and authoritative rules decisions remain
+outside Lite.
 
 The original BoardState application remains responsible for authoritative
 rules, advanced gameplay, simulations, and shared authority. BoardState Hub
@@ -161,3 +163,27 @@ Future listening code must use this single window system before routing parsed
 intents into the Canonical Ambient Event Pipeline. Window expiration,
 cancellation, recovery, and restoration must never retain raw audio or bypass
 the privacy and speaker-verification gates.
+
+## Adaptive Listening Tail
+
+The ECHO-12 adaptive tail layer owns future voice-session completion. It
+captures already-recognized text fragments, splits natural multi-command
+phrases into ordered grammar results, extends the tail after each accepted
+gameplay phrase, suppresses duplicate partial transcripts, and finalizes by a
+three-second default natural timeout or by explicit cancellation, recovery,
+mode transition, session timeout, lifecycle interruption, or end/pass command.
+
+Adaptive tail settings live under `field.settings.voice.adaptiveListeningTail`
+and default to disabled with adjustable tail duration, session timeout,
+listening sensitivity, automatic finalization, duplicate suppression, and
+accessibility-ready announcements. Runtime session state lives under
+`field.adaptiveListeningTail` and stores session/intent metadata only; raw
+audio is never retained. Unsafe active sessions are finalized safely during
+reload/import instead of being restored as live listening.
+
+Finalized commands are published as `AmbientIntentInput` objects for the
+Canonical Ambient Event Pipeline. The tail layer does not provide mutation
+handlers, execute actions, or create undo/history entries by itself. Future
+voice recognition must continue to pass through microphone privacy,
+speaker-verification, contextual window, grammar, confidence, and pipeline
+boundaries before any committed action can occur.

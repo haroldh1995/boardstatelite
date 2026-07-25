@@ -1,6 +1,7 @@
 import type { FieldState, RelevantTotalKey } from "../domain/types";
 import type { LiteFieldSnapshot } from "../rulesAdapter";
 import type { AmbientGameplayState } from "./ambientTypes";
+import type { EchoAdaptiveListeningTailState } from "./adaptiveListeningTailTypes";
 import type { EchoContextualListeningState } from "./contextualListeningTypes";
 
 export const ECHO_FOUNDATION_VERSION = 1;
@@ -21,6 +22,7 @@ export const ECHO_CAPABILITIES = [
   "speakerVerification",
   "magicCommandGrammar",
   "contextualListening",
+  "adaptiveListeningTail",
   "cardRecognition",
   "combatPrediction",
   "aiRecommendations",
@@ -64,6 +66,7 @@ export interface EchoAmbientContext {
   capabilities: EchoCapabilityMap;
   ambient: AmbientGameplayState;
   contextualListening: EchoContextualListeningState;
+  adaptiveListeningTail: EchoAdaptiveListeningTailState;
   player: FieldState["player"];
   relevantTotals: Record<RelevantTotalKey, number>;
   battlefield: EchoPermanentContext[];

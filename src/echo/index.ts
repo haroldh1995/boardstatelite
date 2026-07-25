@@ -121,6 +121,25 @@ export {
   recognizeMagicCommand,
 } from "./magicCommandGrammar";
 export {
+  EchoAdaptiveListeningTailManager,
+  cancelAdaptiveListeningSession,
+  captureAdaptiveListeningTranscript,
+  createDefaultAdaptiveListeningTailSettings,
+  createDefaultAdaptiveListeningTailState,
+  echoAdaptiveListeningTailManager,
+  finalizeAdaptiveListeningSession,
+  finalizeExpiredAdaptiveListeningSession,
+  getActiveAdaptiveListeningSession,
+  getAdaptiveListeningTailDiagnostics,
+  interruptAdaptiveListeningSession,
+  normalizeAdaptiveListeningTailSettings,
+  normalizeAdaptiveListeningTailState,
+  publishAdaptiveListeningFinalizationToPipeline,
+  recoverAdaptiveListeningSession,
+  startAdaptiveListeningSession,
+  syncAdaptiveListeningTailWithAmbientMode,
+} from "./adaptiveListeningTail";
+export {
   EchoContextualListeningManager,
   activateListeningWindow,
   applyListeningWindowToGrammarResult,
@@ -170,6 +189,7 @@ export {
 } from "./voiceEnrollmentTypes";
 export { ECHO_SPEAKER_VERIFICATION_VERSION } from "./speakerVerificationTypes";
 export { ECHO_MAGIC_COMMAND_GRAMMAR_VERSION } from "./magicCommandGrammarTypes";
+export { ECHO_ADAPTIVE_LISTENING_TAIL_VERSION } from "./adaptiveListeningTailTypes";
 export {
   ECHO_CONTEXTUAL_LISTENING_VERSION,
   ECHO_LISTENING_WINDOW_KINDS,
@@ -338,6 +358,24 @@ export type {
   EchoMagicCommandParseInput,
   EchoMagicCommandStatus,
 } from "./magicCommandGrammarTypes";
+export type {
+  EchoAdaptiveCommandBoundaryReason,
+  EchoAdaptiveListeningCaptureInput,
+  EchoAdaptiveListeningCaptureResult,
+  EchoAdaptiveListeningCommand,
+  EchoAdaptiveListeningCommandStatus,
+  EchoAdaptiveListeningFeedbackState,
+  EchoAdaptiveListeningFinalization,
+  EchoAdaptiveListeningFinalizationReason,
+  EchoAdaptiveListeningSegmentStatus,
+  EchoAdaptiveListeningSession,
+  EchoAdaptiveListeningTailDiagnostics,
+  EchoAdaptiveListeningTailSensitivity,
+  EchoAdaptiveListeningTailSettings,
+  EchoAdaptiveListeningTailState,
+  EchoAdaptiveListeningTailStatus,
+  EchoAdaptiveListeningTranscriptSegment,
+} from "./adaptiveListeningTailTypes";
 export type {
   EchoContextualEntityPrioritySignal,
   EchoContextualListeningDiagnostics,

@@ -206,6 +206,13 @@ describe("Baord State Lite app shell", () => {
     expect(
       screen.getByRole("button", { name: /microphone test/i }),
     ).toBeDisabled();
+    expect(screen.getByText(/adaptive listening tail/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/listening tail duration/i)).toHaveValue(
+      "3000",
+    );
+    expect(screen.getByLabelText(/listening sensitivity/i)).toHaveValue(
+      "balanced",
+    );
 
     await user.click(screen.getByLabelText(/enable voice features/i));
     await waitFor(() =>

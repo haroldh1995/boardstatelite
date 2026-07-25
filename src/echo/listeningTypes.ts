@@ -1,4 +1,5 @@
 import type { AmbientGameplayMode } from "./ambientTypes";
+import type { EchoAdaptiveListeningTailSettings } from "./adaptiveListeningTailTypes";
 import type { EchoContextualListeningSettings } from "./contextualListeningTypes";
 import type { EchoMagicCommandGrammarSettings } from "./magicCommandGrammarTypes";
 import type { EchoSpeakerVerificationSettings } from "./speakerVerificationTypes";
@@ -92,6 +93,7 @@ export interface EchoVoiceSettings {
   verification: EchoSpeakerVerificationSettings;
   grammar: EchoMagicCommandGrammarSettings;
   contextualListening: EchoContextualListeningSettings;
+  adaptiveListeningTail: EchoAdaptiveListeningTailSettings;
 }
 
 export interface EchoAudioSessionState {

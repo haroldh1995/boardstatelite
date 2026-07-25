@@ -1764,6 +1764,16 @@ textarea {
   grid-template-columns: repeat(auto-fit, minmax(142px, 1fr));
 }
 
+.adaptive-tail-card {
+  border-color: rgba(119, 255, 176, 0.2);
+}
+
+.voice-range-value {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
 .privacy-note {
   border: 1px solid rgba(143, 211, 255, 0.18);
   border-radius: 12px;

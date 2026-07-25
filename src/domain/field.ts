@@ -48,6 +48,10 @@ import {
   createDefaultContextualListeningState,
   normalizeContextualListeningState,
 } from "../echo/contextualListening";
+import {
+  createDefaultAdaptiveListeningTailState,
+  normalizeAdaptiveListeningTailState,
+} from "../echo/adaptiveListeningTail";
 import type {
   FieldState,
   OpponentValues,
@@ -146,6 +150,9 @@ export function createDefaultField(): FieldState {
     contextualListening: createDefaultContextualListeningState({
       timestamp: now,
       sessionId: session.id,
+    }),
+    adaptiveListeningTail: createDefaultAdaptiveListeningTailState({
+      timestamp: now,
     }),
     name: "Baord State Lite Field",
     createdAt: now,
@@ -355,6 +362,14 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
         settings.voice.contextualListening.preserveWindowStackOnRestore,
     },
   );
+  const adaptiveListeningTail = normalizeAdaptiveListeningTailState(
+    candidate.adaptiveListeningTail,
+    {
+      fallbackTimestamp: updatedAt,
+      sessionId: sessionWithHub.id,
+      settings: settings.voice.adaptiveListeningTail,
+    },
+  );
   return {
     ...defaults,
     ...candidate,
@@ -368,6 +383,7 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
     activeTurnActionStrip,
     listening,
     contextualListening,
+    adaptiveListeningTail,
     name: sanitizeText(candidate.name, "Imported Baord State Lite Field"),
     player: {
       ...defaults.player,
@@ -565,6 +581,14 @@ export function normalizeField(field: FieldState): FieldState {
         settings.voice.contextualListening.preserveWindowStackOnRestore,
     },
   );
+  const adaptiveListeningTail = normalizeAdaptiveListeningTailState(
+    field.adaptiveListeningTail,
+    {
+      fallbackTimestamp: field.updatedAt,
+      sessionId: sessionWithHub.id,
+      settings: settings.voice.adaptiveListeningTail,
+    },
+  );
   return {
     ...field,
     session: sessionWithHub,
@@ -576,6 +600,7 @@ export function normalizeField(field: FieldState): FieldState {
     activeTurnActionStrip,
     listening,
     contextualListening,
+    adaptiveListeningTail,
     groups,
     settings,
     updatedAt,
