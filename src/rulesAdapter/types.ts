@@ -105,6 +105,7 @@ export interface LiteFieldSnapshot {
   entityResolution: FieldState["entityResolution"];
   clarification: FieldState["clarification"];
   combatDeclaration: FieldState["combatDeclaration"];
+  voiceBattlefieldActions: FieldState["voiceBattlefieldActions"];
   player: {
     life: number;
     startingLife: number;

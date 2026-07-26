@@ -253,6 +253,26 @@ state is persisted as safe metadata in `field.combatDeclaration`; unsafe active
 sessions are recovered on import or unsafe restore without mutating unrelated
 battlefield state.
 
+## ECHO-17 Voice-Driven Battlefield Actions
+
+`src/echo/voiceBattlefieldActions.ts` owns staging for natural reported
+gameplay actions after speaker, grammar, listening-window, listening-tail,
+entity-resolution, and clarification layers have done their work. It creates a
+compact Gameplay Preview and then publishes approved actions through the
+Canonical Ambient Event Pipeline with existing domain helpers, undo snapshots,
+history records, and local-only synchronization metadata.
+
+Supported staged actions include life gain/loss, commander damage, counter
+addition/removal, token creation/removal, permanent entry/removal, sacrifice,
+exile, returns to battlefield/hand, zone movement, tap/untap, reminders,
+battlefield notes, draw/discard reports, and trigger announcements. Trigger
+recognition creates structured trigger events only; it does not add rules
+logic, automatically resolve triggers, or create a new rules engine.
+
+The framework deliberately does not decide what the player should do, execute
+actions without pipeline publication, recommend strategy, calculate combat
+outcomes, or bypass the existing undo/history systems.
+
 ## ECHO-02 Ambient Gameplay Engine
 
 `src/echo/ambientEngine.ts` is the single deterministic source for Ambient Gameplay mode state. It is not a rules authority and does not replace Lite's existing turn, phase, battlefield, undo, persistence, or rules-helper systems.
@@ -348,6 +368,9 @@ Future Echo work should observe these constraints:
 - Use the Adaptive Listening Tail for future multi-command voice sessions,
   duplicate suppression, and deterministic session finalization instead of
   adding separate transcript buffers or timers.
+- Use the centralized voice battlefield action framework for reported
+  gameplay-action staging, preview, clarification, trigger announcements, and
+  canonical pipeline publication instead of mutating field state directly.
 
 ## Regression Guardrails
 
@@ -361,3 +384,7 @@ The Echo foundation tests verify:
 - Ambient Gameplay valid and invalid transitions are deterministic.
 - Recovery, cancellation, reload fallback, lifecycle interruption, listener cleanup, field normalization, snapshots, and Lite-helper compatibility are covered.
 - Ambient Event Pipeline tests cover intent creation, entity resolution, context and rule validation, confidence, preview, approval, canonical events, undo/history reuse, synchronization metadata, duplicate rejection, cancellation, recovery, mutation failure, store undo/redo integration, and existing field compatibility.
+- Voice Battlefield Action tests cover multi-action staging, trigger event
+  creation, life/counter/token/zone/tap/untap application through the pipeline,
+  clarification, correction, undo compatibility, recovery, persistence
+  normalization, disabled settings, and direct mutation prevention.

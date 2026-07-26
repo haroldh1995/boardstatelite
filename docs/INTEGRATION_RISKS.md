@@ -322,3 +322,18 @@ Mitigation:
 - Default adapter status to unavailable.
 - Use no-op placeholders only in code/docs until real apps exist.
 - Require live verification that false linked-app claims are absent.
+
+## Voice Action Overreach
+
+Risk: Future voice-driven battlefield updates could start acting like automatic
+gameplay, trigger resolution, AI strategy, or a competing rules engine.
+
+Mitigation:
+
+- Keep reported voice actions staged in `field.voiceBattlefieldActions` until
+  they are approved and published through the Canonical Ambient Event Pipeline.
+- Treat trigger announcements as structured manual events only.
+- Reuse existing domain helpers, undo snapshots, and history records for
+  committed actions instead of adding parallel mutation paths.
+- Preserve clarification for ambiguous targets and reject uncertain actions
+  without changing battlefield state.

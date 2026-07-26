@@ -61,6 +61,10 @@ import {
   normalizeCombatDeclarationState,
 } from "../echo/combatDeclaration";
 import {
+  createDefaultVoiceBattlefieldActionState,
+  normalizeVoiceBattlefieldActionState,
+} from "../echo/voiceBattlefieldActions";
+import {
   createDefaultEntityResolutionState,
   normalizeEntityResolutionState,
 } from "../echo/entityResolution";
@@ -169,6 +173,7 @@ export function createDefaultField(): FieldState {
     entityResolution: createDefaultEntityResolutionState(),
     clarification: createDefaultClarificationState(),
     combatDeclaration: createDefaultCombatDeclarationState(),
+    voiceBattlefieldActions: createDefaultVoiceBattlefieldActionState(),
     name: "Baord State Lite Field",
     createdAt: now,
     updatedAt: now,
@@ -406,6 +411,15 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
       allowActiveSession: false,
     },
   );
+  const voiceBattlefieldActions = normalizeVoiceBattlefieldActionState(
+    candidate.voiceBattlefieldActions,
+    {
+      fallbackTimestamp: updatedAt,
+      settings: settings.voice.battlefieldActions,
+      knownGroupIds: groups.map((group) => group.id),
+      allowActiveSession: false,
+    },
+  );
   return {
     ...defaults,
     ...candidate,
@@ -423,6 +437,7 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
     entityResolution,
     clarification,
     combatDeclaration,
+    voiceBattlefieldActions,
     name: sanitizeText(candidate.name, "Imported Baord State Lite Field"),
     player: {
       ...defaults.player,
@@ -649,6 +664,15 @@ export function normalizeField(field: FieldState): FieldState {
       allowActiveSession: true,
     },
   );
+  const voiceBattlefieldActions = normalizeVoiceBattlefieldActionState(
+    field.voiceBattlefieldActions,
+    {
+      fallbackTimestamp: field.updatedAt,
+      settings: settings.voice.battlefieldActions,
+      knownGroupIds: groups.map((group) => group.id),
+      allowActiveSession: true,
+    },
+  );
   return {
     ...field,
     session: sessionWithHub,
@@ -664,6 +688,7 @@ export function normalizeField(field: FieldState): FieldState {
     entityResolution,
     clarification,
     combatDeclaration,
+    voiceBattlefieldActions,
     groups,
     settings,
     updatedAt,

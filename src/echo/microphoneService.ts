@@ -45,6 +45,10 @@ import {
   normalizeCombatDeclarationSettings,
 } from "./combatDeclaration";
 import {
+  createDefaultVoiceBattlefieldActionSettings,
+  normalizeVoiceBattlefieldActionSettings,
+} from "./voiceBattlefieldActions";
+import {
   createDefaultEntityResolutionSettings,
   normalizeEntityResolutionSettings,
 } from "./entityResolution";
@@ -151,6 +155,7 @@ export function createDefaultEchoVoiceSettings(): EchoVoiceSettings {
     entityResolution: createDefaultEntityResolutionSettings(),
     clarification: createDefaultClarificationSettings(),
     combatDeclaration: createDefaultCombatDeclarationSettings(),
+    battlefieldActions: createDefaultVoiceBattlefieldActionSettings(),
   };
 }
 
@@ -190,6 +195,9 @@ export function normalizeEchoVoiceSettings(value: unknown): EchoVoiceSettings {
     clarification: normalizeClarificationSettings(candidate.clarification),
     combatDeclaration: normalizeCombatDeclarationSettings(
       candidate.combatDeclaration,
+    ),
+    battlefieldActions: normalizeVoiceBattlefieldActionSettings(
+      candidate.battlefieldActions,
     ),
   };
 }

@@ -13,6 +13,7 @@ import type { EchoAdaptiveListeningTailState } from "../echo/adaptiveListeningTa
 import type { EchoClarificationState } from "../echo/clarificationTypes";
 import type { EchoCombatDeclarationState } from "../echo/combatDeclarationTypes";
 import type { EchoEntityResolutionState } from "../echo/entityResolutionTypes";
+import type { EchoVoiceBattlefieldActionState } from "../echo/voiceBattlefieldActionsTypes";
 import type {
   EchoListeningState,
   EchoVoiceSettings,
@@ -307,6 +308,7 @@ export interface FieldState {
   entityResolution: EchoEntityResolutionState;
   clarification: EchoClarificationState;
   combatDeclaration: EchoCombatDeclarationState;
+  voiceBattlefieldActions: EchoVoiceBattlefieldActionState;
   name: string;
   createdAt: string;
   updatedAt: string;
@@ -384,9 +386,13 @@ export type GameEventType =
   | "permanent-sacrificed"
   | "permanent-exiled"
   | "permanent-returned-to-hand"
+  | "permanent-returned-to-battlefield"
   | "permanent-transformed"
   | "permanent-tapped"
-  | "permanent-untapped";
+  | "permanent-untapped"
+  | "trigger-announced"
+  | "reminder-created"
+  | "battlefield-note-created";
 
 export interface GameEvent {
   id: string;

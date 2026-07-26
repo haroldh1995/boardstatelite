@@ -20,6 +20,7 @@ import { normalizeContextualListeningState } from "../echo/contextualListening";
 import { normalizeAdaptiveListeningTailState } from "../echo/adaptiveListeningTail";
 import { normalizeClarificationState } from "../echo/clarification";
 import { normalizeCombatDeclarationState } from "../echo/combatDeclaration";
+import { normalizeVoiceBattlefieldActionState } from "../echo/voiceBattlefieldActions";
 import { normalizeEntityResolutionState } from "../echo/entityResolution";
 import {
   LITE_APP_VERSION,
@@ -115,6 +116,15 @@ export function createLiteFieldSnapshot(field: FieldState): LiteFieldSnapshot {
       allowActiveSession: false,
     },
   );
+  const voiceBattlefieldActions = normalizeVoiceBattlefieldActionState(
+    field.voiceBattlefieldActions,
+    {
+      fallbackTimestamp: field.updatedAt,
+      settings: voiceSettings.battlefieldActions,
+      knownGroupIds: field.groups.map((group) => group.id),
+      allowActiveSession: false,
+    },
+  );
   const sortedGroups = [...field.groups].sort(
     (a, b) => a.order - b.order || a.id.localeCompare(b.id),
   );
@@ -151,6 +161,7 @@ export function createLiteFieldSnapshot(field: FieldState): LiteFieldSnapshot {
     entityResolution,
     clarification,
     combatDeclaration,
+    voiceBattlefieldActions,
     player: {
       life: field.player.life,
       startingLife: field.player.startingLife,

@@ -153,8 +153,9 @@ Lite may own an opt-in microphone lifecycle, personal voice enrollment, acoustic
 calibration, speaker verification, deterministic Magic command grammar,
 contextual listening windows, Adaptive Listening Tail sessions, intelligent
 entity resolution, battlefield context mapping, conversational clarification,
-intelligent confirmation, attacker-only combat declaration setup, and privacy
-framework for future Ambient Gameplay features. That framework is allowed to
+intelligent confirmation, attacker-only combat declaration setup, reported
+battlefield-action staging, trigger announcements, and privacy framework for
+future Ambient Gameplay features. That framework is allowed to
 check availability, request permission, start and stop local audio sessions,
 show honest microphone status, validate enrollment sample quality, store local
 acoustic features, determine whether incoming audio matches the enrolled user,
@@ -165,8 +166,10 @@ voice sessions deterministically, resolve recognized entity references against
 the current battlefield before optional external lookup, ask one concise
 question when uncertainty remains, preserve paused interaction context, and
 prepare combat attacker previews for confirmation through the Ambient Event
-Pipeline. Lite may persist safe
-listening/profile/verification/grammar/window/session/resolution/clarification/combat
+Pipeline. It may also stage player-reported life, counter, token, zone,
+tap/untap, reminder, note, and trigger events as previews before publishing
+approved actions through the same pipeline. Lite may persist safe
+listening/profile/verification/grammar/window/session/resolution/clarification/combat/battlefield-action
 metadata.
 
 Lite must not treat microphone access as speech recognition, AI
@@ -191,6 +194,10 @@ strategy, infer hidden game legality, predict combat, or execute gameplay.
 Combat declaration answers only which local attackers were declared against
 which defending players; it must not declare blockers, calculate combat damage,
 predict combat outcomes, recommend attacks, or automate resolution.
+Voice-driven battlefield actions answer only what gameplay change the player
+reported; they must not infer strategy, make automatic gameplay decisions,
+resolve triggers automatically, enforce full rules, or create a second mutation
+path outside the Ambient Event Pipeline.
 
 Voice features remain disabled by default. Voice enrollment, verification, and
 grammar settings must not be presented as speech recognition or automatic

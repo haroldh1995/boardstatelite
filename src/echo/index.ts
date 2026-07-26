@@ -184,6 +184,21 @@ export {
   startCombatDeclarationSession,
 } from "./combatDeclaration";
 export {
+  applyVoiceBattlefieldActionToField,
+  cancelVoiceBattlefieldActionSession,
+  captureVoiceBattlefieldActionTranscript,
+  createDefaultVoiceBattlefieldActionSettings,
+  createDefaultVoiceBattlefieldActionState,
+  createVoiceBattlefieldActionPreview,
+  getVoiceBattlefieldActionDiagnostics,
+  normalizeVoiceBattlefieldActionSettings,
+  normalizeVoiceBattlefieldActionState,
+  publishVoiceBattlefieldActionsToPipeline,
+  recoverVoiceBattlefieldActionSession,
+  reviseVoiceBattlefieldActions,
+  startVoiceBattlefieldActionSession,
+} from "./voiceBattlefieldActions";
+export {
   EchoContextualListeningManager,
   activateListeningWindow,
   applyListeningWindowToGrammarResult,
@@ -237,6 +252,7 @@ export { ECHO_ADAPTIVE_LISTENING_TAIL_VERSION } from "./adaptiveListeningTailTyp
 export { ECHO_ENTITY_RESOLUTION_VERSION } from "./entityResolutionTypes";
 export { ECHO_CLARIFICATION_VERSION } from "./clarificationTypes";
 export { ECHO_COMBAT_DECLARATION_VERSION } from "./combatDeclarationTypes";
+export { ECHO_VOICE_BATTLEFIELD_ACTIONS_VERSION } from "./voiceBattlefieldActionsTypes";
 export {
   ECHO_CONTEXTUAL_LISTENING_VERSION,
   ECHO_LISTENING_WINDOW_KINDS,
@@ -483,6 +499,27 @@ export type {
   EchoCombatGroupReferenceKind,
   EchoCombatPreview,
 } from "./combatDeclarationTypes";
+export type {
+  EchoVoiceBattlefieldAction,
+  EchoVoiceBattlefieldActionApplyInput,
+  EchoVoiceBattlefieldActionDiagnostics,
+  EchoVoiceBattlefieldActionEntity,
+  EchoVoiceBattlefieldActionKind,
+  EchoVoiceBattlefieldActionRevisionKind,
+  EchoVoiceBattlefieldActionSession,
+  EchoVoiceBattlefieldActionSessionStatus,
+  EchoVoiceBattlefieldActionSettings,
+  EchoVoiceBattlefieldActionState,
+  EchoVoiceBattlefieldActionStatus,
+  EchoVoiceBattlefieldCaptureInput,
+  EchoVoiceBattlefieldClarificationRequest,
+  EchoVoiceBattlefieldConfidenceReason,
+  EchoVoiceBattlefieldPreview,
+  EchoVoiceBattlefieldPreviewInput,
+  EchoVoiceBattlefieldPublishInput,
+  EchoVoiceBattlefieldResult,
+  EchoVoiceBattlefieldRevisionInput,
+} from "./voiceBattlefieldActionsTypes";
 export type {
   EchoContextualEntityPrioritySignal,
   EchoContextualListeningDiagnostics,
