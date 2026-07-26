@@ -151,16 +151,22 @@ Lite must not claim Hub, shared-session, profile sync, friends, tournament, noti
 
 Lite may own an opt-in microphone lifecycle, personal voice enrollment, acoustic
 calibration, speaker verification, deterministic Magic command grammar,
-contextual listening windows, Adaptive Listening Tail sessions, and privacy
-framework for future Ambient Gameplay features. That framework is allowed to
+contextual listening windows, Adaptive Listening Tail sessions, intelligent
+entity resolution, battlefield context mapping, conversational clarification,
+intelligent confirmation, and privacy framework for future Ambient Gameplay
+features. That framework is allowed to
 check availability, request permission, start and stop local audio sessions,
 show honest microphone status, validate enrollment sample quality, store local
 acoustic features, determine whether incoming audio matches the enrolled user,
 convert already recognized Magic phrases into structured Ambient intents,
 constrain future grammar by active gameplay context, capture ordered
 multi-command text fragments, suppress duplicate partial transcripts, finalize
-voice sessions deterministically, and persist safe
-listening/profile/verification/grammar/window/session metadata.
+voice sessions deterministically, resolve recognized entity references against
+the current battlefield before optional external lookup, ask one concise
+question when uncertainty remains, preserve paused interaction context, and
+persist safe
+listening/profile/verification/grammar/window/session/resolution/clarification
+metadata.
 
 Lite must not treat microphone access as speech recognition, AI
 recommendation, combat prediction, rules authority, or automatic gameplay.
@@ -172,8 +178,15 @@ windows answer which kinds of commands are expected right now; they must not
 predict combat, choose actions, or execute gameplay. The Adaptive Listening
 Tail answers when a future voice session is complete and which ordered intents
 are ready for the pipeline; it must not execute gameplay or create a parallel
-history system. Future interpreted actions must still pass through the
+history system. Entity resolution answers which local object, card, token,
+player, counter, or zone a recognized reference most likely means; it must not
+prefer global Scryfall fame over battlefield context, mutate the field, execute
+commands, predict combat, or make unsafe choices when multiple local matches
+exist. Future interpreted actions must still pass through the
 Canonical Ambient Event Pipeline and the current undo/history boundaries.
+Clarification and confirmation answer only whether an already recognized,
+verified, and resolved intent is clear enough to continue; they must not coach
+strategy, infer hidden game legality, predict combat, or execute gameplay.
 
 Voice features remain disabled by default. Voice enrollment, verification, and
 grammar settings must not be presented as speech recognition or automatic

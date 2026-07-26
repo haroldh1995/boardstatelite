@@ -46,6 +46,8 @@ The `src/echo` module provides a local-only foundation for Echo milestones:
 - A speaker verification layer that identifies whether incoming audio matches the enrolled user before future voice interactions can proceed.
 - A deterministic Magic command grammar layer that converts verified recognized text into structured Ambient intents without executing gameplay.
 - A contextual listening window layer that narrows future recognized text by current gameplay context without adding combat prediction, AI, or automatic execution.
+- An intelligent entity resolution and battlefield context layer that maps recognized references to local battlefield objects before any future voice intent reaches the confidence and event pipeline.
+- A conversational clarification and intelligent confirmation layer that pauses only uncertain interactions, asks the smallest required question, and resumes the preserved intent without replaying the whole conversation.
 
 This module deliberately does not:
 
@@ -163,6 +165,70 @@ architecture remains a safe intent handoff and does not create automatic
 gameplay. Settings live under `field.settings.voice.adaptiveListeningTail`;
 runtime session metadata lives under `field.adaptiveListeningTail` and restores
 unsafe active sessions to safe finalized state after reload.
+
+## ECHO-13 Entity Resolution And Battlefield Context
+
+`src/echo/entityResolution.ts` owns the post-grammar entity resolution layer.
+It resolves what the player is referring to after text has already been
+recognized and converted into structured intent metadata. It does not recognize
+speech, parse Magic grammar, predict combat, run AI, mutate the battlefield, or
+execute gameplay.
+
+Resolution is deliberately context-first. The resolver ranks candidates from
+the current battlefield, tracked token/permanent data, planner references,
+Action Strip references, recently resolved/interacted entities, optional deck
+snapshot data, locally cached cards, and finally injected Scryfall lookup
+results. Scryfall fallback is opt-in through an injected function and is used
+only when local context cannot produce a confident answer; the resolver never
+bypasses ambiguous battlefield matches to prefer a global card search.
+
+The Battlefield Context Engine exposes current Ambient mode, observed turn and
+phase metadata when present, active listening window kind, battlefield object
+summaries, planner references, Action Strip references, recent references, and
+relationships such as attachments, counters, commander ownership, token stacks,
+planner links, and Action Strip links. Future Echo features should reuse this
+context rather than recreating battlefield scans.
+
+Entity ambiguity is preserved as structured metadata for the Confidence and
+Correction frameworks. Multiple matching permanents, token stacks, players, or
+low-confidence matches do not create direct entity references. The Ambient
+Event Pipeline integration is exposed as a resolver hook; finalized adaptive
+listening commands now use that hook before confidence and validation, while
+still providing no mutation handler in current production behavior.
+
+Settings live under `field.settings.voice.entityResolution`; safe runtime cache
+metadata lives under `field.entityResolution`. Corrupt or stale resolver cache
+entries normalize away without enabling networked services or deleting unrelated
+field state.
+
+## ECHO-14 Conversational Clarification And Confirmation
+
+`src/echo/clarification.ts` owns the clarification and intelligent
+confirmation framework. It does not coach strategy, predict combat, automate
+gameplay, recognize speech, or mutate the battlefield.
+
+The framework consumes the existing confidence assessment, structured intent,
+entity-resolution output, active listening window, Ambient mode, planner state,
+Action Strip state, and current pipeline position. When no uncertainty remains,
+the intent can continue to the Canonical Ambient Event Pipeline. When
+uncertainty remains, the framework creates a short prompt such as "Which
+Soldier token?", "Which opponent?", "How many?", or "Which permanent?" and
+preserves the original transcript and structured intent so the player does not
+need to repeat the whole command.
+
+Supported uncertainty types include multiple battlefield objects, multiple
+token stacks, similar permanent names, missing quantities, missing targets,
+unknown card references, ambiguous pronouns, ambiguous player references,
+multiple legal interpretations, and medium-confidence confirmations. Answers
+resolve one issue at a time, allowing chained clarification such as target
+selection followed by quantity selection before the intent resumes at the
+confidence/pipeline boundary.
+
+Clarification sessions are persisted as safe metadata in `field.clarification`
+and settings live under `field.settings.voice.clarification`. Expired,
+cancelled, interrupted, or corrupt sessions recover to a non-mutating state.
+Only completed canonical events may create undo/history entries; rejected,
+cancelled, timed-out, or pending clarifications do not modify field state.
 
 ## ECHO-02 Ambient Gameplay Engine
 

@@ -1,6 +1,8 @@
 import type { AmbientGameplayMode } from "./ambientTypes";
 import type { EchoAdaptiveListeningTailSettings } from "./adaptiveListeningTailTypes";
+import type { EchoClarificationSettings } from "./clarificationTypes";
 import type { EchoContextualListeningSettings } from "./contextualListeningTypes";
+import type { EchoEntityResolutionSettings } from "./entityResolutionTypes";
 import type { EchoMagicCommandGrammarSettings } from "./magicCommandGrammarTypes";
 import type { EchoSpeakerVerificationSettings } from "./speakerVerificationTypes";
 import type { EchoVoiceEnrollmentSettings } from "./voiceEnrollmentTypes";
@@ -94,6 +96,8 @@ export interface EchoVoiceSettings {
   grammar: EchoMagicCommandGrammarSettings;
   contextualListening: EchoContextualListeningSettings;
   adaptiveListeningTail: EchoAdaptiveListeningTailSettings;
+  entityResolution: EchoEntityResolutionSettings;
+  clarification: EchoClarificationSettings;
 }
 
 export interface EchoAudioSessionState {

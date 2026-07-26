@@ -102,6 +102,8 @@ export interface LiteFieldSnapshot {
   listening: EchoListeningSnapshot;
   contextualListening: EchoContextualListeningState;
   adaptiveListeningTail: FieldState["adaptiveListeningTail"];
+  entityResolution: FieldState["entityResolution"];
+  clarification: FieldState["clarification"];
   player: {
     life: number;
     startingLife: number;

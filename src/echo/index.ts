@@ -140,6 +140,35 @@ export {
   syncAdaptiveListeningTailWithAmbientMode,
 } from "./adaptiveListeningTail";
 export {
+  EchoEntityResolutionEngine,
+  createBattlefieldContext,
+  createDefaultEntityResolutionSettings,
+  createDefaultEntityResolutionState,
+  createEntityResolutionAmbientResolver,
+  echoEntityResolutionEngine,
+  normalizeEntityResolutionSettings,
+  normalizeEntityResolutionState,
+  rankEntityCandidates,
+  recordResolvedEntity,
+  resolveEchoEntity,
+  resolveEchoEntityWithFallback,
+} from "./entityResolution";
+export { resolveEchoEntityWithScryfallFallback } from "./entityResolutionScryfall";
+export {
+  applyClarificationAnswer,
+  cancelClarificationSession,
+  createClarificationAwarePipelineRequest,
+  createDefaultClarificationSettings,
+  createDefaultClarificationState,
+  decideClarificationForIntent,
+  normalizeClarificationSettings,
+  normalizeClarificationState,
+  recoverClarificationSession,
+  startClarificationSession,
+  timeoutClarificationSession,
+  updateClarificationSession,
+} from "./clarification";
+export {
   EchoContextualListeningManager,
   activateListeningWindow,
   applyListeningWindowToGrammarResult,
@@ -190,6 +219,8 @@ export {
 export { ECHO_SPEAKER_VERIFICATION_VERSION } from "./speakerVerificationTypes";
 export { ECHO_MAGIC_COMMAND_GRAMMAR_VERSION } from "./magicCommandGrammarTypes";
 export { ECHO_ADAPTIVE_LISTENING_TAIL_VERSION } from "./adaptiveListeningTailTypes";
+export { ECHO_ENTITY_RESOLUTION_VERSION } from "./entityResolutionTypes";
+export { ECHO_CLARIFICATION_VERSION } from "./clarificationTypes";
 export {
   ECHO_CONTEXTUAL_LISTENING_VERSION,
   ECHO_LISTENING_WINDOW_KINDS,
@@ -376,6 +407,41 @@ export type {
   EchoAdaptiveListeningTailStatus,
   EchoAdaptiveListeningTranscriptSegment,
 } from "./adaptiveListeningTailTypes";
+export type {
+  EchoBattlefieldContext,
+  EchoBattlefieldContextEntity,
+  EchoContextReference,
+  EchoDeckSnapshotCard,
+  EchoEntityKind,
+  EchoEntityRelationship,
+  EchoEntityResolutionAmbiguity,
+  EchoEntityResolutionCandidate,
+  EchoEntityResolutionDiagnostics,
+  EchoEntityResolutionFallbackRequest,
+  EchoEntityResolutionPriority,
+  EchoEntityResolutionRequest,
+  EchoEntityResolutionResult,
+  EchoEntityResolutionSettings,
+  EchoEntityResolutionState,
+  EchoEntityResolutionStatus,
+  EchoRecentlyResolvedEntity,
+} from "./entityResolutionTypes";
+export type {
+  EchoClarificationAnswer,
+  EchoClarificationDecision,
+  EchoClarificationDecisionAction,
+  EchoClarificationDecisionInput,
+  EchoClarificationDiagnostics,
+  EchoClarificationIssue,
+  EchoClarificationPreservedContext,
+  EchoClarificationPrompt,
+  EchoClarificationSession,
+  EchoClarificationSessionStatus,
+  EchoClarificationSettings,
+  EchoClarificationState,
+  EchoClarificationType,
+  EchoConfirmationSensitivity,
+} from "./clarificationTypes";
 export type {
   EchoContextualEntityPrioritySignal,
   EchoContextualListeningDiagnostics,

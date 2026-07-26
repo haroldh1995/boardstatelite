@@ -112,6 +112,24 @@ describe("final ecosystem readiness guardrails", () => {
       accessibilityAnnouncementsPrepared: true,
       adjustableTimeoutsPrepared: true,
     });
+    expect(field.settings.voice.entityResolution).toMatchObject({
+      diagnosticsEnabled: false,
+      localCacheSize: 250,
+      scryfallFallbackEnabled: true,
+      fuzzySearchEnabled: true,
+      cacheManagementPrepared: true,
+      resolutionResetPrepared: true,
+    });
+    expect(field.settings.voice.clarification).toMatchObject({
+      enabled: true,
+      confirmationSensitivity: "balanced",
+      automaticExecutionThreshold: 0.86,
+      quickConfirmationThreshold: 0.62,
+      clarificationTimeoutMs: 12000,
+      voiceConfirmationEnabled: false,
+      accessibilityAnnouncementsPrepared: true,
+      localizationReady: true,
+    });
     expect(field.contextualListening).toMatchObject({
       activeWindowId: null,
       windows: [],
@@ -120,6 +138,16 @@ describe("final ecosystem readiness guardrails", () => {
       activeSessionId: null,
       sessions: [],
       feedback: { current: "hidden" },
+    });
+    expect(field.entityResolution).toMatchObject({
+      recentlyResolved: [],
+      localCache: [],
+      diagnostics: { directBattlefieldMutation: false },
+    });
+    expect(field.clarification).toMatchObject({
+      activeSessionId: null,
+      pendingPrompt: null,
+      diagnostics: { directBattlefieldMutation: false },
     });
   });
 
@@ -318,6 +346,24 @@ describe("final ecosystem readiness guardrails", () => {
             accessibilityAnnouncementsPrepared: false,
             adjustableTimeoutsPrepared: false,
           },
+          entityResolution: {
+            diagnosticsEnabled: true,
+            localCacheSize: "bad",
+            scryfallFallbackEnabled: true,
+            fuzzySearchEnabled: false,
+            cacheManagementPrepared: false,
+            resolutionResetPrepared: false,
+          },
+          clarification: {
+            enabled: true,
+            confirmationSensitivity: "unsafe",
+            automaticExecutionThreshold: 12,
+            quickConfirmationThreshold: -5,
+            clarificationTimeoutMs: 1,
+            voiceConfirmationEnabled: true,
+            accessibilityAnnouncementsPrepared: false,
+            localizationReady: false,
+          },
         },
       },
       contextualListening: {
@@ -342,6 +388,28 @@ describe("final ecosystem readiness guardrails", () => {
             commands: [],
           },
         ],
+      },
+      entityResolution: {
+        recentlyResolved: [
+          { id: "stale", label: 42, groupId: "missing", count: -1 },
+        ],
+        localCache: [
+          { id: "stale-cache", label: "Missing", groupId: "missing" },
+        ],
+        diagnostics: { directBattlefieldMutation: true },
+      },
+      clarification: {
+        activeSessionId: "stale-clarification",
+        sessions: [
+          {
+            id: "stale-clarification",
+            status: "awaiting-response",
+            intentKind: "tap",
+            expiresAt: "2020-01-01T00:00:00.000Z",
+            issues: [{ type: "missing-target", question: "Which permanent?" }],
+          },
+        ],
+        diagnostics: { directBattlefieldMutation: true },
       },
     };
 
@@ -396,6 +464,24 @@ describe("final ecosystem readiness guardrails", () => {
       accessibilityAnnouncementsPrepared: true,
       adjustableTimeoutsPrepared: true,
     });
+    expect(normalized.settings.voice.entityResolution).toMatchObject({
+      diagnosticsEnabled: true,
+      localCacheSize: 250,
+      scryfallFallbackEnabled: true,
+      fuzzySearchEnabled: false,
+      cacheManagementPrepared: true,
+      resolutionResetPrepared: true,
+    });
+    expect(normalized.settings.voice.clarification).toMatchObject({
+      enabled: true,
+      confirmationSensitivity: "balanced",
+      automaticExecutionThreshold: 1,
+      quickConfirmationThreshold: 0,
+      clarificationTimeoutMs: 3000,
+      voiceConfirmationEnabled: true,
+      accessibilityAnnouncementsPrepared: true,
+      localizationReady: true,
+    });
     expect(normalized.contextualListening.activeWindowId).toBeNull();
     expect(normalized.contextualListening.lastExpiredWindowId).toBe(
       "stale-window",
@@ -403,6 +489,16 @@ describe("final ecosystem readiness guardrails", () => {
     expect(normalized.adaptiveListeningTail.activeSessionId).toBeNull();
     expect(normalized.adaptiveListeningTail.sessions.at(-1)?.status).toBe(
       "finalized",
+    );
+    expect(normalized.entityResolution).toMatchObject({
+      recentlyResolved: [],
+      localCache: [],
+      diagnostics: { directBattlefieldMutation: false },
+    });
+    expect(normalized.clarification.activeSessionId).toBeNull();
+    expect(normalized.clarification.sessions.at(-1)?.status).toBe("recovered");
+    expect(normalized.clarification.diagnostics.directBattlefieldMutation).toBe(
+      false,
     );
   });
 });

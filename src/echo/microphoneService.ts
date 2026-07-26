@@ -37,6 +37,14 @@ import {
   normalizeAdaptiveListeningTailSettings,
 } from "./adaptiveListeningTail";
 import {
+  createDefaultClarificationSettings,
+  normalizeClarificationSettings,
+} from "./clarification";
+import {
+  createDefaultEntityResolutionSettings,
+  normalizeEntityResolutionSettings,
+} from "./entityResolution";
+import {
   createDefaultSpeakerVerificationSettings,
   normalizeSpeakerVerificationSettings,
 } from "./speakerVerification";
@@ -136,6 +144,8 @@ export function createDefaultEchoVoiceSettings(): EchoVoiceSettings {
     grammar: createDefaultMagicCommandGrammarSettings(),
     contextualListening: createDefaultContextualListeningSettings(),
     adaptiveListeningTail: createDefaultAdaptiveListeningTailSettings(),
+    entityResolution: createDefaultEntityResolutionSettings(),
+    clarification: createDefaultClarificationSettings(),
   };
 }
 
@@ -169,6 +179,10 @@ export function normalizeEchoVoiceSettings(value: unknown): EchoVoiceSettings {
     adaptiveListeningTail: normalizeAdaptiveListeningTailSettings(
       candidate.adaptiveListeningTail,
     ),
+    entityResolution: normalizeEntityResolutionSettings(
+      candidate.entityResolution,
+    ),
+    clarification: normalizeClarificationSettings(candidate.clarification),
   };
 }
 

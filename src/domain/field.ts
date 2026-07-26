@@ -52,6 +52,14 @@ import {
   createDefaultAdaptiveListeningTailState,
   normalizeAdaptiveListeningTailState,
 } from "../echo/adaptiveListeningTail";
+import {
+  createDefaultClarificationState,
+  normalizeClarificationState,
+} from "../echo/clarification";
+import {
+  createDefaultEntityResolutionState,
+  normalizeEntityResolutionState,
+} from "../echo/entityResolution";
 import type {
   FieldState,
   OpponentValues,
@@ -154,6 +162,8 @@ export function createDefaultField(): FieldState {
     adaptiveListeningTail: createDefaultAdaptiveListeningTailState({
       timestamp: now,
     }),
+    entityResolution: createDefaultEntityResolutionState(),
+    clarification: createDefaultClarificationState(),
     name: "Baord State Lite Field",
     createdAt: now,
     updatedAt: now,
@@ -370,6 +380,18 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
       settings: settings.voice.adaptiveListeningTail,
     },
   );
+  const entityResolution = normalizeEntityResolutionState(
+    candidate.entityResolution,
+    {
+      fallbackTimestamp: updatedAt,
+      settings: settings.voice.entityResolution,
+      knownGroupIds: groups.map((group) => group.id),
+    },
+  );
+  const clarification = normalizeClarificationState(candidate.clarification, {
+    fallbackTimestamp: updatedAt,
+    settings: settings.voice.clarification,
+  });
   return {
     ...defaults,
     ...candidate,
@@ -384,6 +406,8 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
     listening,
     contextualListening,
     adaptiveListeningTail,
+    entityResolution,
+    clarification,
     name: sanitizeText(candidate.name, "Imported Baord State Lite Field"),
     player: {
       ...defaults.player,
@@ -589,6 +613,18 @@ export function normalizeField(field: FieldState): FieldState {
       settings: settings.voice.adaptiveListeningTail,
     },
   );
+  const entityResolution = normalizeEntityResolutionState(
+    field.entityResolution,
+    {
+      fallbackTimestamp: field.updatedAt,
+      settings: settings.voice.entityResolution,
+      knownGroupIds: groups.map((group) => group.id),
+    },
+  );
+  const clarification = normalizeClarificationState(field.clarification, {
+    fallbackTimestamp: field.updatedAt,
+    settings: settings.voice.clarification,
+  });
   return {
     ...field,
     session: sessionWithHub,
@@ -601,6 +637,8 @@ export function normalizeField(field: FieldState): FieldState {
     listening,
     contextualListening,
     adaptiveListeningTail,
+    entityResolution,
+    clarification,
     groups,
     settings,
     updatedAt,

@@ -8,6 +8,7 @@ import type { AmbientPipelineResult } from "./ambientEventTypes";
 import { normalizeAmbientConfidence } from "./ambientConfidence";
 import { getActiveListeningWindow } from "./contextualListening";
 import { recognizeMagicCommandInWindow } from "./contextualListening";
+import { createEntityResolutionAmbientResolver } from "./entityResolution";
 import type {
   EchoListeningWindow,
   EchoWindowedMagicCommandResult,
@@ -714,6 +715,9 @@ export function publishAdaptiveListeningFinalizationToPipeline(input: {
         field: input.field,
         intent: command.intent!,
         approval: { method: "manual" },
+        resolver: createEntityResolutionAmbientResolver({
+          settings: input.field.settings.voice.entityResolution,
+        }),
         timestamp: input.timestamp ?? input.finalization!.finalizedAt,
       }),
     );

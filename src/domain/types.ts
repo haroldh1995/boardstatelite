@@ -10,6 +10,8 @@ import type { PreTurnPlannerState } from "../echo/preTurnPlannerTypes";
 import type { ActiveTurnActionStripState } from "../echo/activeTurnActionStripTypes";
 import type { EchoContextualListeningState } from "../echo/contextualListeningTypes";
 import type { EchoAdaptiveListeningTailState } from "../echo/adaptiveListeningTailTypes";
+import type { EchoClarificationState } from "../echo/clarificationTypes";
+import type { EchoEntityResolutionState } from "../echo/entityResolutionTypes";
 import type {
   EchoListeningState,
   EchoVoiceSettings,
@@ -301,6 +303,8 @@ export interface FieldState {
   listening: EchoListeningState;
   contextualListening: EchoContextualListeningState;
   adaptiveListeningTail: EchoAdaptiveListeningTailState;
+  entityResolution: EchoEntityResolutionState;
+  clarification: EchoClarificationState;
   name: string;
   createdAt: string;
   updatedAt: string;

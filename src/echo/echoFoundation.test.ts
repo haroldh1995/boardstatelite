@@ -40,9 +40,14 @@ describe("Echo ambient foundation", () => {
     expect(context.capabilities.magicCommandGrammar).toBe(true);
     expect(context.capabilities.contextualListening).toBe(true);
     expect(context.capabilities.adaptiveListeningTail).toBe(true);
+    expect(context.capabilities.entityResolution).toBe(true);
+    expect(context.capabilities.clarification).toBe(true);
     expect(context.capabilities.aiRecommendations).toBe(false);
     expect(context.contextualListening.activeWindowId).toBeNull();
     expect(context.adaptiveListeningTail.activeSessionId).toBeNull();
+    expect(context.entityResolution.recentlyResolved).toEqual([]);
+    expect(context.clarification.pendingPrompt).toBeNull();
+    expect(context.battlefieldContext.sessionId).toBe(field.session.id);
     expect(context.liteSnapshot.metadata.fieldId).toBe(field.id);
     expect(context.sessionId).toBe(field.session.id);
   });
@@ -69,6 +74,8 @@ describe("Echo ambient foundation", () => {
       magicCommandGrammar: true,
       contextualListening: true,
       adaptiveListeningTail: true,
+      entityResolution: true,
+      clarification: true,
       combatPrediction: false,
     });
   });

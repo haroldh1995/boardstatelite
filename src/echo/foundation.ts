@@ -5,7 +5,12 @@ import { localParticipantId } from "../sharedSession";
 import { serializeStable } from "../utils/stableSerialization";
 import { normalizeAmbientGameplayState } from "./ambientEngine";
 import { normalizeAdaptiveListeningTailState } from "./adaptiveListeningTail";
+import { normalizeClarificationState } from "./clarification";
 import { normalizeContextualListeningState } from "./contextualListening";
+import {
+  createBattlefieldContext,
+  normalizeEntityResolutionState,
+} from "./entityResolution";
 import {
   ECHO_CAPABILITIES,
   ECHO_COMPATIBILITY_VERSION,
@@ -37,6 +42,8 @@ export function createDormantEchoCapabilities(): EchoCapabilityMap {
     magicCommandGrammar: true,
     contextualListening: true,
     adaptiveListeningTail: true,
+    entityResolution: true,
+    clarification: true,
   };
 }
 
@@ -74,6 +81,26 @@ export class EchoFoundationManager {
         settings: field.settings.voice.adaptiveListeningTail,
       },
     );
+    const entityResolution = normalizeEntityResolutionState(
+      field.entityResolution,
+      {
+        fallbackTimestamp: field.updatedAt,
+        settings: field.settings.voice.entityResolution,
+        knownGroupIds: field.groups.map((group) => group.id),
+      },
+    );
+    const clarification = normalizeClarificationState(field.clarification, {
+      fallbackTimestamp: field.updatedAt,
+      settings: field.settings.voice.clarification,
+    });
+    const battlefieldContext = createBattlefieldContext(
+      {
+        ...field,
+        entityResolution,
+        clarification,
+      },
+      { timestamp: createdAt },
+    );
     const context: EchoAmbientContext = {
       version: ECHO_FOUNDATION_VERSION,
       compatibilityVersion: ECHO_COMPATIBILITY_VERSION,
@@ -88,6 +115,9 @@ export class EchoFoundationManager {
       ambient,
       contextualListening,
       adaptiveListeningTail,
+      entityResolution,
+      clarification,
+      battlefieldContext,
       player: structuredClone(field.player),
       relevantTotals: calculateTotals(field.groups),
       battlefield: field.groups

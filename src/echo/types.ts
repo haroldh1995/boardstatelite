@@ -2,7 +2,12 @@ import type { FieldState, RelevantTotalKey } from "../domain/types";
 import type { LiteFieldSnapshot } from "../rulesAdapter";
 import type { AmbientGameplayState } from "./ambientTypes";
 import type { EchoAdaptiveListeningTailState } from "./adaptiveListeningTailTypes";
+import type { EchoClarificationState } from "./clarificationTypes";
 import type { EchoContextualListeningState } from "./contextualListeningTypes";
+import type {
+  EchoBattlefieldContext,
+  EchoEntityResolutionState,
+} from "./entityResolutionTypes";
 
 export const ECHO_FOUNDATION_VERSION = 1;
 export const ECHO_COMPATIBILITY_VERSION = "0.1.0";
@@ -23,6 +28,8 @@ export const ECHO_CAPABILITIES = [
   "magicCommandGrammar",
   "contextualListening",
   "adaptiveListeningTail",
+  "entityResolution",
+  "clarification",
   "cardRecognition",
   "combatPrediction",
   "aiRecommendations",
@@ -67,6 +74,9 @@ export interface EchoAmbientContext {
   ambient: AmbientGameplayState;
   contextualListening: EchoContextualListeningState;
   adaptiveListeningTail: EchoAdaptiveListeningTailState;
+  entityResolution: EchoEntityResolutionState;
+  clarification: EchoClarificationState;
+  battlefieldContext: EchoBattlefieldContext;
   player: FieldState["player"];
   relevantTotals: Record<RelevantTotalKey, number>;
   battlefield: EchoPermanentContext[];

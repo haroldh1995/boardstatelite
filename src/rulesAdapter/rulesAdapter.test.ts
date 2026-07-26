@@ -85,6 +85,12 @@ describe("BoardState rules adapter architecture", () => {
     expect(first).not.toContain("cards.scryfall.io");
     expect(parsed.metadata.appName).toBe("Baord State Lite");
     expect(parsed.adaptiveListeningTail.activeSessionId).toBeNull();
+    expect(parsed.entityResolution.diagnostics.directBattlefieldMutation).toBe(
+      false,
+    );
+    expect(parsed.clarification.diagnostics.directBattlefieldMutation).toBe(
+      false,
+    );
     const fixturePermanent = parsed.battlefield.find(
       (entry) => entry.cardIdentity?.name === "Scryfall Fixture",
     );

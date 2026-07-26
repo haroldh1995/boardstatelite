@@ -101,6 +101,44 @@ Mitigation:
 - Map to canonical identities in a serializer layer.
 - Do not make shared-session identity depend only on card names.
 
+## Entity Resolution Overreach
+
+Risk: Future voice or planner work could resolve spoken references through a
+global card search before checking the current game, producing the wrong target
+for common names, nicknames, tokens, or repeated permanents.
+
+Mitigation:
+
+- Use the centralized Echo Entity Resolution and Battlefield Context Engine.
+- Rank current battlefield, tracked objects, planner entries, Action Strip
+  entries, and recent local context before deck/cache/Scryfall fallback.
+- Treat multiple local matches as ambiguity for confidence and correction
+  workflows instead of guessing.
+- Keep Scryfall fallback injected and optional; never allow it to bypass a
+  plausible battlefield match.
+- Keep entity resolution read-only. Actual mutations still require the
+  Canonical Ambient Event Pipeline, confidence decision, and existing undo
+  boundary.
+
+## Clarification Restart Loops
+
+Risk: Future voice prompts could ask the user to repeat full commands, lose the
+active listening window, or create duplicate pipeline intents while resolving a
+small ambiguity.
+
+Mitigation:
+
+- Preserve original transcript, structured intent, entity candidates,
+  confidence, Ambient mode, listening window, planner state, Action Strip state,
+  and pipeline stage in `field.clarification`.
+- Ask one minimal question per unresolved issue.
+- Resolve chained issues one at a time and resume the preserved intent rather
+  than re-parsing the whole command.
+- Do not record pending, cancelled, rejected, or timed-out clarification
+  sessions in undo/history.
+- Recover expired or corrupt clarification sessions to a safe non-mutating
+  state.
+
 ## Offline-First Conflicts
 
 Risk: Shared sessions or authoritative rules checks can require network access while Lite currently works offline after caching.
