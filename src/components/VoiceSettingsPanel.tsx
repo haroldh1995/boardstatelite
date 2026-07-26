@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { createDefaultAdaptiveListeningTailSettings } from "../echo/adaptiveListeningTail";
 import type { EchoAdaptiveListeningTailSensitivity } from "../echo/adaptiveListeningTailTypes";
+import type { EchoPronunciationLearningSensitivity } from "../echo/pronunciationLearningTypes";
 import type {
   EchoMultiSpeakerRisk,
   EchoSpeakerVerificationDecision,
@@ -74,9 +75,21 @@ const TAIL_SENSITIVITY_OPTIONS: Array<{
   { value: "extended", label: "Extended" },
 ];
 
+const LEARNING_SENSITIVITY_OPTIONS: Array<{
+  value: EchoPronunciationLearningSensitivity;
+  label: string;
+}> = [
+  { value: "conservative", label: "Conservative" },
+  { value: "balanced", label: "Balanced" },
+  { value: "adaptive", label: "Adaptive" },
+];
+
 export function VoiceSettingsPanel() {
   const voice = useFieldStore((state) => state.field.settings.voice);
   const listening = useFieldStore((state) => state.field.listening);
+  const pronunciationLearning = useFieldStore(
+    (state) => state.field.pronunciationLearning,
+  );
   const adaptiveTail = useFieldStore(
     (state) => state.field.adaptiveListeningTail,
   );
@@ -106,6 +119,12 @@ export function VoiceSettingsPanel() {
   const resetSpeakerVerificationData = useFieldStore(
     (state) => state.resetSpeakerVerificationData,
   );
+  const removePronunciationLearningEntry = useFieldStore(
+    (state) => state.removePronunciationLearningEntry,
+  );
+  const resetPronunciationLearning = useFieldStore(
+    (state) => state.resetPronunciationLearning,
+  );
   const stopListening = useFieldStore((state) => state.stopListening);
   const resetVoiceConfiguration = useFieldStore(
     (state) => state.resetVoiceConfiguration,
@@ -113,6 +132,7 @@ export function VoiceSettingsPanel() {
   const enrollment = voice.enrollment;
   const verification = voice.verification;
   const listeningTail = voice.adaptiveListeningTail;
+  const pronunciation = voice.pronunciationLearning;
   const profile = enrollment.profile;
   const session = enrollment.session;
   const verificationResult = verification.lifecycle.lastResult;
@@ -132,6 +152,11 @@ export function VoiceSettingsPanel() {
   ).length;
   const progressMax = Math.max(enrollment.phrases.length, 1);
   const progressText = `${Math.min(acceptedCount, progressMax)}/${progressMax}`;
+  const learnedEntries = [
+    ...pronunciationLearning.entries,
+    ...pronunciationLearning.playgroupVocabulary,
+    ...pronunciationLearning.deckVocabulary,
+  ].filter((entry) => entry.status === "active");
 
   return (
     <section className="voice-settings-panel">
@@ -614,6 +639,145 @@ export function VoiceSettingsPanel() {
           >
             <RotateCcw />
             <span>Reset Verification Data</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="voice-enrollment-card" aria-live="polite">
+        <div className="voice-enrollment-header">
+          <div>
+            <strong>Personal Vocabulary</strong>
+            <span>
+              Learned: {pronunciationLearning.diagnostics.activeEntryCount} -
+              Candidates:{" "}
+              {pronunciationLearning.diagnostics.candidateEntryCount}
+            </span>
+          </div>
+          <span
+            className={`voice-enrollment-status status-${
+              pronunciationLearning.diagnostics.activeEntryCount > 0
+                ? "complete"
+                : "notStarted"
+            }`}
+            aria-label="Pronunciation learning status"
+          >
+            <UserCheck />
+          </span>
+        </div>
+
+        <div className="voice-profile-metadata">
+          <span>Aliases: {pronunciationLearning.playerAliases.length}</span>
+          <span>Scope: local only</span>
+          <span>Raw audio: discarded</span>
+        </div>
+
+        <p className="voice-settings-copy">
+          Lite can learn repeated confirmed nicknames, pronunciations, and
+          player aliases without changing canonical card names or retaining raw
+          audio.
+        </p>
+
+        <label className="inline-check">
+          <input
+            type="checkbox"
+            checked={pronunciation.automaticLearning}
+            onChange={(event) =>
+              void setVoiceSettings({
+                pronunciationLearning: {
+                  ...pronunciation,
+                  automaticLearning: event.target.checked,
+                },
+              })
+            }
+          />
+          Automatic Learning
+        </label>
+
+        <div className="voice-context-grid">
+          <label>
+            Learning Sensitivity
+            <select
+              value={pronunciation.learningSensitivity}
+              onChange={(event) =>
+                void setVoiceSettings({
+                  pronunciationLearning: {
+                    ...pronunciation,
+                    learningSensitivity: event.target
+                      .value as EchoPronunciationLearningSensitivity,
+                  },
+                })
+              }
+            >
+              {LEARNING_SENSITIVITY_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Required Confirmations
+            <input
+              type="range"
+              min={2}
+              max={8}
+              step={1}
+              value={pronunciation.minimumConfirmations}
+              onChange={(event) =>
+                void setVoiceSettings({
+                  pronunciationLearning: {
+                    ...pronunciation,
+                    minimumConfirmations: Number(event.target.value),
+                  },
+                })
+              }
+            />
+            <span className="voice-range-value">
+              {pronunciation.minimumConfirmations}
+            </span>
+          </label>
+        </div>
+
+        <div className="voice-vocabulary-list" aria-label="Learned vocabulary">
+          {learnedEntries.length ? (
+            learnedEntries.slice(0, 6).map((entry) => (
+              <div className="voice-vocabulary-row" key={entry.id}>
+                <span>
+                  <strong>{entry.phrase}</strong>
+                  <small>{entry.canonical.label}</small>
+                </span>
+                <button
+                  type="button"
+                  className="quiet-action"
+                  onClick={() => removePronunciationLearningEntry(entry.id)}
+                >
+                  <Trash2 />
+                  <span>Delete</span>
+                </button>
+              </div>
+            ))
+          ) : (
+            <p className="voice-settings-copy">
+              No learned phrases yet. Repeated confirmed voice interactions can
+              add entries here later.
+            </p>
+          )}
+        </div>
+
+        <div className="voice-settings-actions voice-enrollment-actions">
+          <button
+            type="button"
+            className="danger-action"
+            disabled={
+              pronunciationLearning.entries.length === 0 &&
+              pronunciationLearning.playgroupVocabulary.length === 0 &&
+              pronunciationLearning.deckVocabulary.length === 0 &&
+              pronunciationLearning.playerAliases.length === 0
+            }
+            onClick={() => resetPronunciationLearning()}
+          >
+            <Trash2 />
+            <span>Reset Learned Vocabulary</span>
           </button>
         </div>
       </div>

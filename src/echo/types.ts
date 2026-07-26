@@ -5,6 +5,7 @@ import type { EchoAdaptiveListeningTailState } from "./adaptiveListeningTailType
 import type { EchoClarificationState } from "./clarificationTypes";
 import type { EchoCombatDeclarationState } from "./combatDeclarationTypes";
 import type { EchoVoiceBattlefieldActionState } from "./voiceBattlefieldActionsTypes";
+import type { EchoPronunciationLearningState } from "./pronunciationLearningTypes";
 import type { EchoContextualListeningState } from "./contextualListeningTypes";
 import type {
   EchoBattlefieldContext,
@@ -34,6 +35,7 @@ export const ECHO_CAPABILITIES = [
   "clarification",
   "combatDeclaration",
   "voiceBattlefieldActions",
+  "pronunciationLearning",
   "cardRecognition",
   "combatPrediction",
   "aiRecommendations",
@@ -82,6 +84,7 @@ export interface EchoAmbientContext {
   clarification: EchoClarificationState;
   combatDeclaration: EchoCombatDeclarationState;
   voiceBattlefieldActions: EchoVoiceBattlefieldActionState;
+  pronunciationLearning: EchoPronunciationLearningState;
   battlefieldContext: EchoBattlefieldContext;
   player: FieldState["player"];
   relevantTotals: Record<RelevantTotalKey, number>;

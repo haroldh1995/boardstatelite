@@ -32,6 +32,7 @@ import {
   type EchoEntityResolutionState,
   type EchoRecentlyResolvedEntity,
 } from "./entityResolutionTypes";
+import { applyPronunciationLearningToResolutionResult } from "./pronunciationLearning";
 
 const PRIORITY_RANK: Record<EchoEntityResolutionPriority, number> = {
   battlefield: 900,
@@ -565,12 +566,20 @@ function resolveEntityInternal(
       expectedKinds.size ? expectedKinds.has(candidate.kind) : true,
     ),
   );
-  return createResolutionResult({
+  const result = createResolutionResult({
     request,
     context,
     candidates,
     ambiguities: [],
     diagnosticsPatch,
+  });
+  return applyPronunciationLearningToResolutionResult(result, {
+    field: request.field,
+    settings: request.field.settings.voice.pronunciationLearning,
+    state: request.field.pronunciationLearning,
+    deckSnapshot: request.deckSnapshot,
+    expectedKinds: request.expectedKinds,
+    timestamp,
   });
 }
 

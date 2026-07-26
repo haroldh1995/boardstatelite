@@ -65,6 +65,10 @@ import {
   normalizeVoiceBattlefieldActionState,
 } from "../echo/voiceBattlefieldActions";
 import {
+  createDefaultPronunciationLearningState,
+  normalizePronunciationLearningState,
+} from "../echo/pronunciationLearning";
+import {
   createDefaultEntityResolutionState,
   normalizeEntityResolutionState,
 } from "../echo/entityResolution";
@@ -174,6 +178,7 @@ export function createDefaultField(): FieldState {
     clarification: createDefaultClarificationState(),
     combatDeclaration: createDefaultCombatDeclarationState(),
     voiceBattlefieldActions: createDefaultVoiceBattlefieldActionState(),
+    pronunciationLearning: createDefaultPronunciationLearningState(),
     name: "Baord State Lite Field",
     createdAt: now,
     updatedAt: now,
@@ -420,6 +425,17 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
       allowActiveSession: false,
     },
   );
+  const pronunciationLearning = normalizePronunciationLearningState(
+    candidate.pronunciationLearning,
+    {
+      fallbackTimestamp: updatedAt,
+      settings: settings.voice.pronunciationLearning,
+      knownGroupIds: groups.map((group) => group.id),
+      knownCardIds: groups
+        .map((group) => group.identity?.cardId)
+        .filter((entry): entry is string => Boolean(entry)),
+    },
+  );
   return {
     ...defaults,
     ...candidate,
@@ -438,6 +454,7 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
     clarification,
     combatDeclaration,
     voiceBattlefieldActions,
+    pronunciationLearning,
     name: sanitizeText(candidate.name, "Imported Baord State Lite Field"),
     player: {
       ...defaults.player,
@@ -673,6 +690,17 @@ export function normalizeField(field: FieldState): FieldState {
       allowActiveSession: true,
     },
   );
+  const pronunciationLearning = normalizePronunciationLearningState(
+    field.pronunciationLearning,
+    {
+      fallbackTimestamp: field.updatedAt,
+      settings: settings.voice.pronunciationLearning,
+      knownGroupIds: groups.map((group) => group.id),
+      knownCardIds: groups
+        .map((group) => group.identity?.cardId)
+        .filter((entry): entry is string => Boolean(entry)),
+    },
+  );
   return {
     ...field,
     session: sessionWithHub,
@@ -689,6 +717,7 @@ export function normalizeField(field: FieldState): FieldState {
     clarification,
     combatDeclaration,
     voiceBattlefieldActions,
+    pronunciationLearning,
     groups,
     settings,
     updatedAt,

@@ -5,6 +5,7 @@ import type { EchoCombatDeclarationSettings } from "./combatDeclarationTypes";
 import type { EchoContextualListeningSettings } from "./contextualListeningTypes";
 import type { EchoEntityResolutionSettings } from "./entityResolutionTypes";
 import type { EchoMagicCommandGrammarSettings } from "./magicCommandGrammarTypes";
+import type { EchoPronunciationLearningSettings } from "./pronunciationLearningTypes";
 import type { EchoVoiceBattlefieldActionSettings } from "./voiceBattlefieldActionsTypes";
 import type { EchoSpeakerVerificationSettings } from "./speakerVerificationTypes";
 import type { EchoVoiceEnrollmentSettings } from "./voiceEnrollmentTypes";
@@ -102,6 +103,7 @@ export interface EchoVoiceSettings {
   clarification: EchoClarificationSettings;
   combatDeclaration: EchoCombatDeclarationSettings;
   battlefieldActions: EchoVoiceBattlefieldActionSettings;
+  pronunciationLearning: EchoPronunciationLearningSettings;
 }
 
 export interface EchoAudioSessionState {

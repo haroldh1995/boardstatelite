@@ -8,6 +8,7 @@ import { normalizeAdaptiveListeningTailState } from "./adaptiveListeningTail";
 import { normalizeClarificationState } from "./clarification";
 import { normalizeCombatDeclarationState } from "./combatDeclaration";
 import { normalizeVoiceBattlefieldActionState } from "./voiceBattlefieldActions";
+import { normalizePronunciationLearningState } from "./pronunciationLearning";
 import { normalizeContextualListeningState } from "./contextualListening";
 import {
   createBattlefieldContext,
@@ -48,6 +49,7 @@ export function createDormantEchoCapabilities(): EchoCapabilityMap {
     clarification: true,
     combatDeclaration: true,
     voiceBattlefieldActions: true,
+    pronunciationLearning: true,
   };
 }
 
@@ -115,6 +117,17 @@ export class EchoFoundationManager {
         allowActiveSession: false,
       },
     );
+    const pronunciationLearning = normalizePronunciationLearningState(
+      field.pronunciationLearning,
+      {
+        fallbackTimestamp: field.updatedAt,
+        settings: field.settings.voice.pronunciationLearning,
+        knownGroupIds: field.groups.map((group) => group.id),
+        knownCardIds: field.groups
+          .map((group) => group.identity?.cardId)
+          .filter((entry): entry is string => Boolean(entry)),
+      },
+    );
     const battlefieldContext = createBattlefieldContext(
       {
         ...field,
@@ -122,6 +135,7 @@ export class EchoFoundationManager {
         clarification,
         combatDeclaration,
         voiceBattlefieldActions,
+        pronunciationLearning,
       },
       { timestamp: createdAt },
     );
@@ -143,6 +157,7 @@ export class EchoFoundationManager {
       clarification,
       combatDeclaration,
       voiceBattlefieldActions,
+      pronunciationLearning,
       battlefieldContext,
       player: structuredClone(field.player),
       relevantTotals: calculateTotals(field.groups),

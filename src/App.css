@@ -1764,6 +1764,44 @@ textarea {
   grid-template-columns: repeat(auto-fit, minmax(142px, 1fr));
 }
 
+.voice-vocabulary-list {
+  display: grid;
+  gap: 7px;
+}
+
+.voice-vocabulary-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 8px;
+  border: 1px solid rgba(191, 201, 211, 0.16);
+  border-radius: 10px;
+  background: rgba(5, 12, 18, 0.28);
+}
+
+.voice-vocabulary-row strong,
+.voice-vocabulary-row small {
+  display: block;
+}
+
+.voice-vocabulary-row strong {
+  color: #f5fbff;
+  font-size: 0.74rem;
+}
+
+.voice-vocabulary-row small {
+  color: var(--text-muted);
+  font-size: 0.66rem;
+  line-height: 1.25;
+}
+
+.voice-vocabulary-row button {
+  min-height: 34px;
+  padding: 6px 8px;
+  font-size: 0.65rem;
+}
+
 .adaptive-tail-card {
   border-color: rgba(119, 255, 176, 0.2);
 }

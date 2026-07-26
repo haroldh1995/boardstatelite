@@ -273,6 +273,27 @@ The framework deliberately does not decide what the player should do, execute
 actions without pipeline publication, recommend strategy, calculate combat
 outcomes, or bypass the existing undo/history systems.
 
+## ECHO-18 Pronunciation Learning
+
+`src/echo/pronunciationLearning.ts` owns local Personal Vocabulary,
+pronunciation adaptation, player aliases, playgroup vocabulary, and
+deck-specific vocabulary. It consumes repeated successful recognitions,
+clarification responses, manual corrections, confirmed gameplay, speaker
+verification confidence, entity confidence, battlefield context, and optional
+deck snapshots. A single interaction is not enough to activate learning.
+
+Learned mappings increase future entity-resolution confidence for the enrolled
+speaker's known phrases while canonical card names and current battlefield
+objects remain the source of truth. The system stores only local metadata such
+as phrases, canonical targets, counts, confidence boosts, and timestamps. It
+does not retain raw audio, upload vocabulary, replace Scryfall/card identity
+data, recommend strategy, or execute gameplay.
+
+User-control boundaries are explicit: automatic learning can be disabled,
+learned phrases and player aliases are editable/removable through the internal
+API, learned vocabulary can be reset, and export/import preparation remains
+local-only until a future opt-in sync system exists.
+
 ## ECHO-02 Ambient Gameplay Engine
 
 `src/echo/ambientEngine.ts` is the single deterministic source for Ambient Gameplay mode state. It is not a rules authority and does not replace Lite's existing turn, phase, battlefield, undo, persistence, or rules-helper systems.
@@ -371,6 +392,10 @@ Future Echo work should observe these constraints:
 - Use the centralized voice battlefield action framework for reported
   gameplay-action staging, preview, clarification, trigger announcements, and
   canonical pipeline publication instead of mutating field state directly.
+- Use the centralized pronunciation learning system for personal vocabulary,
+  player aliases, playgroup terms, and deck-specific pronunciation boosts
+  instead of adding competing grammar aliases or overwriting canonical card
+  names.
 
 ## Regression Guardrails
 
@@ -388,3 +413,7 @@ The Echo foundation tests verify:
   creation, life/counter/token/zone/tap/untap application through the pipeline,
   clarification, correction, undo compatibility, recovery, persistence
   normalization, disabled settings, and direct mutation prevention.
+- Pronunciation Learning tests cover repeated confirmation thresholds, rejected
+  learning, personal vocabulary resolution boosts, player aliases, playgroup
+  vocabulary, deck-specific vocabulary, editing, deletion, reset, privacy
+  metadata, and direct mutation prevention.

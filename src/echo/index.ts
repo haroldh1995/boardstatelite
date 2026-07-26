@@ -199,6 +199,26 @@ export {
   startVoiceBattlefieldActionSession,
 } from "./voiceBattlefieldActions";
 export {
+  addDeckVocabularyEntry,
+  addPersonalVocabularyEntry,
+  addPlayerAlias,
+  addPlaygroupVocabularyEntry,
+  applyPronunciationLearningToResolutionResult,
+  canonicalEntityFromCard,
+  canonicalEntityFromGroup,
+  canonicalEntityFromPlayer,
+  createDefaultPronunciationLearningSettings,
+  createDefaultPronunciationLearningState,
+  normalizePronunciationLearningSettings,
+  normalizePronunciationLearningState,
+  normalizePronunciationText,
+  observePronunciationLearningSignal,
+  removePlayerAlias,
+  removePronunciationVocabularyEntry,
+  resetPronunciationLearningState,
+  updatePersonalVocabularyEntry,
+} from "./pronunciationLearning";
+export {
   EchoContextualListeningManager,
   activateListeningWindow,
   applyListeningWindowToGrammarResult,
@@ -253,6 +273,7 @@ export { ECHO_ENTITY_RESOLUTION_VERSION } from "./entityResolutionTypes";
 export { ECHO_CLARIFICATION_VERSION } from "./clarificationTypes";
 export { ECHO_COMBAT_DECLARATION_VERSION } from "./combatDeclarationTypes";
 export { ECHO_VOICE_BATTLEFIELD_ACTIONS_VERSION } from "./voiceBattlefieldActionsTypes";
+export { ECHO_PRONUNCIATION_LEARNING_VERSION } from "./pronunciationLearningTypes";
 export {
   ECHO_CONTEXTUAL_LISTENING_VERSION,
   ECHO_LISTENING_WINDOW_KINDS,
@@ -520,6 +541,22 @@ export type {
   EchoVoiceBattlefieldResult,
   EchoVoiceBattlefieldRevisionInput,
 } from "./voiceBattlefieldActionsTypes";
+export type {
+  EchoPronunciationAdaptationInput,
+  EchoPronunciationCanonicalEntity,
+  EchoPronunciationLearningDecision,
+  EchoPronunciationLearningDiagnostics,
+  EchoPronunciationLearningOutcome,
+  EchoPronunciationLearningSettings,
+  EchoPronunciationLearningSignal,
+  EchoPronunciationLearningSignalSource,
+  EchoPronunciationLearningSensitivity,
+  EchoPronunciationLearningState,
+  EchoPronunciationLearningStatus,
+  EchoPronunciationPlayerAlias,
+  EchoPronunciationVocabularyEntry,
+  EchoPronunciationVocabularyScope,
+} from "./pronunciationLearningTypes";
 export type {
   EchoContextualEntityPrioritySignal,
   EchoContextualListeningDiagnostics,

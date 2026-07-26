@@ -84,6 +84,10 @@ import {
   echoSpeakerVerificationEngine,
   resetSpeakerVerificationSettings,
 } from "../echo/speakerVerification";
+import {
+  removePronunciationVocabularyEntry,
+  resetPronunciationLearningState,
+} from "../echo/pronunciationLearning";
 import type {
   AmbientFieldMutation,
   AmbientIntent,
@@ -221,6 +225,8 @@ interface FieldStore {
   recordEnvironmentCalibration: () => Promise<void>;
   runSpeakerVerificationTest: () => Promise<void>;
   resetSpeakerVerificationData: () => void;
+  removePronunciationLearningEntry: (entryId: string) => void;
+  resetPronunciationLearning: () => void;
   stopListening: () => Promise<void>;
   resetVoiceConfiguration: () => Promise<void>;
   handleListeningLifecycleEvent: (
@@ -1093,6 +1099,58 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
         ),
       },
       ["Speaker verification data reset."],
+      set,
+    );
+  },
+
+  removePronunciationLearningEntry(entryId) {
+    const before = get().field;
+    const timestamp = new Date().toISOString();
+    const next = normalizeField({
+      ...before,
+      pronunciationLearning: removePronunciationVocabularyEntry(
+        before.pronunciationLearning,
+        entryId,
+        {
+          timestamp,
+          settings: before.settings.voice.pronunciationLearning,
+        },
+      ),
+    });
+    commitField(
+      "Learned phrase deleted",
+      before,
+      next,
+      ["Learned phrase deleted."],
+      set,
+    );
+  },
+
+  resetPronunciationLearning() {
+    const before = get().field;
+    const timestamp = new Date().toISOString();
+    const next = normalizeField({
+      ...before,
+      pronunciationLearning: resetPronunciationLearningState({
+        timestamp,
+        settings: before.settings.voice.pronunciationLearning,
+      }),
+      settings: normalizeSettings({
+        ...before.settings,
+        voice: normalizeEchoVoiceSettings({
+          ...before.settings.voice,
+          pronunciationLearning: {
+            ...before.settings.voice.pronunciationLearning,
+            lastResetAt: timestamp,
+          },
+        }),
+      }),
+    });
+    commitField(
+      "Learned vocabulary reset",
+      before,
+      next,
+      ["Learned vocabulary reset."],
       set,
     );
   },

@@ -14,6 +14,7 @@ import type { EchoClarificationState } from "../echo/clarificationTypes";
 import type { EchoCombatDeclarationState } from "../echo/combatDeclarationTypes";
 import type { EchoEntityResolutionState } from "../echo/entityResolutionTypes";
 import type { EchoVoiceBattlefieldActionState } from "../echo/voiceBattlefieldActionsTypes";
+import type { EchoPronunciationLearningState } from "../echo/pronunciationLearningTypes";
 import type {
   EchoListeningState,
   EchoVoiceSettings,
@@ -309,6 +310,7 @@ export interface FieldState {
   clarification: EchoClarificationState;
   combatDeclaration: EchoCombatDeclarationState;
   voiceBattlefieldActions: EchoVoiceBattlefieldActionState;
+  pronunciationLearning: EchoPronunciationLearningState;
   name: string;
   createdAt: string;
   updatedAt: string;

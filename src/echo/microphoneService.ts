@@ -49,6 +49,10 @@ import {
   normalizeVoiceBattlefieldActionSettings,
 } from "./voiceBattlefieldActions";
 import {
+  createDefaultPronunciationLearningSettings,
+  normalizePronunciationLearningSettings,
+} from "./pronunciationLearning";
+import {
   createDefaultEntityResolutionSettings,
   normalizeEntityResolutionSettings,
 } from "./entityResolution";
@@ -156,6 +160,7 @@ export function createDefaultEchoVoiceSettings(): EchoVoiceSettings {
     clarification: createDefaultClarificationSettings(),
     combatDeclaration: createDefaultCombatDeclarationSettings(),
     battlefieldActions: createDefaultVoiceBattlefieldActionSettings(),
+    pronunciationLearning: createDefaultPronunciationLearningSettings(),
   };
 }
 
@@ -198,6 +203,9 @@ export function normalizeEchoVoiceSettings(value: unknown): EchoVoiceSettings {
     ),
     battlefieldActions: normalizeVoiceBattlefieldActionSettings(
       candidate.battlefieldActions,
+    ),
+    pronunciationLearning: normalizePronunciationLearningSettings(
+      candidate.pronunciationLearning,
     ),
   };
 }

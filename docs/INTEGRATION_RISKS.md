@@ -337,3 +337,19 @@ Mitigation:
   committed actions instead of adding parallel mutation paths.
 - Preserve clarification for ambiguous targets and reject uncertain actions
   without changing battlefield state.
+
+## Pronunciation Overfitting
+
+Risk: Personal pronunciation learning could incorrectly override canonical card
+names, accept another player's shorthand, or create irreversible local aliases.
+
+Mitigation:
+
+- Require repeated verified confirmations before automatic mappings become
+  active.
+- Store learned vocabulary as local metadata with canonical targets rather than
+  modifying card identity, Scryfall, or grammar source data.
+- Keep automatic learning user-controllable and provide reset/delete paths for
+  learned mappings.
+- Use learned mappings only as confidence boosts inside entity resolution, not
+  as gameplay execution, rules validation, or strategy advice.

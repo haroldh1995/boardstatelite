@@ -21,6 +21,7 @@ import { normalizeAdaptiveListeningTailState } from "../echo/adaptiveListeningTa
 import { normalizeClarificationState } from "../echo/clarification";
 import { normalizeCombatDeclarationState } from "../echo/combatDeclaration";
 import { normalizeVoiceBattlefieldActionState } from "../echo/voiceBattlefieldActions";
+import { normalizePronunciationLearningState } from "../echo/pronunciationLearning";
 import { normalizeEntityResolutionState } from "../echo/entityResolution";
 import {
   LITE_APP_VERSION,
@@ -125,6 +126,17 @@ export function createLiteFieldSnapshot(field: FieldState): LiteFieldSnapshot {
       allowActiveSession: false,
     },
   );
+  const pronunciationLearning = normalizePronunciationLearningState(
+    field.pronunciationLearning,
+    {
+      fallbackTimestamp: field.updatedAt,
+      settings: voiceSettings.pronunciationLearning,
+      knownGroupIds: field.groups.map((group) => group.id),
+      knownCardIds: field.groups
+        .map((group) => group.identity?.cardId)
+        .filter((entry): entry is string => Boolean(entry)),
+    },
+  );
   const sortedGroups = [...field.groups].sort(
     (a, b) => a.order - b.order || a.id.localeCompare(b.id),
   );
@@ -162,6 +174,7 @@ export function createLiteFieldSnapshot(field: FieldState): LiteFieldSnapshot {
     clarification,
     combatDeclaration,
     voiceBattlefieldActions,
+    pronunciationLearning,
     player: {
       life: field.player.life,
       startingLife: field.player.startingLife,
