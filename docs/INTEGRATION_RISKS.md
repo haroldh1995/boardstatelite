@@ -139,6 +139,24 @@ Mitigation:
 - Recover expired or corrupt clarification sessions to a safe non-mutating
   state.
 
+## Combat Declaration Overreach
+
+Risk: An attacker declaration workflow could expand into blocker declaration,
+combat damage, combat prediction, or AI strategy recommendations inside Lite.
+
+Mitigation:
+
+- Keep `field.combatDeclaration` scoped to attacker assignments, defending
+  player labels, clarification requests, preview metadata, and pipeline event
+  references.
+- Route confirmed declarations through the Canonical Ambient Event Pipeline and
+  existing undo/history path before mutating local attacker status.
+- Preserve explicit preview flags showing that damage, blocker prediction, and
+  outcome prediction are not calculated.
+- Leave blocker declaration, combat damage, combat prediction, and strategy
+  advice to future authoritative BoardState or separately scoped Echo
+  milestones.
+
 ## Offline-First Conflicts
 
 Risk: Shared sessions or authoritative rules checks can require network access while Lite currently works offline after caching.

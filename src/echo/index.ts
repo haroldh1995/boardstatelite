@@ -169,6 +169,21 @@ export {
   updateClarificationSession,
 } from "./clarification";
 export {
+  applyCombatDeclarationPreviewToField,
+  cancelCombatDeclarationSession,
+  captureCombatDeclarationTranscript,
+  createCombatDeclarationPreview,
+  createDefaultCombatDeclarationSettings,
+  createDefaultCombatDeclarationState,
+  getCombatDeclarationDiagnostics,
+  normalizeCombatDeclarationSettings,
+  normalizeCombatDeclarationState,
+  publishCombatDeclarationToPipeline,
+  recoverCombatDeclarationSession,
+  removeCombatDeclarationAttackers,
+  startCombatDeclarationSession,
+} from "./combatDeclaration";
+export {
   EchoContextualListeningManager,
   activateListeningWindow,
   applyListeningWindowToGrammarResult,
@@ -221,6 +236,7 @@ export { ECHO_MAGIC_COMMAND_GRAMMAR_VERSION } from "./magicCommandGrammarTypes";
 export { ECHO_ADAPTIVE_LISTENING_TAIL_VERSION } from "./adaptiveListeningTailTypes";
 export { ECHO_ENTITY_RESOLUTION_VERSION } from "./entityResolutionTypes";
 export { ECHO_CLARIFICATION_VERSION } from "./clarificationTypes";
+export { ECHO_COMBAT_DECLARATION_VERSION } from "./combatDeclarationTypes";
 export {
   ECHO_CONTEXTUAL_LISTENING_VERSION,
   ECHO_LISTENING_WINDOW_KINDS,
@@ -442,6 +458,31 @@ export type {
   EchoClarificationType,
   EchoConfirmationSensitivity,
 } from "./clarificationTypes";
+export type {
+  EchoCombatAttackAssignment,
+  EchoCombatAttackerReference,
+  EchoCombatClarificationRequest,
+  EchoCombatDeclarationCompletionReason,
+  EchoCombatDeclarationConfidenceReason,
+  EchoCombatDeclarationConfidenceSource,
+  EchoCombatDeclarationDiagnostics,
+  EchoCombatDeclarationFieldMutation,
+  EchoCombatDeclarationInput,
+  EchoCombatDeclarationLifecycleInput,
+  EchoCombatDeclarationPreviewInput,
+  EchoCombatDeclarationPublishInput,
+  EchoCombatDeclarationResult,
+  EchoCombatDeclarationSession,
+  EchoCombatDeclarationSessionStatus,
+  EchoCombatDeclarationSettings,
+  EchoCombatDeclarationState,
+  EchoCombatDeclarationSummaryInput,
+  EchoCombatDeclarationTrigger,
+  EchoCombatDefenderReference,
+  EchoCombatEligibleGroup,
+  EchoCombatGroupReferenceKind,
+  EchoCombatPreview,
+} from "./combatDeclarationTypes";
 export type {
   EchoContextualEntityPrioritySignal,
   EchoContextualListeningDiagnostics,

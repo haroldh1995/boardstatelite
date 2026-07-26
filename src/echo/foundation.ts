@@ -6,6 +6,7 @@ import { serializeStable } from "../utils/stableSerialization";
 import { normalizeAmbientGameplayState } from "./ambientEngine";
 import { normalizeAdaptiveListeningTailState } from "./adaptiveListeningTail";
 import { normalizeClarificationState } from "./clarification";
+import { normalizeCombatDeclarationState } from "./combatDeclaration";
 import { normalizeContextualListeningState } from "./contextualListening";
 import {
   createBattlefieldContext,
@@ -44,6 +45,7 @@ export function createDormantEchoCapabilities(): EchoCapabilityMap {
     adaptiveListeningTail: true,
     entityResolution: true,
     clarification: true,
+    combatDeclaration: true,
   };
 }
 
@@ -93,11 +95,21 @@ export class EchoFoundationManager {
       fallbackTimestamp: field.updatedAt,
       settings: field.settings.voice.clarification,
     });
+    const combatDeclaration = normalizeCombatDeclarationState(
+      field.combatDeclaration,
+      {
+        fallbackTimestamp: field.updatedAt,
+        settings: field.settings.voice.combatDeclaration,
+        knownGroupIds: field.groups.map((group) => group.id),
+        allowActiveSession: false,
+      },
+    );
     const battlefieldContext = createBattlefieldContext(
       {
         ...field,
         entityResolution,
         clarification,
+        combatDeclaration,
       },
       { timestamp: createdAt },
     );
@@ -117,6 +129,7 @@ export class EchoFoundationManager {
       adaptiveListeningTail,
       entityResolution,
       clarification,
+      combatDeclaration,
       battlefieldContext,
       player: structuredClone(field.player),
       relevantTotals: calculateTotals(field.groups),

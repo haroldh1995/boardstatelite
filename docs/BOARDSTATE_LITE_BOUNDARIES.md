@@ -153,8 +153,8 @@ Lite may own an opt-in microphone lifecycle, personal voice enrollment, acoustic
 calibration, speaker verification, deterministic Magic command grammar,
 contextual listening windows, Adaptive Listening Tail sessions, intelligent
 entity resolution, battlefield context mapping, conversational clarification,
-intelligent confirmation, and privacy framework for future Ambient Gameplay
-features. That framework is allowed to
+intelligent confirmation, attacker-only combat declaration setup, and privacy
+framework for future Ambient Gameplay features. That framework is allowed to
 check availability, request permission, start and stop local audio sessions,
 show honest microphone status, validate enrollment sample quality, store local
 acoustic features, determine whether incoming audio matches the enrolled user,
@@ -164,8 +164,9 @@ multi-command text fragments, suppress duplicate partial transcripts, finalize
 voice sessions deterministically, resolve recognized entity references against
 the current battlefield before optional external lookup, ask one concise
 question when uncertainty remains, preserve paused interaction context, and
-persist safe
-listening/profile/verification/grammar/window/session/resolution/clarification
+prepare combat attacker previews for confirmation through the Ambient Event
+Pipeline. Lite may persist safe
+listening/profile/verification/grammar/window/session/resolution/clarification/combat
 metadata.
 
 Lite must not treat microphone access as speech recognition, AI
@@ -187,6 +188,9 @@ Canonical Ambient Event Pipeline and the current undo/history boundaries.
 Clarification and confirmation answer only whether an already recognized,
 verified, and resolved intent is clear enough to continue; they must not coach
 strategy, infer hidden game legality, predict combat, or execute gameplay.
+Combat declaration answers only which local attackers were declared against
+which defending players; it must not declare blockers, calculate combat damage,
+predict combat outcomes, recommend attacks, or automate resolution.
 
 Voice features remain disabled by default. Voice enrollment, verification, and
 grammar settings must not be presented as speech recognition or automatic

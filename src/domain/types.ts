@@ -11,6 +11,7 @@ import type { ActiveTurnActionStripState } from "../echo/activeTurnActionStripTy
 import type { EchoContextualListeningState } from "../echo/contextualListeningTypes";
 import type { EchoAdaptiveListeningTailState } from "../echo/adaptiveListeningTailTypes";
 import type { EchoClarificationState } from "../echo/clarificationTypes";
+import type { EchoCombatDeclarationState } from "../echo/combatDeclarationTypes";
 import type { EchoEntityResolutionState } from "../echo/entityResolutionTypes";
 import type {
   EchoListeningState,
@@ -305,6 +306,7 @@ export interface FieldState {
   adaptiveListeningTail: EchoAdaptiveListeningTailState;
   entityResolution: EchoEntityResolutionState;
   clarification: EchoClarificationState;
+  combatDeclaration: EchoCombatDeclarationState;
   name: string;
   createdAt: string;
   updatedAt: string;

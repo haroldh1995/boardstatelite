@@ -57,6 +57,10 @@ import {
   normalizeClarificationState,
 } from "../echo/clarification";
 import {
+  createDefaultCombatDeclarationState,
+  normalizeCombatDeclarationState,
+} from "../echo/combatDeclaration";
+import {
   createDefaultEntityResolutionState,
   normalizeEntityResolutionState,
 } from "../echo/entityResolution";
@@ -164,6 +168,7 @@ export function createDefaultField(): FieldState {
     }),
     entityResolution: createDefaultEntityResolutionState(),
     clarification: createDefaultClarificationState(),
+    combatDeclaration: createDefaultCombatDeclarationState(),
     name: "Baord State Lite Field",
     createdAt: now,
     updatedAt: now,
@@ -392,6 +397,15 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
     fallbackTimestamp: updatedAt,
     settings: settings.voice.clarification,
   });
+  const combatDeclaration = normalizeCombatDeclarationState(
+    candidate.combatDeclaration,
+    {
+      fallbackTimestamp: updatedAt,
+      settings: settings.voice.combatDeclaration,
+      knownGroupIds: groups.map((group) => group.id),
+      allowActiveSession: false,
+    },
+  );
   return {
     ...defaults,
     ...candidate,
@@ -408,6 +422,7 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
     adaptiveListeningTail,
     entityResolution,
     clarification,
+    combatDeclaration,
     name: sanitizeText(candidate.name, "Imported Baord State Lite Field"),
     player: {
       ...defaults.player,
@@ -625,6 +640,15 @@ export function normalizeField(field: FieldState): FieldState {
     fallbackTimestamp: field.updatedAt,
     settings: settings.voice.clarification,
   });
+  const combatDeclaration = normalizeCombatDeclarationState(
+    field.combatDeclaration,
+    {
+      fallbackTimestamp: field.updatedAt,
+      settings: settings.voice.combatDeclaration,
+      knownGroupIds: groups.map((group) => group.id),
+      allowActiveSession: true,
+    },
+  );
   return {
     ...field,
     session: sessionWithHub,
@@ -639,6 +663,7 @@ export function normalizeField(field: FieldState): FieldState {
     adaptiveListeningTail,
     entityResolution,
     clarification,
+    combatDeclaration,
     groups,
     settings,
     updatedAt,

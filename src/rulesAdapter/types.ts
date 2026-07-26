@@ -104,6 +104,7 @@ export interface LiteFieldSnapshot {
   adaptiveListeningTail: FieldState["adaptiveListeningTail"];
   entityResolution: FieldState["entityResolution"];
   clarification: FieldState["clarification"];
+  combatDeclaration: FieldState["combatDeclaration"];
   player: {
     life: number;
     startingLife: number;

@@ -3,6 +3,7 @@ import type { LiteFieldSnapshot } from "../rulesAdapter";
 import type { AmbientGameplayState } from "./ambientTypes";
 import type { EchoAdaptiveListeningTailState } from "./adaptiveListeningTailTypes";
 import type { EchoClarificationState } from "./clarificationTypes";
+import type { EchoCombatDeclarationState } from "./combatDeclarationTypes";
 import type { EchoContextualListeningState } from "./contextualListeningTypes";
 import type {
   EchoBattlefieldContext,
@@ -30,6 +31,7 @@ export const ECHO_CAPABILITIES = [
   "adaptiveListeningTail",
   "entityResolution",
   "clarification",
+  "combatDeclaration",
   "cardRecognition",
   "combatPrediction",
   "aiRecommendations",
@@ -76,6 +78,7 @@ export interface EchoAmbientContext {
   adaptiveListeningTail: EchoAdaptiveListeningTailState;
   entityResolution: EchoEntityResolutionState;
   clarification: EchoClarificationState;
+  combatDeclaration: EchoCombatDeclarationState;
   battlefieldContext: EchoBattlefieldContext;
   player: FieldState["player"];
   relevantTotals: Record<RelevantTotalKey, number>;

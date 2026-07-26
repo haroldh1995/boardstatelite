@@ -48,12 +48,14 @@ The `src/echo` module provides a local-only foundation for Echo milestones:
 - A contextual listening window layer that narrows future recognized text by current gameplay context without adding combat prediction, AI, or automatic execution.
 - An intelligent entity resolution and battlefield context layer that maps recognized references to local battlefield objects before any future voice intent reaches the confidence and event pipeline.
 - A conversational clarification and intelligent confirmation layer that pauses only uncertain interactions, asks the smallest required question, and resumes the preserved intent without replaying the whole conversation.
+- A combat declaration workflow that converts already recognized attacker phrases into structured attack previews and routes confirmed declarations through the Ambient Event Pipeline.
 
 This module deliberately does not:
 
 - Recognize speech.
 - Execute parsed commands.
 - Predict combat.
+- Declare blockers, calculate combat damage, calculate combat outcomes, or recommend attacks.
 - Recommend actions.
 - Create network calls.
 - Mutate field state outside the existing store, undo, and Ambient Event Pipeline boundaries.
@@ -229,6 +231,27 @@ and settings live under `field.settings.voice.clarification`. Expired,
 cancelled, interrupted, or corrupt sessions recover to a non-mutating state.
 Only completed canonical events may create undo/history entries; rejected,
 cancelled, timed-out, or pending clarifications do not modify field state.
+
+## ECHO-15 Combat Declaration Voice Workflow
+
+`src/echo/combatDeclaration.ts` owns the combat declaration workflow for
+already recognized attacker phrases. It can start a combat declaration session,
+activate the combat declaration listening window, map natural attacker
+statements such as commander, token, creature type, everything, and everything
+else references into structured attack assignments, and build a compact combat
+preview.
+
+The workflow is limited to attacker declaration and combat setup. It does not
+declare blockers, calculate damage, predict combat outcomes, recommend attacks,
+run AI, or bypass the existing pipeline. A confirmed preview publishes one
+`attack` intent through the Canonical Ambient Event Pipeline and uses the
+existing undo/history snapshot path before marking local attackers.
+
+Ambiguity is handed to the existing clarification framework with small
+questions such as "Which opponent?" or "Which attacker?". Combat declaration
+state is persisted as safe metadata in `field.combatDeclaration`; unsafe active
+sessions are recovered on import or unsafe restore without mutating unrelated
+battlefield state.
 
 ## ECHO-02 Ambient Gameplay Engine
 
