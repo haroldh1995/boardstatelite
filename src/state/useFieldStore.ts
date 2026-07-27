@@ -88,6 +88,13 @@ import {
   removePronunciationVocabularyEntry,
   resetPronunciationLearningState,
 } from "../echo/pronunciationLearning";
+import {
+  acceptPersonalGameplaySuggestion,
+  dismissPersonalGameplaySuggestion,
+  observePersonalGameplaySignal,
+  personalGameplaySignalForCommit,
+  resetPersonalGameplayState,
+} from "../echo/personalGameplay";
 import type {
   AmbientFieldMutation,
   AmbientIntent,
@@ -227,6 +234,9 @@ interface FieldStore {
   resetSpeakerVerificationData: () => void;
   removePronunciationLearningEntry: (entryId: string) => void;
   resetPronunciationLearning: () => void;
+  acceptSmartSuggestion: (suggestionId: string) => void;
+  dismissSmartSuggestion: (suggestionId: string) => void;
+  resetPersonalGameplay: () => void;
   stopListening: () => Promise<void>;
   resetVoiceConfiguration: () => Promise<void>;
   handleListeningLifecycleEvent: (
@@ -565,15 +575,21 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
     });
     if (outcome.status !== "completed") return outcome;
     const current = get();
+    const observedField = withPersonalGameplayObservation(
+      outcome.field,
+      "Ambient intent processed",
+      outcome.feedback.map((entry) => entry.message),
+    );
     set({
-      field: outcome.field,
-      undoStack: [...current.undoStack, outcome.historyEntry].slice(
-        -HISTORY_LIMIT,
-      ),
+      field: observedField,
+      undoStack: [
+        ...current.undoStack,
+        { ...outcome.historyEntry, after: observedField },
+      ].slice(-HISTORY_LIMIT),
       redoStack: [],
       lastResult: null,
     });
-    void saveField(outcome.field);
+    void saveField(observedField);
     return outcome;
   },
 
@@ -1155,6 +1171,84 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
     );
   },
 
+  acceptSmartSuggestion(suggestionId) {
+    const before = get().field;
+    const timestamp = new Date().toISOString();
+    const next = normalizeField({
+      ...before,
+      personalGameplay: acceptPersonalGameplaySuggestion(
+        before.personalGameplay,
+        suggestionId,
+        {
+          timestamp,
+          settings: before.settings.personalGameplay,
+        },
+      ),
+    });
+    commitField(
+      "Smart suggestion accepted",
+      before,
+      next,
+      ["Smart suggestion accepted."],
+      set,
+      null,
+      false,
+    );
+  },
+
+  dismissSmartSuggestion(suggestionId) {
+    const before = get().field;
+    const timestamp = new Date().toISOString();
+    const next = normalizeField({
+      ...before,
+      personalGameplay: dismissPersonalGameplaySuggestion(
+        before.personalGameplay,
+        suggestionId,
+        {
+          timestamp,
+          settings: before.settings.personalGameplay,
+        },
+      ),
+    });
+    commitField(
+      "Smart suggestion dismissed",
+      before,
+      next,
+      ["Smart suggestion dismissed."],
+      set,
+      null,
+      false,
+    );
+  },
+
+  resetPersonalGameplay() {
+    const before = get().field;
+    const timestamp = new Date().toISOString();
+    const next = normalizeField({
+      ...before,
+      personalGameplay: resetPersonalGameplayState({
+        timestamp,
+        settings: before.settings.personalGameplay,
+      }),
+      settings: normalizeSettings({
+        ...before.settings,
+        personalGameplay: {
+          ...before.settings.personalGameplay,
+          lastResetAt: timestamp,
+        },
+      }),
+    });
+    commitField(
+      "Personalization reset",
+      before,
+      next,
+      ["Personalization reset."],
+      set,
+      null,
+      false,
+    );
+  },
+
   async stopListening() {
     ensureMicrophoneStoreSubscription(set);
     syncMicrophoneServiceFromField(get().field);
@@ -1386,34 +1480,65 @@ function commitField(
   summary: string[],
   set: (partial: Partial<FieldStore>) => void,
   result: ResolutionResult | null = null,
+  observePersonalGameplay = true,
 ): void {
+  const committedAt = new Date().toISOString();
+  const observedAfter = observePersonalGameplay
+    ? withPersonalGameplayObservation(after, label, summary, committedAt)
+    : after;
   const entry: HistoryEntry = {
     id: makeId("history"),
     label,
     before,
-    after,
+    after: observedAfter,
     summary,
-    createdAt: new Date().toISOString(),
+    createdAt: committedAt,
   };
   const current = useFieldStore.getState();
   set({
-    field: after,
+    field: observedAfter,
     undoStack: [...current.undoStack, entry].slice(-HISTORY_LIMIT),
     redoStack: [],
     lastResult: result,
     modal: result ? { kind: "summary" } : current.modal,
   });
-  syncSubscribedMicrophoneService(after);
-  void saveField(after);
+  syncSubscribedMicrophoneService(observedAfter);
+  void saveField(observedAfter);
 }
 
 function commitPlannerField(
   field: FieldState,
   set: (partial: Partial<FieldStore>) => void,
 ): void {
-  set({ field, lastResult: null });
-  syncSubscribedMicrophoneService(field);
-  void saveField(field);
+  const observedField = withPersonalGameplayObservation(
+    field,
+    "Planner interaction",
+    ["Planner workflow updated."],
+  );
+  set({ field: observedField, lastResult: null });
+  syncSubscribedMicrophoneService(observedField);
+  void saveField(observedField);
+}
+
+function withPersonalGameplayObservation(
+  field: FieldState,
+  label: string,
+  summary: string[] = [],
+  timestamp = new Date().toISOString(),
+): FieldState {
+  const result = observePersonalGameplaySignal(
+    field.personalGameplay,
+    personalGameplaySignalForCommit(field, label, summary, timestamp),
+    {
+      field,
+      settings: field.settings.personalGameplay,
+      timestamp,
+    },
+  );
+  return {
+    ...field,
+    personalGameplay: result.state,
+  };
 }
 
 function preparePlannerField(field: FieldState, timestamp: string): FieldState {
@@ -1555,16 +1680,22 @@ function processActionStripItem(
 
   if (outcome.status === "completed") {
     const current = get();
+    const observedField = withPersonalGameplayObservation(
+      outcome.field,
+      "Action Strip item completed",
+      outcome.feedback.map((entry) => entry.message),
+    );
     set({
-      field: outcome.field,
-      undoStack: [...current.undoStack, outcome.historyEntry].slice(
-        -HISTORY_LIMIT,
-      ),
+      field: observedField,
+      undoStack: [
+        ...current.undoStack,
+        { ...outcome.historyEntry, after: observedField },
+      ].slice(-HISTORY_LIMIT),
       redoStack: [],
       lastResult: null,
     });
-    syncSubscribedMicrophoneService(outcome.field);
-    void saveField(outcome.field);
+    syncSubscribedMicrophoneService(observedField);
+    void saveField(observedField);
     return outcome;
   }
 
@@ -1585,9 +1716,14 @@ function processActionStripItem(
       },
     ),
   });
-  set({ field: blocked, lastResult: null });
-  syncSubscribedMicrophoneService(blocked);
-  void saveField(blocked);
+  const observedBlocked = withPersonalGameplayObservation(
+    blocked,
+    "Action Strip item blocked",
+    [message],
+  );
+  set({ field: observedBlocked, lastResult: null });
+  syncSubscribedMicrophoneService(observedBlocked);
+  void saveField(observedBlocked);
   return outcome;
 }
 

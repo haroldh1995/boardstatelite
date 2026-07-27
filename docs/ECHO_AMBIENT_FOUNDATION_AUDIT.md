@@ -49,6 +49,7 @@ The `src/echo` module provides a local-only foundation for Echo milestones:
 - An intelligent entity resolution and battlefield context layer that maps recognized references to local battlefield objects before any future voice intent reaches the confidence and event pipeline.
 - A conversational clarification and intelligent confirmation layer that pauses only uncertain interactions, asks the smallest required question, and resumes the preserved intent without replaying the whole conversation.
 - A combat declaration workflow that converts already recognized attacker phrases into structured attack previews and routes confirmed declarations through the Ambient Event Pipeline.
+- A personalized gameplay intelligence layer that learns local-only interaction ergonomics, prepares non-executing workflow handoffs, and shows optional non-strategic smart suggestions.
 
 This module deliberately does not:
 
@@ -57,6 +58,7 @@ This module deliberately does not:
 - Predict combat.
 - Declare blockers, calculate combat damage, calculate combat outcomes, or recommend attacks.
 - Recommend actions.
+- Recommend strategy, optimize decks, choose gameplay, or perform automatic gameplay.
 - Create network calls.
 - Mutate field state outside the existing store, undo, and Ambient Event Pipeline boundaries.
 - Add fake command, recognition, AI, automation, networking, or authority UI.
@@ -294,6 +296,28 @@ learned phrases and player aliases are editable/removable through the internal
 API, learned vocabulary can be reset, and export/import preparation remains
 local-only until a future opt-in sync system exists.
 
+## ECHO-19 Personalized Gameplay Intelligence
+
+`src/echo/personalGameplay.ts` owns the Personal Gameplay Model, Predictive
+Intent Assistance, and Smart Suggestions architecture. It observes only
+interaction ergonomics such as repeated interface flows, planner completion,
+Action Strip usage, interruption recovery, confirmation preferences, and
+listening-duration preferences.
+
+The model is local-only and privacy-safe. It stores no raw audio, unnecessary
+transcripts, strategic analysis, deck optimization data, opponent tendencies,
+win-rate metadata, or gameplay recommendations. Repeated non-strategic
+patterns can prepare workflow context, such as combat declaration readiness,
+the next planner step, a relevant listening window, or a resumable interrupted
+workflow. Those preparations never mutate battlefield state and always require
+explicit user action.
+
+Smart Suggestions are optional, dismissible, and non-blocking. They are shown
+as lightweight interface assistance only and are managed from the existing
+Settings sheet. Personalization can be disabled, suggestions can be disabled,
+adaptive preferences can be reset, and all metadata remains compatible with
+existing saves and exports.
+
 ## ECHO-02 Ambient Gameplay Engine
 
 `src/echo/ambientEngine.ts` is the single deterministic source for Ambient Gameplay mode state. It is not a rules authority and does not replace Lite's existing turn, phase, battlefield, undo, persistence, or rules-helper systems.
@@ -396,6 +420,10 @@ Future Echo work should observe these constraints:
   player aliases, playgroup terms, and deck-specific pronunciation boosts
   instead of adding competing grammar aliases or overwriting canonical card
   names.
+- Use the centralized Personal Gameplay Model for interaction ergonomics,
+  predictive workflow preparation, and optional Smart Suggestions instead of
+  adding competing strategic recommendation, automation, or deck-optimization
+  systems.
 
 ## Regression Guardrails
 
@@ -417,3 +445,8 @@ The Echo foundation tests verify:
   learning, personal vocabulary resolution boosts, player aliases, playgroup
   vocabulary, deck-specific vocabulary, editing, deletion, reset, privacy
   metadata, and direct mutation prevention.
+- Personalized Gameplay Intelligence tests cover privacy-safe defaults,
+  repeated interaction learning, predictive workflow preparation, non-blocking
+  Smart Suggestions, interruption resume prompts, preference adaptation,
+  resettable user control, long-running metadata bounds, and direct mutation
+  prevention.

@@ -6,6 +6,7 @@ import { BottomDock } from "./components/BottomDock";
 import { LifeTracker } from "./components/LifeTracker";
 import { MicrophoneStatusIndicator } from "./components/MicrophoneStatusIndicator";
 import { ModalRoot } from "./components/ModalRoot";
+import { SmartSuggestionsTray } from "./components/SmartSuggestionsTray";
 import { TotalsStrip } from "./components/TotalsStrip";
 import { isReferenceFixtureMode } from "./dev/referenceMode";
 import { useFieldStore } from "./state/useFieldStore";
@@ -99,6 +100,7 @@ function App() {
           <LifeTracker />
           <TotalsStrip />
           <MicrophoneStatusIndicator />
+          <SmartSuggestionsTray />
           <ActiveTurnActionStrip />
           <Battlefield />
           <BottomDock />

@@ -254,6 +254,45 @@ describe("Baord State Lite app shell", () => {
     ).toBe(false);
   }, 20_000);
 
+  it("exposes local-only personalization controls without gameplay automation", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(
+      await screen.findByRole("button", { name: /continue to field/i }),
+    );
+    await user.click(screen.getByRole("button", { name: /^tools$/i }));
+
+    expect(
+      screen.getByRole("heading", { name: /personalization/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("checkbox", { name: /personal gameplay model/i }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: /^smart suggestions$/i }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole("checkbox", {
+        name: /predictive intent assistance/i,
+      }),
+    ).toBeChecked();
+    expect(screen.getAllByText(/scope: local only/i).length).toBeGreaterThan(0);
+    expect(
+      screen.getByText(
+        /does not choose plays, optimize decks, or automate gameplay/i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      useFieldStore.getState().field.settings.personalGameplay
+        .gameplayAutomationEnabled,
+    ).toBe(false);
+    expect(
+      useFieldStore.getState().field.settings.personalGameplay
+        .deckOptimizationEnabled,
+    ).toBe(false);
+  }, 20_000);
+
   it("shows the active turn action strip and routes planned actions through undoable Ambient events", async () => {
     const user = userEvent.setup();
     render(<App />);

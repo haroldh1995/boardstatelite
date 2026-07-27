@@ -16,6 +16,10 @@ import type { EchoEntityResolutionState } from "../echo/entityResolutionTypes";
 import type { EchoVoiceBattlefieldActionState } from "../echo/voiceBattlefieldActionsTypes";
 import type { EchoPronunciationLearningState } from "../echo/pronunciationLearningTypes";
 import type {
+  EchoPersonalGameplaySettings,
+  EchoPersonalGameplayState,
+} from "../echo/personalGameplayTypes";
+import type {
   EchoListeningState,
   EchoVoiceSettings,
 } from "../echo/listeningTypes";
@@ -246,6 +250,7 @@ export interface SettingsState {
   sound: boolean;
   haptics: boolean;
   voice: EchoVoiceSettings;
+  personalGameplay: EchoPersonalGameplaySettings;
 }
 
 export interface WatcherPreferences {
@@ -311,6 +316,7 @@ export interface FieldState {
   combatDeclaration: EchoCombatDeclarationState;
   voiceBattlefieldActions: EchoVoiceBattlefieldActionState;
   pronunciationLearning: EchoPronunciationLearningState;
+  personalGameplay: EchoPersonalGameplayState;
   name: string;
   createdAt: string;
   updatedAt: string;

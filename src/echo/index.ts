@@ -219,6 +219,21 @@ export {
   updatePersonalVocabularyEntry,
 } from "./pronunciationLearning";
 export {
+  acceptPersonalGameplaySuggestion,
+  activePersonalGameplaySuggestions,
+  createDefaultPersonalGameplaySettings,
+  createDefaultPersonalGameplayState,
+  dismissPersonalGameplaySuggestion,
+  generatePersonalGameplaySuggestions,
+  normalizePersonalGameplaySettings,
+  normalizePersonalGameplayState,
+  normalizePersonalGameplayText,
+  observePersonalGameplaySignal,
+  personalGameplaySignalForCommit,
+  preparePredictiveIntentAssistance,
+  resetPersonalGameplayState,
+} from "./personalGameplay";
+export {
   EchoContextualListeningManager,
   activateListeningWindow,
   applyListeningWindowToGrammarResult,
@@ -274,6 +289,7 @@ export { ECHO_CLARIFICATION_VERSION } from "./clarificationTypes";
 export { ECHO_COMBAT_DECLARATION_VERSION } from "./combatDeclarationTypes";
 export { ECHO_VOICE_BATTLEFIELD_ACTIONS_VERSION } from "./voiceBattlefieldActionsTypes";
 export { ECHO_PRONUNCIATION_LEARNING_VERSION } from "./pronunciationLearningTypes";
+export { ECHO_PERSONAL_GAMEPLAY_VERSION } from "./personalGameplayTypes";
 export {
   ECHO_CONTEXTUAL_LISTENING_VERSION,
   ECHO_LISTENING_WINDOW_KINDS,
@@ -557,6 +573,29 @@ export type {
   EchoPronunciationVocabularyEntry,
   EchoPronunciationVocabularyScope,
 } from "./pronunciationLearningTypes";
+export type {
+  EchoPersonalGameplayClarificationStyle,
+  EchoPersonalGameplayContextSignal,
+  EchoPersonalGameplayDiagnostics,
+  EchoPersonalGameplayInteractionKind,
+  EchoPersonalGameplayInteractionOutcome,
+  EchoPersonalGameplayInteractionSignal,
+  EchoPersonalGameplayInteractionSource,
+  EchoPersonalGameplayInterruptedWorkflow,
+  EchoPersonalGameplayLearningSensitivity,
+  EchoPersonalGameplayObservation,
+  EchoPersonalGameplayObservationStatus,
+  EchoPersonalGameplayPreference,
+  EchoPersonalGameplayPreferencePath,
+  EchoPersonalGameplayPreferences,
+  EchoPersonalGameplaySettings,
+  EchoPersonalGameplayState,
+  EchoPredictiveWorkflowPreparation,
+  EchoPredictiveWorkflowTarget,
+  EchoSmartSuggestion,
+  EchoSmartSuggestionKind,
+  EchoSmartSuggestionStatus,
+} from "./personalGameplayTypes";
 export type {
   EchoContextualEntityPrioritySignal,
   EchoContextualListeningDiagnostics,

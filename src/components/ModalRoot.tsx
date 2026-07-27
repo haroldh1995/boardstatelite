@@ -9,6 +9,7 @@ import type {
   RelevantTotal,
   StackScope,
 } from "../domain/types";
+import type { EchoPersonalGameplayLearningSensitivity } from "../echo/personalGameplayTypes";
 import { useFieldStore } from "../state/useFieldStore";
 import { PreTurnPlannerSheet } from "./PreTurnPlannerSheet";
 import { ScryfallSearch } from "./ScryfallSearch";
@@ -1004,11 +1005,25 @@ function SettingsSheet() {
   const openModal = useFieldStore((state) => state.openModal);
   const updateSettings = useFieldStore((state) => state.updateSettings);
   const resetField = useFieldStore((state) => state.resetField);
+  const acceptSmartSuggestion = useFieldStore(
+    (state) => state.acceptSmartSuggestion,
+  );
+  const dismissSmartSuggestion = useFieldStore(
+    (state) => state.dismissSmartSuggestion,
+  );
+  const resetPersonalGameplay = useFieldStore(
+    (state) => state.resetPersonalGameplay,
+  );
   const exportField = useFieldStore((state) => state.exportField);
   const importField = useFieldStore((state) => state.importField);
   const [importText, setImportText] = useState("");
   const [exportText, setExportText] = useState("");
   const [importError, setImportError] = useState("");
+  const personal = field.personalGameplay;
+  const personalization = field.settings.personalGameplay;
+  const suggestions = personal.suggestions.filter(
+    (suggestion) => suggestion.status === "available",
+  );
   return (
     <div>
       <h2 id="modal-title">Settings</h2>
@@ -1116,6 +1131,148 @@ function SettingsSheet() {
           {importError && <p className="form-error">{importError}</p>}
           <button type="button" className="danger-action" onClick={resetField}>
             Reset App Data
+          </button>
+        </section>
+        <section className="personalization-settings">
+          <h3>Personalization</h3>
+          <div className="voice-profile-metadata">
+            <span>
+              Learned flows: {personal.diagnostics.activeObservationCount}
+            </span>
+            <span>
+              Suggestions: {personal.diagnostics.availableSuggestionCount}
+            </span>
+            <span>Scope: local only</span>
+          </div>
+          <p className="voice-settings-copy">
+            Personalization learns interface habits and workflow timing only. It
+            does not choose plays, optimize decks, or automate gameplay.
+          </p>
+          <label className="inline-check">
+            <input
+              type="checkbox"
+              checked={personalization.enabled}
+              onChange={(event) =>
+                updateSettings({
+                  personalGameplay: {
+                    ...personalization,
+                    enabled: event.target.checked,
+                  },
+                })
+              }
+            />
+            Personal Gameplay Model
+          </label>
+          <label className="inline-check">
+            <input
+              type="checkbox"
+              checked={personalization.smartSuggestionsEnabled}
+              disabled={!personalization.enabled}
+              onChange={(event) =>
+                updateSettings({
+                  personalGameplay: {
+                    ...personalization,
+                    smartSuggestionsEnabled: event.target.checked,
+                  },
+                })
+              }
+            />
+            Smart Suggestions
+          </label>
+          <label className="inline-check">
+            <input
+              type="checkbox"
+              checked={personalization.predictiveIntentAssistanceEnabled}
+              disabled={!personalization.enabled}
+              onChange={(event) =>
+                updateSettings({
+                  personalGameplay: {
+                    ...personalization,
+                    predictiveIntentAssistanceEnabled: event.target.checked,
+                  },
+                })
+              }
+            />
+            Predictive Intent Assistance
+          </label>
+          <label className="inline-check">
+            <input
+              type="checkbox"
+              checked={personalization.adaptiveInterfaceEnabled}
+              disabled={!personalization.enabled}
+              onChange={(event) =>
+                updateSettings({
+                  personalGameplay: {
+                    ...personalization,
+                    adaptiveInterfaceEnabled: event.target.checked,
+                  },
+                })
+              }
+            />
+            Adaptive Interface
+          </label>
+          <label>
+            Learning sensitivity
+            <select
+              value={personalization.learningSensitivity}
+              disabled={!personalization.enabled}
+              onChange={(event) =>
+                updateSettings({
+                  personalGameplay: {
+                    ...personalization,
+                    learningSensitivity: event.target
+                      .value as EchoPersonalGameplayLearningSensitivity,
+                  },
+                })
+              }
+            >
+              <option value="conservative">Conservative</option>
+              <option value="balanced">Balanced</option>
+              <option value="adaptive">Adaptive</option>
+            </select>
+          </label>
+          <div className="smart-suggestion-list" aria-label="Smart suggestions">
+            {suggestions.length ? (
+              suggestions.slice(0, 3).map((suggestion) => (
+                <article className="smart-suggestion-row" key={suggestion.id}>
+                  <span>
+                    <strong>{suggestion.message}</strong>
+                    <small>{suggestion.detail}</small>
+                  </span>
+                  <div>
+                    <button
+                      type="button"
+                      className="quiet-action"
+                      onClick={() => acceptSmartSuggestion(suggestion.id)}
+                    >
+                      Use
+                    </button>
+                    <button
+                      type="button"
+                      className="quiet-action"
+                      onClick={() => dismissSmartSuggestion(suggestion.id)}
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </article>
+              ))
+            ) : (
+              <p className="voice-settings-copy">
+                No smart suggestions are active.
+              </p>
+            )}
+          </div>
+          <button
+            type="button"
+            className="danger-action"
+            onClick={resetPersonalGameplay}
+            disabled={
+              personal.observations.length === 0 &&
+              personal.suggestions.length === 0
+            }
+          >
+            Reset Personalization
           </button>
         </section>
         <VoiceSettingsPanel />

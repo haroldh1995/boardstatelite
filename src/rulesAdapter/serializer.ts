@@ -22,6 +22,7 @@ import { normalizeClarificationState } from "../echo/clarification";
 import { normalizeCombatDeclarationState } from "../echo/combatDeclaration";
 import { normalizeVoiceBattlefieldActionState } from "../echo/voiceBattlefieldActions";
 import { normalizePronunciationLearningState } from "../echo/pronunciationLearning";
+import { normalizePersonalGameplayState } from "../echo/personalGameplay";
 import { normalizeEntityResolutionState } from "../echo/entityResolution";
 import {
   LITE_APP_VERSION,
@@ -137,6 +138,14 @@ export function createLiteFieldSnapshot(field: FieldState): LiteFieldSnapshot {
         .filter((entry): entry is string => Boolean(entry)),
     },
   );
+  const personalGameplay = normalizePersonalGameplayState(
+    field.personalGameplay,
+    {
+      fallbackTimestamp: field.updatedAt,
+      settings: field.settings.personalGameplay,
+      sessionId: field.session.id,
+    },
+  );
   const sortedGroups = [...field.groups].sort(
     (a, b) => a.order - b.order || a.id.localeCompare(b.id),
   );
@@ -175,6 +184,7 @@ export function createLiteFieldSnapshot(field: FieldState): LiteFieldSnapshot {
     combatDeclaration,
     voiceBattlefieldActions,
     pronunciationLearning,
+    personalGameplay,
     player: {
       life: field.player.life,
       startingLife: field.player.startingLife,

@@ -69,6 +69,12 @@ import {
   normalizePronunciationLearningState,
 } from "../echo/pronunciationLearning";
 import {
+  createDefaultPersonalGameplaySettings,
+  createDefaultPersonalGameplayState,
+  normalizePersonalGameplaySettings,
+  normalizePersonalGameplayState,
+} from "../echo/personalGameplay";
+import {
   createDefaultEntityResolutionState,
   normalizeEntityResolutionState,
 } from "../echo/entityResolution";
@@ -179,6 +185,7 @@ export function createDefaultField(): FieldState {
     combatDeclaration: createDefaultCombatDeclarationState(),
     voiceBattlefieldActions: createDefaultVoiceBattlefieldActionState(),
     pronunciationLearning: createDefaultPronunciationLearningState(),
+    personalGameplay: createDefaultPersonalGameplayState(),
     name: "Baord State Lite Field",
     createdAt: now,
     updatedAt: now,
@@ -277,6 +284,7 @@ export function createDefaultSettings(): SettingsState {
     sound: false,
     haptics: true,
     voice: createDefaultEchoVoiceSettings(),
+    personalGameplay: createDefaultPersonalGameplaySettings(),
   };
 }
 
@@ -288,6 +296,9 @@ export function normalizeSettings(value: unknown): SettingsState {
     ...defaults,
     ...candidate,
     voice: normalizeEchoVoiceSettings(candidate.voice),
+    personalGameplay: normalizePersonalGameplaySettings(
+      candidate.personalGameplay,
+    ),
   };
 }
 
@@ -436,6 +447,14 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
         .filter((entry): entry is string => Boolean(entry)),
     },
   );
+  const personalGameplay = normalizePersonalGameplayState(
+    candidate.personalGameplay,
+    {
+      fallbackTimestamp: updatedAt,
+      settings: settings.personalGameplay,
+      sessionId: sessionWithHub.id,
+    },
+  );
   return {
     ...defaults,
     ...candidate,
@@ -455,6 +474,7 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
     combatDeclaration,
     voiceBattlefieldActions,
     pronunciationLearning,
+    personalGameplay,
     name: sanitizeText(candidate.name, "Imported Baord State Lite Field"),
     player: {
       ...defaults.player,
@@ -701,6 +721,14 @@ export function normalizeField(field: FieldState): FieldState {
         .filter((entry): entry is string => Boolean(entry)),
     },
   );
+  const personalGameplay = normalizePersonalGameplayState(
+    field.personalGameplay,
+    {
+      fallbackTimestamp: field.updatedAt,
+      settings: settings.personalGameplay,
+      sessionId: sessionWithHub.id,
+    },
+  );
   return {
     ...field,
     session: sessionWithHub,
@@ -718,6 +746,7 @@ export function normalizeField(field: FieldState): FieldState {
     combatDeclaration,
     voiceBattlefieldActions,
     pronunciationLearning,
+    personalGameplay,
     groups,
     settings,
     updatedAt,

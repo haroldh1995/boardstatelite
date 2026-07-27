@@ -107,6 +107,7 @@ export interface LiteFieldSnapshot {
   combatDeclaration: FieldState["combatDeclaration"];
   voiceBattlefieldActions: FieldState["voiceBattlefieldActions"];
   pronunciationLearning: FieldState["pronunciationLearning"];
+  personalGameplay: FieldState["personalGameplay"];
   player: {
     life: number;
     startingLife: number;
