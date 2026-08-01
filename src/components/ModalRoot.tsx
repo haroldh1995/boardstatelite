@@ -1021,6 +1021,8 @@ function SettingsSheet() {
   const [importError, setImportError] = useState("");
   const personal = field.personalGameplay;
   const personalization = field.settings.personalGameplay;
+  const orchestrator = field.settings.ambientOrchestrator;
+  const orchestratorState = field.ambientOrchestrator;
   const suggestions = personal.suggestions.filter(
     (suggestion) => suggestion.status === "available",
   );
@@ -1132,6 +1134,86 @@ function SettingsSheet() {
           <button type="button" className="danger-action" onClick={resetField}>
             Reset App Data
           </button>
+        </section>
+        <section className="personalization-settings">
+          <h3>Ambient Gameplay</h3>
+          <div className="voice-profile-metadata">
+            <span>State: {orchestratorState.diagnostics.status}</span>
+            <span>
+              Resources:{" "}
+              {orchestratorState.diagnostics.resourceConflictCount
+                ? "needs recovery"
+                : "coordinated"}
+            </span>
+            <span>Scope: local only</span>
+          </div>
+          <p className="voice-settings-copy">
+            Ambient Gameplay coordinates Echo workflows only. It does not
+            automate gameplay, recommend strategy, or take rules authority.
+          </p>
+          <label className="inline-check">
+            <input
+              type="checkbox"
+              checked={orchestrator.enabled}
+              onChange={(event) =>
+                updateSettings({
+                  ambientOrchestrator: {
+                    ...orchestrator,
+                    enabled: event.target.checked,
+                  },
+                })
+              }
+            />
+            Ambient Gameplay
+          </label>
+          <label className="inline-check">
+            <input
+              type="checkbox"
+              checked={orchestrator.workflowRecoveryEnabled}
+              disabled={!orchestrator.enabled}
+              onChange={(event) =>
+                updateSettings({
+                  ambientOrchestrator: {
+                    ...orchestrator,
+                    workflowRecoveryEnabled: event.target.checked,
+                  },
+                })
+              }
+            />
+            Workflow Recovery
+          </label>
+          <label className="inline-check">
+            <input
+              type="checkbox"
+              checked={orchestrator.sessionRestorationEnabled}
+              disabled={!orchestrator.enabled}
+              onChange={(event) =>
+                updateSettings({
+                  ambientOrchestrator: {
+                    ...orchestrator,
+                    sessionRestorationEnabled: event.target.checked,
+                  },
+                })
+              }
+            />
+            Session Restoration
+          </label>
+          <label className="inline-check">
+            <input
+              type="checkbox"
+              checked={orchestrator.smartCoordinationEnabled}
+              disabled={!orchestrator.enabled}
+              onChange={(event) =>
+                updateSettings({
+                  ambientOrchestrator: {
+                    ...orchestrator,
+                    smartCoordinationEnabled: event.target.checked,
+                  },
+                })
+              }
+            />
+            Smart Coordination
+          </label>
         </section>
         <section className="personalization-settings">
           <h3>Personalization</h3>

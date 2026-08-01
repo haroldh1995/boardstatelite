@@ -234,6 +234,19 @@ export {
   resetPersonalGameplayState,
 } from "./personalGameplay";
 export {
+  coordinateAmbientOrchestratorEvent,
+  createAmbientOrchestratorSharedContext,
+  createDefaultAmbientOrchestratorSettings,
+  createDefaultAmbientOrchestratorState,
+  evaluateAmbientOrchestratorHealth,
+  normalizeAmbientOrchestratorSettings,
+  normalizeAmbientOrchestratorState,
+  orchestrateAmbientTranscript,
+  recordAmbientPipelineCompletion,
+  refreshAmbientOrchestratorContext,
+  resetAmbientOrchestratorState,
+} from "./ambientOrchestrator";
+export {
   EchoContextualListeningManager,
   activateListeningWindow,
   applyListeningWindowToGrammarResult,
@@ -290,6 +303,7 @@ export { ECHO_COMBAT_DECLARATION_VERSION } from "./combatDeclarationTypes";
 export { ECHO_VOICE_BATTLEFIELD_ACTIONS_VERSION } from "./voiceBattlefieldActionsTypes";
 export { ECHO_PRONUNCIATION_LEARNING_VERSION } from "./pronunciationLearningTypes";
 export { ECHO_PERSONAL_GAMEPLAY_VERSION } from "./personalGameplayTypes";
+export { ECHO_AMBIENT_ORCHESTRATOR_VERSION } from "./ambientOrchestratorTypes";
 export {
   ECHO_CONTEXTUAL_LISTENING_VERSION,
   ECHO_LISTENING_WINDOW_KINDS,
@@ -596,6 +610,27 @@ export type {
   EchoSmartSuggestionKind,
   EchoSmartSuggestionStatus,
 } from "./personalGameplayTypes";
+export type {
+  EchoAmbientOrchestrationRequest,
+  EchoAmbientOrchestrationResult,
+  EchoAmbientOrchestratorDiagnostics,
+  EchoAmbientOrchestratorEvent,
+  EchoAmbientOrchestratorEventKind,
+  EchoAmbientOrchestratorResource,
+  EchoAmbientOrchestratorSession,
+  EchoAmbientOrchestratorSessionStatus,
+  EchoAmbientOrchestratorSettings,
+  EchoAmbientOrchestratorSource,
+  EchoAmbientOrchestratorStageName,
+  EchoAmbientOrchestratorStageRecord,
+  EchoAmbientOrchestratorStageStatus,
+  EchoAmbientOrchestratorState,
+  EchoAmbientOrchestratorSubsystem,
+  EchoAmbientOrchestratorWorkflow,
+  EchoAmbientResourceOwnership,
+  EchoAmbientSharedContext,
+  EchoAmbientSystemHealth,
+} from "./ambientOrchestratorTypes";
 export type {
   EchoContextualEntityPrioritySignal,
   EchoContextualListeningDiagnostics,

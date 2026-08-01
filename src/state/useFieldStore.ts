@@ -95,6 +95,10 @@ import {
   personalGameplaySignalForCommit,
   resetPersonalGameplayState,
 } from "../echo/personalGameplay";
+import {
+  recordAmbientPipelineCompletion,
+  refreshAmbientOrchestratorContext,
+} from "../echo/ambientOrchestrator";
 import type {
   AmbientFieldMutation,
   AmbientIntent,
@@ -567,11 +571,13 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
   },
 
   processAmbientIntent(intent, mutation) {
+    const timestamp = new Date().toISOString();
     const outcome = ambientEventPipeline.process({
       field: get().field,
       intent,
       mutation,
       approval: { method: "automatic" },
+      timestamp,
     });
     if (outcome.status !== "completed") return outcome;
     const current = get();
@@ -579,17 +585,23 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
       outcome.field,
       "Ambient intent processed",
       outcome.feedback.map((entry) => entry.message),
+      timestamp,
+    );
+    const coordinatedField = withAmbientOrchestratorPipelineCompletion(
+      observedField,
+      outcome,
+      timestamp,
     );
     set({
-      field: observedField,
+      field: coordinatedField,
       undoStack: [
         ...current.undoStack,
-        { ...outcome.historyEntry, after: observedField },
+        { ...outcome.historyEntry, after: coordinatedField },
       ].slice(-HISTORY_LIMIT),
       redoStack: [],
       lastResult: null,
     });
-    void saveField(observedField);
+    void saveField(coordinatedField);
     return outcome;
   },
 
@@ -1486,24 +1498,28 @@ function commitField(
   const observedAfter = observePersonalGameplay
     ? withPersonalGameplayObservation(after, label, summary, committedAt)
     : after;
+  const coordinatedAfter = withAmbientOrchestratorContext(
+    observedAfter,
+    committedAt,
+  );
   const entry: HistoryEntry = {
     id: makeId("history"),
     label,
     before,
-    after: observedAfter,
+    after: coordinatedAfter,
     summary,
     createdAt: committedAt,
   };
   const current = useFieldStore.getState();
   set({
-    field: observedAfter,
+    field: coordinatedAfter,
     undoStack: [...current.undoStack, entry].slice(-HISTORY_LIMIT),
     redoStack: [],
     lastResult: result,
     modal: result ? { kind: "summary" } : current.modal,
   });
-  syncSubscribedMicrophoneService(observedAfter);
-  void saveField(observedAfter);
+  syncSubscribedMicrophoneService(coordinatedAfter);
+  void saveField(coordinatedAfter);
 }
 
 function commitPlannerField(
@@ -1515,9 +1531,10 @@ function commitPlannerField(
     "Planner interaction",
     ["Planner workflow updated."],
   );
-  set({ field: observedField, lastResult: null });
-  syncSubscribedMicrophoneService(observedField);
-  void saveField(observedField);
+  const coordinatedField = withAmbientOrchestratorContext(observedField);
+  set({ field: coordinatedField, lastResult: null });
+  syncSubscribedMicrophoneService(coordinatedField);
+  void saveField(coordinatedField);
 }
 
 function withPersonalGameplayObservation(
@@ -1538,6 +1555,42 @@ function withPersonalGameplayObservation(
   return {
     ...field,
     personalGameplay: result.state,
+  };
+}
+
+function withAmbientOrchestratorContext(
+  field: FieldState,
+  timestamp = new Date().toISOString(),
+): FieldState {
+  return {
+    ...field,
+    ambientOrchestrator: refreshAmbientOrchestratorContext(
+      field.ambientOrchestrator,
+      field,
+      {
+        timestamp,
+        settings: field.settings.ambientOrchestrator,
+      },
+    ),
+  };
+}
+
+function withAmbientOrchestratorPipelineCompletion(
+  field: FieldState,
+  outcome: AmbientPipelineResult,
+  timestamp = new Date().toISOString(),
+): FieldState {
+  return {
+    ...field,
+    ambientOrchestrator: recordAmbientPipelineCompletion(
+      field.ambientOrchestrator,
+      field,
+      {
+        result: outcome,
+        timestamp,
+        settings: field.settings.ambientOrchestrator,
+      },
+    ),
   };
 }
 
@@ -1684,18 +1737,24 @@ function processActionStripItem(
       outcome.field,
       "Action Strip item completed",
       outcome.feedback.map((entry) => entry.message),
+      timestamp,
+    );
+    const coordinatedField = withAmbientOrchestratorPipelineCompletion(
+      observedField,
+      outcome,
+      timestamp,
     );
     set({
-      field: observedField,
+      field: coordinatedField,
       undoStack: [
         ...current.undoStack,
-        { ...outcome.historyEntry, after: observedField },
+        { ...outcome.historyEntry, after: coordinatedField },
       ].slice(-HISTORY_LIMIT),
       redoStack: [],
       lastResult: null,
     });
-    syncSubscribedMicrophoneService(observedField);
-    void saveField(observedField);
+    syncSubscribedMicrophoneService(coordinatedField);
+    void saveField(coordinatedField);
     return outcome;
   }
 
@@ -1720,10 +1779,16 @@ function processActionStripItem(
     blocked,
     "Action Strip item blocked",
     [message],
+    timestamp,
   );
-  set({ field: observedBlocked, lastResult: null });
-  syncSubscribedMicrophoneService(observedBlocked);
-  void saveField(observedBlocked);
+  const coordinatedBlocked = withAmbientOrchestratorPipelineCompletion(
+    observedBlocked,
+    outcome,
+    timestamp,
+  );
+  set({ field: coordinatedBlocked, lastResult: null });
+  syncSubscribedMicrophoneService(coordinatedBlocked);
+  void saveField(coordinatedBlocked);
   return outcome;
 }
 

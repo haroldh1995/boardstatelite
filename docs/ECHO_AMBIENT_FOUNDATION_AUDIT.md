@@ -50,6 +50,10 @@ The `src/echo` module provides a local-only foundation for Echo milestones:
 - A conversational clarification and intelligent confirmation layer that pauses only uncertain interactions, asks the smallest required question, and resumes the preserved intent without replaying the whole conversation.
 - A combat declaration workflow that converts already recognized attacker phrases into structured attack previews and routes confirmed declarations through the Ambient Event Pipeline.
 - A personalized gameplay intelligence layer that learns local-only interaction ergonomics, prepares non-executing workflow handoffs, and shows optional non-strategic smart suggestions.
+- An Ambient Gameplay Orchestrator that coordinates Echo voice sessions,
+  listening windows, grammar, entity resolution, clarification, previews,
+  confirmations, canonical pipeline publication, recovery, and Smart
+  Suggestions through one local-only lifecycle.
 
 This module deliberately does not:
 
@@ -424,6 +428,47 @@ Future Echo work should observe these constraints:
   predictive workflow preparation, and optional Smart Suggestions instead of
   adding competing strategic recommendation, automation, or deck-optimization
   systems.
+- Use the centralized Ambient Gameplay Orchestrator for cross-system Echo
+  workflow coordination instead of allowing listening, clarification, previews,
+  combat, gameplay staging, and pipeline publication to compete for microphone,
+  session, or UI-focus ownership.
+
+## ECHO-20 Ambient Gameplay Orchestrator
+
+`src/echo/ambientOrchestrator.ts` owns the deterministic orchestration layer for
+Project Echo. It coordinates existing Echo subsystems without replacing their
+internal logic and without bypassing the Canonical Ambient Event Pipeline.
+
+The unified session lifecycle is idle, listening, clarifying, previewing,
+awaiting confirmation, publishing, recovering, paused, cancelled, completed,
+and interrupted. The orchestrator tracks the active workflow, stage records,
+pending previews, pending confirmations, recent pipeline mutations, recent voice
+sessions, and shared battlefield context.
+
+Shared context includes the current Ambient mode, observed turn and phase
+metadata where available, active listening window, planner step, Action Strip
+item, combat session, voice gameplay session, pending clarification, recent
+mutations, recent voice sessions, and the centralized Battlefield Context
+Engine output. Future Echo systems should consume this shared context rather
+than rebuilding local battlefield scans.
+
+Resource coordination is explicit. Only one active orchestration session should
+own voice session, microphone, listening window, clarification, gameplay
+staging, combat declaration, confirmation, pipeline, and UI-focus resources at
+a time. Health diagnostics detect inconsistent sessions, stale resource
+ownership, missing pipeline metadata during publishing, invalid lifecycle state,
+and unexpected failures.
+
+Persistence stores only safe orchestration metadata. Unsafe active sessions are
+restored as interrupted during import or unsafe restore, allowing Recovery Mode
+to resume deliberately without replaying completed actions. Temporary audio
+buffers, recognizer internals, and UI-only queues are not persisted.
+
+The orchestrator deliberately does not mutate battlefield state directly,
+execute gameplay automatically, recommend strategy, optimize decks, transfer
+rules authority to Lite, create network services, or fabricate unavailable Hub
+or BoardState connectivity. Committed gameplay still requires the Canonical
+Ambient Event Pipeline and the existing undo/history systems.
 
 ## Regression Guardrails
 
@@ -450,3 +495,7 @@ The Echo foundation tests verify:
   Smart Suggestions, interruption resume prompts, preference adaptation,
   resettable user control, long-running metadata bounds, and direct mutation
   prevention.
+- Ambient Gameplay Orchestrator tests cover local-only settings, shared context
+  generation, transcript coordination, speaker rejection, canonical pipeline
+  completion recording, resource conflict detection, unsafe restore recovery,
+  persistence compatibility, reset behavior, and direct mutation prevention.

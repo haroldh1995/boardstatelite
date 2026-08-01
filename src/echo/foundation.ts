@@ -10,6 +10,7 @@ import { normalizeCombatDeclarationState } from "./combatDeclaration";
 import { normalizeVoiceBattlefieldActionState } from "./voiceBattlefieldActions";
 import { normalizePronunciationLearningState } from "./pronunciationLearning";
 import { normalizePersonalGameplayState } from "./personalGameplay";
+import { normalizeAmbientOrchestratorState } from "./ambientOrchestrator";
 import { normalizeContextualListeningState } from "./contextualListening";
 import {
   createBattlefieldContext,
@@ -54,6 +55,8 @@ export function createDormantEchoCapabilities(): EchoCapabilityMap {
     personalGameplayIntelligence: true,
     predictiveIntentAssistance: true,
     smartSuggestions: true,
+    ambientGameplayOrchestrator: true,
+    smartCoordination: true,
   };
 }
 
@@ -140,6 +143,14 @@ export class EchoFoundationManager {
         sessionId: field.session.id,
       },
     );
+    const ambientOrchestrator = normalizeAmbientOrchestratorState(
+      field.ambientOrchestrator,
+      {
+        fallbackTimestamp: field.updatedAt,
+        settings: field.settings.ambientOrchestrator,
+        allowActiveSession: false,
+      },
+    );
     const battlefieldContext = createBattlefieldContext(
       {
         ...field,
@@ -149,6 +160,7 @@ export class EchoFoundationManager {
         voiceBattlefieldActions,
         pronunciationLearning,
         personalGameplay,
+        ambientOrchestrator,
       },
       { timestamp: createdAt },
     );
@@ -172,6 +184,7 @@ export class EchoFoundationManager {
       voiceBattlefieldActions,
       pronunciationLearning,
       personalGameplay,
+      ambientOrchestrator,
       battlefieldContext,
       player: structuredClone(field.player),
       relevantTotals: calculateTotals(field.groups),

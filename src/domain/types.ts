@@ -20,6 +20,10 @@ import type {
   EchoPersonalGameplayState,
 } from "../echo/personalGameplayTypes";
 import type {
+  EchoAmbientOrchestratorSettings,
+  EchoAmbientOrchestratorState,
+} from "../echo/ambientOrchestratorTypes";
+import type {
   EchoListeningState,
   EchoVoiceSettings,
 } from "../echo/listeningTypes";
@@ -251,6 +255,7 @@ export interface SettingsState {
   haptics: boolean;
   voice: EchoVoiceSettings;
   personalGameplay: EchoPersonalGameplaySettings;
+  ambientOrchestrator: EchoAmbientOrchestratorSettings;
 }
 
 export interface WatcherPreferences {
@@ -317,6 +322,7 @@ export interface FieldState {
   voiceBattlefieldActions: EchoVoiceBattlefieldActionState;
   pronunciationLearning: EchoPronunciationLearningState;
   personalGameplay: EchoPersonalGameplayState;
+  ambientOrchestrator: EchoAmbientOrchestratorState;
   name: string;
   createdAt: string;
   updatedAt: string;

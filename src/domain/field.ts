@@ -75,6 +75,12 @@ import {
   normalizePersonalGameplayState,
 } from "../echo/personalGameplay";
 import {
+  createDefaultAmbientOrchestratorSettings,
+  createDefaultAmbientOrchestratorState,
+  normalizeAmbientOrchestratorSettings,
+  normalizeAmbientOrchestratorState,
+} from "../echo/ambientOrchestrator";
+import {
   createDefaultEntityResolutionState,
   normalizeEntityResolutionState,
 } from "../echo/entityResolution";
@@ -186,6 +192,7 @@ export function createDefaultField(): FieldState {
     voiceBattlefieldActions: createDefaultVoiceBattlefieldActionState(),
     pronunciationLearning: createDefaultPronunciationLearningState(),
     personalGameplay: createDefaultPersonalGameplayState(),
+    ambientOrchestrator: createDefaultAmbientOrchestratorState(),
     name: "Baord State Lite Field",
     createdAt: now,
     updatedAt: now,
@@ -285,6 +292,7 @@ export function createDefaultSettings(): SettingsState {
     haptics: true,
     voice: createDefaultEchoVoiceSettings(),
     personalGameplay: createDefaultPersonalGameplaySettings(),
+    ambientOrchestrator: createDefaultAmbientOrchestratorSettings(),
   };
 }
 
@@ -298,6 +306,9 @@ export function normalizeSettings(value: unknown): SettingsState {
     voice: normalizeEchoVoiceSettings(candidate.voice),
     personalGameplay: normalizePersonalGameplaySettings(
       candidate.personalGameplay,
+    ),
+    ambientOrchestrator: normalizeAmbientOrchestratorSettings(
+      candidate.ambientOrchestrator,
     ),
   };
 }
@@ -455,6 +466,14 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
       sessionId: sessionWithHub.id,
     },
   );
+  const ambientOrchestrator = normalizeAmbientOrchestratorState(
+    candidate.ambientOrchestrator,
+    {
+      fallbackTimestamp: updatedAt,
+      settings: settings.ambientOrchestrator,
+      allowActiveSession: false,
+    },
+  );
   return {
     ...defaults,
     ...candidate,
@@ -475,6 +494,7 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
     voiceBattlefieldActions,
     pronunciationLearning,
     personalGameplay,
+    ambientOrchestrator,
     name: sanitizeText(candidate.name, "Imported Baord State Lite Field"),
     player: {
       ...defaults.player,
@@ -729,6 +749,14 @@ export function normalizeField(field: FieldState): FieldState {
       sessionId: sessionWithHub.id,
     },
   );
+  const ambientOrchestrator = normalizeAmbientOrchestratorState(
+    field.ambientOrchestrator,
+    {
+      fallbackTimestamp: field.updatedAt,
+      settings: settings.ambientOrchestrator,
+      allowActiveSession: true,
+    },
+  );
   return {
     ...field,
     session: sessionWithHub,
@@ -747,6 +775,7 @@ export function normalizeField(field: FieldState): FieldState {
     voiceBattlefieldActions,
     pronunciationLearning,
     personalGameplay,
+    ambientOrchestrator,
     groups,
     settings,
     updatedAt,
