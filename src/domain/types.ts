@@ -27,6 +27,7 @@ import type {
   EchoListeningState,
   EchoVoiceSettings,
 } from "../echo/listeningTypes";
+import type { AthenaSettings, AthenaState } from "../athena/types";
 
 export type Zone =
   | "battlefield"
@@ -256,6 +257,7 @@ export interface SettingsState {
   voice: EchoVoiceSettings;
   personalGameplay: EchoPersonalGameplaySettings;
   ambientOrchestrator: EchoAmbientOrchestratorSettings;
+  athena: AthenaSettings;
 }
 
 export interface WatcherPreferences {
@@ -323,6 +325,7 @@ export interface FieldState {
   pronunciationLearning: EchoPronunciationLearningState;
   personalGameplay: EchoPersonalGameplayState;
   ambientOrchestrator: EchoAmbientOrchestratorState;
+  athena: AthenaState;
   name: string;
   createdAt: string;
   updatedAt: string;

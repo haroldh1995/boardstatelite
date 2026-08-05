@@ -28,6 +28,10 @@ Baord State Lite now stores a local anonymous profile and an application registr
 
 Baord State Lite routes local helper results through a compact rules-result rendering layer before updating summaries, details, animation queues, and accessibility announcements. The active production source remains the Local Helper Engine. The renderer can validate and display future BoardState authoritative results, warnings, unsupported-interaction notices, judge notes, and replay markers without importing Advanced Mode or claiming BoardState is connected.
 
+## Athena Battlefield Awareness
+
+Project Athena is present as an internal, local-only battlefield-awareness foundation. It derives relationship, dependency-graph, support-status, authority, and preview metadata from the current Lite field without copying battlefield state, mutating gameplay, replacing the rules-result renderer, or exposing unfinished Athena controls. Future Athena work must keep BoardState as the authoritative rules engine and route committed changes through existing canonical event/result and undo paths.
+
 ## Tracking Controls
 
 Stop Tracking Card is a user-controlled automation preference, separate from Depower. A not-tracked card stays visible, keeps its current counters and statuses, continues contributing to relevant totals, and remains an eligible recipient for effects from tracked cards. Its own supported abilities, replacement effects, static effects, background watcher responses, and attached card automation are ignored until Resume Tracking Card is used.
@@ -94,6 +98,7 @@ The current 430px fixture screenshot is saved at
 - `docs/LIVE_DEPLOYMENT_CHECKLIST.md`
 - `docs/FINAL_ECOSYSTEM_AUDIT.md`
 - `docs/ECHO_AMBIENT_FOUNDATION_AUDIT.md`
+- `docs/ATHENA_FOUNDATION.md`
 
 ## Deployment
 

@@ -87,6 +87,8 @@ The adapter must remain a communication boundary, not an imported Advanced rules
 
 The rules-result renderer is also a boundary, not an authority. It validates structured results, resolves object references, queues compact animation/notification/accessibility output, and applies supported result changes. Current production rendering source is the Local Helper Engine. Future BoardState authority results may be rendered only when a real adapter provides them; Lite must not fabricate authority or expose raw Advanced stack data.
 
+Project Athena is a derived awareness boundary, not an authority. It may organize personal battlefield relationships, support findings, choices, and preview metadata from existing Lite state, Echo intents, or future BoardState results. It must not persist a second battlefield, create a second undo/history path, or apply results outside the existing canonical event/result systems.
+
 ## Shared-Session Boundary
 
 Lite now assigns every field a canonical shared-session identity so future ecosystem apps can reference the same game session. The current runtime status is always a Local Session controlled by Local Lite unless a real future authority is connected.

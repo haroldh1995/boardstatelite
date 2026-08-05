@@ -84,6 +84,12 @@ import {
   createDefaultEntityResolutionState,
   normalizeEntityResolutionState,
 } from "../echo/entityResolution";
+import {
+  createDefaultAthenaSettings,
+  createDefaultAthenaState,
+  normalizeAthenaSettings,
+  normalizeAthenaState,
+} from "../athena";
 import type {
   FieldState,
   OpponentValues,
@@ -193,6 +199,7 @@ export function createDefaultField(): FieldState {
     pronunciationLearning: createDefaultPronunciationLearningState(),
     personalGameplay: createDefaultPersonalGameplayState(),
     ambientOrchestrator: createDefaultAmbientOrchestratorState(),
+    athena: createDefaultAthenaState(),
     name: "Baord State Lite Field",
     createdAt: now,
     updatedAt: now,
@@ -293,6 +300,7 @@ export function createDefaultSettings(): SettingsState {
     voice: createDefaultEchoVoiceSettings(),
     personalGameplay: createDefaultPersonalGameplaySettings(),
     ambientOrchestrator: createDefaultAmbientOrchestratorSettings(),
+    athena: createDefaultAthenaSettings(),
   };
 }
 
@@ -310,6 +318,7 @@ export function normalizeSettings(value: unknown): SettingsState {
     ambientOrchestrator: normalizeAmbientOrchestratorSettings(
       candidate.ambientOrchestrator,
     ),
+    athena: normalizeAthenaSettings(candidate.athena),
   };
 }
 
@@ -474,6 +483,11 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
       allowActiveSession: false,
     },
   );
+  const athena = normalizeAthenaState(candidate.athena, {
+    fallbackTimestamp: updatedAt,
+    settings: settings.athena,
+    allowActivePreview: false,
+  });
   return {
     ...defaults,
     ...candidate,
@@ -495,6 +509,7 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
     pronunciationLearning,
     personalGameplay,
     ambientOrchestrator,
+    athena,
     name: sanitizeText(candidate.name, "Imported Baord State Lite Field"),
     player: {
       ...defaults.player,
@@ -757,6 +772,11 @@ export function normalizeField(field: FieldState): FieldState {
       allowActiveSession: true,
     },
   );
+  const athena = normalizeAthenaState(field.athena, {
+    fallbackTimestamp: field.updatedAt,
+    settings: settings.athena,
+    allowActivePreview: true,
+  });
   return {
     ...field,
     session: sessionWithHub,
@@ -776,6 +796,7 @@ export function normalizeField(field: FieldState): FieldState {
     pronunciationLearning,
     personalGameplay,
     ambientOrchestrator,
+    athena,
     groups,
     settings,
     updatedAt,

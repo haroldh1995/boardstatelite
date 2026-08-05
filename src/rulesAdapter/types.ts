@@ -109,6 +109,7 @@ export interface LiteFieldSnapshot {
   pronunciationLearning: FieldState["pronunciationLearning"];
   personalGameplay: FieldState["personalGameplay"];
   ambientOrchestrator: FieldState["ambientOrchestrator"];
+  athena: FieldState["athena"];
   player: {
     life: number;
     startingLife: number;

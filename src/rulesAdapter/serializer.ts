@@ -25,6 +25,7 @@ import { normalizePronunciationLearningState } from "../echo/pronunciationLearni
 import { normalizePersonalGameplayState } from "../echo/personalGameplay";
 import { normalizeAmbientOrchestratorState } from "../echo/ambientOrchestrator";
 import { normalizeEntityResolutionState } from "../echo/entityResolution";
+import { normalizeAthenaState } from "../athena";
 import {
   LITE_APP_VERSION,
   LITE_SNAPSHOT_VERSION,
@@ -155,6 +156,11 @@ export function createLiteFieldSnapshot(field: FieldState): LiteFieldSnapshot {
       allowActiveSession: false,
     },
   );
+  const athena = normalizeAthenaState(field.athena, {
+    fallbackTimestamp: field.updatedAt,
+    settings: field.settings.athena,
+    allowActivePreview: false,
+  });
   const sortedGroups = [...field.groups].sort(
     (a, b) => a.order - b.order || a.id.localeCompare(b.id),
   );
@@ -195,6 +201,7 @@ export function createLiteFieldSnapshot(field: FieldState): LiteFieldSnapshot {
     pronunciationLearning,
     personalGameplay,
     ambientOrchestrator,
+    athena,
     player: {
       life: field.player.life,
       startingLife: field.player.startingLife,

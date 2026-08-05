@@ -291,6 +291,7 @@ describe("Baord State Lite app shell", () => {
       useFieldStore.getState().field.settings.personalGameplay
         .deckOptimizationEnabled,
     ).toBe(false);
+    expect(screen.queryByText(/athena/i)).not.toBeInTheDocument();
   }, 20_000);
 
   it("shows the active turn action strip and routes planned actions through undoable Ambient events", async () => {
