@@ -7,9 +7,10 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { act } from "react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { createDefaultField } from "./domain/field";
+import { MicrophoneStatusIndicator } from "./components/MicrophoneStatusIndicator";
 import { useFieldStore } from "./state/useFieldStore";
 import { animPakal } from "./test/factories";
 
@@ -252,6 +253,51 @@ describe("Baord State Lite app shell", () => {
       useFieldStore.getState().field.settings.voice.verification.privacy
         .rawAudioRetained,
     ).toBe(false);
+  }, 20_000);
+
+  it("shows an accessible quick mute toggle beside the microphone badge", async () => {
+    const user = userEvent.setup();
+    const originalToggle = useFieldStore.getState().toggleListeningMute;
+    const toggleListeningMute = vi.fn(async () => undefined);
+    const field = createDefaultField();
+    useFieldStore.setState({
+      field: {
+        ...field,
+        settings: {
+          ...field.settings,
+          voice: {
+            ...field.settings.voice,
+            voiceFeaturesEnabled: true,
+            ambientListeningEnabled: true,
+          },
+        },
+        listening: {
+          ...field.listening,
+          status: "stopped",
+          permission: "granted",
+          availability: "available",
+          indicator: "ready",
+        },
+      },
+      toggleListeningMute,
+    });
+
+    try {
+      render(<MicrophoneStatusIndicator />);
+
+      const button = screen.getByRole("button", {
+        name: /unmute microphone listening/i,
+      });
+      expect(button).toBeEnabled();
+      expect(button).toHaveAttribute("aria-pressed", "false");
+
+      await user.click(button);
+
+      expect(toggleListeningMute).toHaveBeenCalledTimes(1);
+      expect(screen.getByText(/listening muted/i)).toBeInTheDocument();
+    } finally {
+      useFieldStore.setState({ toggleListeningMute: originalToggle });
+    }
   }, 20_000);
 
   it("exposes local-only personalization controls without gameplay automation", async () => {

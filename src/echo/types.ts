@@ -4,6 +4,7 @@ import type { AmbientGameplayState } from "./ambientTypes";
 import type { EchoAdaptiveListeningTailState } from "./adaptiveListeningTailTypes";
 import type { EchoClarificationState } from "./clarificationTypes";
 import type { EchoCombatDeclarationState } from "./combatDeclarationTypes";
+import type { EchoCombatResolutionState } from "./combatResolutionTypes";
 import type { EchoVoiceBattlefieldActionState } from "./voiceBattlefieldActionsTypes";
 import type { EchoPronunciationLearningState } from "./pronunciationLearningTypes";
 import type { EchoPersonalGameplayState } from "./personalGameplayTypes";
@@ -36,6 +37,7 @@ export const ECHO_CAPABILITIES = [
   "entityResolution",
   "clarification",
   "combatDeclaration",
+  "combatResolution",
   "voiceBattlefieldActions",
   "pronunciationLearning",
   "personalGameplayIntelligence",
@@ -90,6 +92,7 @@ export interface EchoAmbientContext {
   entityResolution: EchoEntityResolutionState;
   clarification: EchoClarificationState;
   combatDeclaration: EchoCombatDeclarationState;
+  combatResolution: EchoCombatResolutionState;
   voiceBattlefieldActions: EchoVoiceBattlefieldActionState;
   pronunciationLearning: EchoPronunciationLearningState;
   personalGameplay: EchoPersonalGameplayState;

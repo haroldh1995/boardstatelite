@@ -225,6 +225,7 @@ interface FieldStore {
   setVoiceSettings: (settings: Partial<EchoVoiceSettings>) => Promise<void>;
   requestMicrophonePermission: () => Promise<void>;
   startMicrophoneTest: () => Promise<void>;
+  toggleListeningMute: () => Promise<void>;
   beginVoiceEnrollment: (mode?: EchoVoiceEnrollmentSession["mode"]) => void;
   setVoiceEnrollmentContext: (context: {
     environment?: EchoCalibrationEnvironment;
@@ -891,6 +892,29 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
     await echoMicrophoneService.startListening({
       ambientMode: get().field.ambient.currentMode,
       testSession: true,
+    });
+    persistMicrophoneStateFromService(set);
+  },
+
+  async toggleListeningMute() {
+    ensureMicrophoneStoreSubscription(set);
+    syncMicrophoneServiceFromField(get().field);
+    const field = get().field;
+    if (field.listening.status === "listening") {
+      await echoMicrophoneService.stop("manual-stop", "manual-stop");
+      persistMicrophoneStateFromService(set);
+      return;
+    }
+    if (
+      !field.settings.voice.voiceFeaturesEnabled ||
+      !field.settings.voice.ambientListeningEnabled
+    ) {
+      persistMicrophoneStateFromService(set);
+      return;
+    }
+    await echoMicrophoneService.startListening({
+      ambientMode: field.ambient.currentMode,
+      testSession: false,
     });
     persistMicrophoneStateFromService(set);
   },

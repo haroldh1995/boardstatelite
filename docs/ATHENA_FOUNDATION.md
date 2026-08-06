@@ -96,6 +96,14 @@ Incremental update support currently uses deterministic invalidation plus safe g
 
 Project Echo can query the graph for dependencies relevant to a structured intent. For example, a land-play intent can ask for land-entry observers, token/counter replacement boundaries, relevant total readers, unsupported relationships, and authority-required relationships without executing the intent.
 
+## Trigger And Effect Relationship Mapping
+
+ATHENA-03 adds a derived Trigger Source and Effect Relationship Mapper on top of the dependency graph. The mapper groups graph relationships by stable effect source and exposes read-only records for triggered abilities, replacement effects, static readers, generated event categories, affected object sets, optional or manual choices, support status, disabled state, and authority requirements.
+
+The mapper does not execute gameplay, resolve triggers, calculate cascades, mutate battlefield state, or replace the canonical Ambient Event Pipeline. It is an internal relationship query boundary for future Athena consequence analysis and Project Echo handoff.
+
+Mapped relationships keep replacement effects, triggered abilities, static effects, token creation, counter placement, life modification, custom automation, unsupported effects, and authority-required effects distinct so later Athena modules can query one category without recreating parsing or graph traversal logic.
+
 ## Preview Boundary
 
 Athena previews are metadata-only. A preview can be created, calculated, marked ready, await choices, await confirmation, be invalidated, accepted, rejected, committed, cancelled, or expired. Preview records contain only safe references such as affected group IDs, pending event IDs, support findings, required choices, and field fingerprints.
@@ -151,8 +159,8 @@ Athena is designed for Commander games with large personal battlefields:
 ## Planned Athena Sequence
 
 - ATHENA-02: Battlefield dependency graph and supported relationship indexing.
-- ATHENA-03: Event consequence analyzer for supported local helper events.
-- ATHENA-04: Trigger relationship mapper and grouping.
+- ATHENA-03: Trigger source and effect relationship mapper.
+- ATHENA-04: Event consequence analyzer for supported local helper events.
 - ATHENA-05: Replacement awareness and authority-aware ordering boundary.
 - ATHENA-06: Static effect and relevant-total recalculation awareness.
 - ATHENA-07: Token, stack, and grouped-object consequence handling.

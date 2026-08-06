@@ -12,6 +12,7 @@ import type { EchoContextualListeningState } from "../echo/contextualListeningTy
 import type { EchoAdaptiveListeningTailState } from "../echo/adaptiveListeningTailTypes";
 import type { EchoClarificationState } from "../echo/clarificationTypes";
 import type { EchoCombatDeclarationState } from "../echo/combatDeclarationTypes";
+import type { EchoCombatResolutionState } from "../echo/combatResolutionTypes";
 import type { EchoEntityResolutionState } from "../echo/entityResolutionTypes";
 import type { EchoVoiceBattlefieldActionState } from "../echo/voiceBattlefieldActionsTypes";
 import type { EchoPronunciationLearningState } from "../echo/pronunciationLearningTypes";
@@ -321,6 +322,7 @@ export interface FieldState {
   entityResolution: EchoEntityResolutionState;
   clarification: EchoClarificationState;
   combatDeclaration: EchoCombatDeclarationState;
+  combatResolution: EchoCombatResolutionState;
   voiceBattlefieldActions: EchoVoiceBattlefieldActionState;
   pronunciationLearning: EchoPronunciationLearningState;
   personalGameplay: EchoPersonalGameplayState;

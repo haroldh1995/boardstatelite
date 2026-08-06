@@ -7,6 +7,7 @@ import { normalizeAmbientGameplayState } from "./ambientEngine";
 import { normalizeAdaptiveListeningTailState } from "./adaptiveListeningTail";
 import { normalizeClarificationState } from "./clarification";
 import { normalizeCombatDeclarationState } from "./combatDeclaration";
+import { normalizeCombatResolutionState } from "./combatResolution";
 import { normalizeVoiceBattlefieldActionState } from "./voiceBattlefieldActions";
 import { normalizePronunciationLearningState } from "./pronunciationLearning";
 import { normalizePersonalGameplayState } from "./personalGameplay";
@@ -50,6 +51,7 @@ export function createDormantEchoCapabilities(): EchoCapabilityMap {
     entityResolution: true,
     clarification: true,
     combatDeclaration: true,
+    combatResolution: true,
     voiceBattlefieldActions: true,
     pronunciationLearning: true,
     personalGameplayIntelligence: true,
@@ -115,6 +117,15 @@ export class EchoFoundationManager {
         allowActiveSession: false,
       },
     );
+    const combatResolution = normalizeCombatResolutionState(
+      field.combatResolution,
+      {
+        fallbackTimestamp: field.updatedAt,
+        settings: field.settings.voice.combatResolution,
+        knownGroupIds: field.groups.map((group) => group.id),
+        allowActiveSession: false,
+      },
+    );
     const voiceBattlefieldActions = normalizeVoiceBattlefieldActionState(
       field.voiceBattlefieldActions,
       {
@@ -157,6 +168,7 @@ export class EchoFoundationManager {
         entityResolution,
         clarification,
         combatDeclaration,
+        combatResolution,
         voiceBattlefieldActions,
         pronunciationLearning,
         personalGameplay,
@@ -181,6 +193,7 @@ export class EchoFoundationManager {
       entityResolution,
       clarification,
       combatDeclaration,
+      combatResolution,
       voiceBattlefieldActions,
       pronunciationLearning,
       personalGameplay,

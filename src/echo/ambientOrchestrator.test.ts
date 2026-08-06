@@ -122,6 +122,7 @@ function activeSession(
     listeningSessionId: null,
     clarificationSessionId: null,
     combatSessionId: null,
+    combatResolutionSessionId: null,
     gameplaySessionId: null,
     pendingPreviewIds: [],
     pendingConfirmationIds: [],

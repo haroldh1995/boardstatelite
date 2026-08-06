@@ -78,6 +78,7 @@ const RESOURCE_NAMES: EchoAmbientOrchestratorResource[] = [
   "clarification",
   "gameplay-staging",
   "combat-declaration",
+  "combat-resolution",
   "confirmation",
   "pipeline",
   "ui-focus",
@@ -313,6 +314,9 @@ export function createAmbientOrchestratorSharedContext(
   const activeCombatSession = field.combatDeclaration.sessions.find(
     (session) => session.id === field.combatDeclaration.activeSessionId,
   );
+  const activeCombatResolutionSession = field.combatResolution.sessions.find(
+    (session) => session.id === field.combatResolution.activeSessionId,
+  );
   const activeGameplaySession = field.voiceBattlefieldActions.sessions.find(
     (session) => session.id === field.voiceBattlefieldActions.activeSessionId,
   );
@@ -322,6 +326,9 @@ export function createAmbientOrchestratorSharedContext(
   const pendingPreviewIds = uniqueStrings([
     ...state.sessions.flatMap((session) => session.pendingPreviewIds),
     ...(activeCombatSession?.preview ? [activeCombatSession.preview.id] : []),
+    ...(activeCombatResolutionSession?.preview
+      ? [activeCombatResolutionSession.preview.id]
+      : []),
     ...(activeGameplaySession?.preview
       ? [activeGameplaySession.preview.id]
       : []),
@@ -350,6 +357,7 @@ export function createAmbientOrchestratorSharedContext(
     currentPlannerStepId: plannerStep?.id ?? null,
     currentActionStripItemId: actionStripStep?.id ?? null,
     currentCombatSessionId: activeCombatSession?.id ?? null,
+    currentCombatResolutionSessionId: activeCombatResolutionSession?.id ?? null,
     currentGameplaySessionId: activeGameplaySession?.id ?? null,
     pendingClarificationId: pendingClarification,
     pendingPreviewIds,
@@ -918,6 +926,7 @@ function createOrchestrationResult(
     clarification: input.clarification ?? null,
     ambientPreview: input.ambientPreview ?? null,
     combatPreview: input.combatPreview ?? null,
+    combatResolutionPreview: input.combatResolutionPreview ?? null,
     gameplayPreview: input.gameplayPreview ?? null,
     predictivePreparation: input.predictivePreparation ?? null,
     pipelineResult: input.pipelineResult ?? null,
@@ -953,6 +962,7 @@ function createOrchestratorSession(input: {
     listeningSessionId: input.field.adaptiveListeningTail.activeSessionId,
     clarificationSessionId: input.field.clarification.activeSessionId,
     combatSessionId: input.field.combatDeclaration.activeSessionId,
+    combatResolutionSessionId: input.field.combatResolution.activeSessionId,
     gameplaySessionId: input.field.voiceBattlefieldActions.activeSessionId,
     pendingPreviewIds: [],
     pendingConfirmationIds: [],
@@ -1016,6 +1026,10 @@ function normalizeOrchestratorSession(
     combatSessionId:
       typeof candidate.combatSessionId === "string"
         ? candidate.combatSessionId
+        : null,
+    combatResolutionSessionId:
+      typeof candidate.combatResolutionSessionId === "string"
+        ? candidate.combatResolutionSessionId
         : null,
     gameplaySessionId:
       typeof candidate.gameplaySessionId === "string"
@@ -1307,6 +1321,10 @@ function normalizeSharedContext(
       typeof candidate.currentCombatSessionId === "string"
         ? candidate.currentCombatSessionId
         : null,
+    currentCombatResolutionSessionId:
+      typeof candidate.currentCombatResolutionSessionId === "string"
+        ? candidate.currentCombatResolutionSessionId
+        : null,
     currentGameplaySessionId:
       typeof candidate.currentGameplaySessionId === "string"
         ? candidate.currentGameplaySessionId
@@ -1532,6 +1550,8 @@ function activeSubsystemsForState(
   }
   if (context?.pendingClarificationId) subsystems.push("clarification");
   if (context?.currentCombatSessionId) subsystems.push("combat-declaration");
+  if (context?.currentCombatResolutionSessionId)
+    subsystems.push("combat-resolution");
   if (context?.currentGameplaySessionId)
     subsystems.push("voice-battlefield-actions");
   if (context?.currentPlannerStepId) subsystems.push("pre-turn-planner");
@@ -1549,6 +1569,7 @@ function countActiveSubsystems(
     context.currentPlannerStepId,
     context.currentActionStripItemId,
     context.currentCombatSessionId,
+    context.currentCombatResolutionSessionId,
     context.currentGameplaySessionId,
     context.pendingClarificationId,
   ].filter(Boolean).length;
@@ -1725,6 +1746,7 @@ function isSubsystem(
     value === "entity-resolution" ||
     value === "clarification" ||
     value === "combat-declaration" ||
+    value === "combat-resolution" ||
     value === "voice-battlefield-actions" ||
     value === "pre-turn-planner" ||
     value === "action-strip" ||

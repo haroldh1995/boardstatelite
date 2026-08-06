@@ -15,6 +15,7 @@ import type {
 } from "./ambientTypes";
 import type { EchoClarificationDecision } from "./clarificationTypes";
 import type { EchoCombatPreview } from "./combatDeclarationTypes";
+import type { EchoCombatResolutionPreview } from "./combatResolutionTypes";
 import type { EchoListeningWindowKind } from "./contextualListeningTypes";
 import type {
   EchoBattlefieldContext,
@@ -93,6 +94,7 @@ export type EchoAmbientOrchestratorResource =
   | "clarification"
   | "gameplay-staging"
   | "combat-declaration"
+  | "combat-resolution"
   | "confirmation"
   | "pipeline"
   | "ui-focus";
@@ -107,6 +109,7 @@ export type EchoAmbientOrchestratorSubsystem =
   | "entity-resolution"
   | "clarification"
   | "combat-declaration"
+  | "combat-resolution"
   | "voice-battlefield-actions"
   | "pre-turn-planner"
   | "action-strip"
@@ -177,6 +180,7 @@ export interface EchoAmbientOrchestratorSession {
   listeningSessionId: string | null;
   clarificationSessionId: string | null;
   combatSessionId: string | null;
+  combatResolutionSessionId: string | null;
   gameplaySessionId: string | null;
   pendingPreviewIds: string[];
   pendingConfirmationIds: string[];
@@ -203,6 +207,7 @@ export interface EchoAmbientSharedContext {
   currentPlannerStepId: string | null;
   currentActionStripItemId: string | null;
   currentCombatSessionId: string | null;
+  currentCombatResolutionSessionId: string | null;
   currentGameplaySessionId: string | null;
   pendingClarificationId: string | null;
   pendingPreviewIds: string[];
@@ -299,6 +304,7 @@ export interface EchoAmbientOrchestrationResult {
   clarification: EchoClarificationDecision | null;
   ambientPreview: AmbientPreview | null;
   combatPreview: EchoCombatPreview | null;
+  combatResolutionPreview: EchoCombatResolutionPreview | null;
   gameplayPreview: EchoVoiceBattlefieldPreview | null;
   predictivePreparation: EchoPredictiveWorkflowPreparation | null;
   pipelineResult: AmbientPipelineResult | null;

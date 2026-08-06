@@ -431,6 +431,21 @@ textarea:focus-visible {
   border-radius: 50%;
 }
 
+.microphone-indicator .microphone-toggle {
+  flex: 0 0 26px;
+  color: #eafff4;
+  border-color: rgba(119, 255, 176, 0.32);
+}
+
+.microphone-indicator .microphone-toggle[aria-pressed="false"] {
+  color: #fff2c4;
+  border-color: rgba(255, 216, 117, 0.34);
+}
+
+.microphone-indicator .microphone-toggle:disabled {
+  opacity: 0.48;
+}
+
 .microphone-indicator-listening {
   border-color: rgba(119, 255, 176, 0.44);
   color: #e9fff3;
@@ -1519,7 +1534,7 @@ textarea {
 
 .microphone-status-card {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
+  grid-template-columns: 34px minmax(0, 1fr) 38px;
   align-items: center;
   gap: 9px;
   padding: 9px;
@@ -1577,6 +1592,31 @@ textarea {
   color: var(--text-muted);
   font-size: 0.68rem;
   line-height: 1.25;
+}
+
+.microphone-status-toggle {
+  width: 38px;
+  min-height: 38px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 50%;
+  color: #eafff4;
+  border-color: rgba(119, 255, 176, 0.32);
+}
+
+.microphone-status-toggle[aria-pressed="false"] {
+  color: #fff2c4;
+  border-color: rgba(255, 216, 117, 0.34);
+}
+
+.microphone-status-toggle svg {
+  width: 17px;
+  height: 17px;
+}
+
+.microphone-status-toggle:disabled {
+  opacity: 0.5;
 }
 
 .voice-settings-actions {

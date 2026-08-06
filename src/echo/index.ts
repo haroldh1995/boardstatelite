@@ -184,6 +184,20 @@ export {
   startCombatDeclarationSession,
 } from "./combatDeclaration";
 export {
+  applyCombatResolutionPreviewToField,
+  cancelCombatResolutionSession,
+  captureCombatResolutionTranscript,
+  createCombatResolutionPreview,
+  createDefaultCombatResolutionSettings,
+  createDefaultCombatResolutionState,
+  getCombatResolutionDiagnostics,
+  normalizeCombatResolutionSettings,
+  normalizeCombatResolutionState,
+  publishCombatResolutionToPipeline,
+  recoverCombatResolutionSession,
+  startCombatResolutionSession,
+} from "./combatResolution";
+export {
   applyVoiceBattlefieldActionToField,
   cancelVoiceBattlefieldActionSession,
   captureVoiceBattlefieldActionTranscript,
@@ -300,6 +314,7 @@ export { ECHO_ADAPTIVE_LISTENING_TAIL_VERSION } from "./adaptiveListeningTailTyp
 export { ECHO_ENTITY_RESOLUTION_VERSION } from "./entityResolutionTypes";
 export { ECHO_CLARIFICATION_VERSION } from "./clarificationTypes";
 export { ECHO_COMBAT_DECLARATION_VERSION } from "./combatDeclarationTypes";
+export { ECHO_COMBAT_RESOLUTION_VERSION } from "./combatResolutionTypes";
 export { ECHO_VOICE_BATTLEFIELD_ACTIONS_VERSION } from "./voiceBattlefieldActionsTypes";
 export { ECHO_PRONUNCIATION_LEARNING_VERSION } from "./pronunciationLearningTypes";
 export { ECHO_PERSONAL_GAMEPLAY_VERSION } from "./personalGameplayTypes";
@@ -550,6 +565,24 @@ export type {
   EchoCombatGroupReferenceKind,
   EchoCombatPreview,
 } from "./combatDeclarationTypes";
+export type {
+  EchoCombatResolutionClarificationRequest,
+  EchoCombatResolutionDiagnostics,
+  EchoCombatResolutionEntity,
+  EchoCombatResolutionInput,
+  EchoCombatResolutionOutcome,
+  EchoCombatResolutionOutcomeKind,
+  EchoCombatResolutionOutcomeStatus,
+  EchoCombatResolutionPreview,
+  EchoCombatResolutionPreviewInput,
+  EchoCombatResolutionPublishInput,
+  EchoCombatResolutionResult,
+  EchoCombatResolutionSession,
+  EchoCombatResolutionSessionStatus,
+  EchoCombatResolutionSettings,
+  EchoCombatResolutionState,
+  EchoCombatResolutionTrigger,
+} from "./combatResolutionTypes";
 export type {
   EchoVoiceBattlefieldAction,
   EchoVoiceBattlefieldActionApplyInput,

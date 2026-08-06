@@ -85,6 +85,7 @@ const EVENT_CATEGORIES: AthenaEventCategory[] = [
   "life-gained",
   "life-lost",
   "damage-dealt",
+  "combat-damage",
   "permanent-died",
   "permanent-sacrificed",
   "permanent-exiled",
@@ -96,6 +97,8 @@ const EVENT_CATEGORIES: AthenaEventCategory[] = [
   "spell-cast",
   "attack-declared",
   "combat-completed",
+  "token-removed",
+  "zone-changed",
   "trigger-announced",
   "reminder-created",
   "battlefield-note-created",
@@ -1549,7 +1552,7 @@ function definitionsForObject(
       observes: [],
       modifies: [],
       reads: staticReads,
-      affects: text.includes("creature") ? "creatures" : "battlefield",
+      affects: staticEffectTargetForText(text),
       creates: [],
       counters: [],
       metadata: { inferredFromStructuredTextBoundary: true },
@@ -1578,6 +1581,14 @@ function definitionsForObject(
   }
 
   return definitions;
+}
+
+function staticEffectTargetForText(text: string): DefinitionTarget {
+  if (text.includes("creatures you control get")) return "creatures";
+  if (text.includes("gets +")) return "self";
+  if (text.includes("equipped creature")) return "creatures";
+  if (text.includes("creature")) return "creatures";
+  return "battlefield";
 }
 
 function targetObjectsForDefinition(
@@ -2045,6 +2056,8 @@ function eventCategoriesForIntent(
       return ["counter-removed"];
     case "modify-life":
       return ["life-gained", "life-lost"];
+    case "modify-commander-damage":
+      return ["damage-dealt", "combat-damage"];
     case "attack":
       return ["attack-declared"];
     case "tap":

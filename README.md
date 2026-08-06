@@ -30,7 +30,7 @@ Baord State Lite routes local helper results through a compact rules-result rend
 
 ## Athena Battlefield Awareness
 
-Project Athena is present as an internal, local-only battlefield-awareness foundation. It derives relationship, dependency-graph, support-status, authority, and preview metadata from the current Lite field without copying battlefield state, mutating gameplay, replacing the rules-result renderer, or exposing unfinished Athena controls. Future Athena work must keep BoardState as the authoritative rules engine and route committed changes through existing canonical event/result and undo paths.
+Project Athena is present as an internal, local-only battlefield-awareness foundation. It derives awareness-context, dependency-graph, trigger/effect relationship, support-status, authority, and preview metadata from the current Lite field without copying battlefield state, mutating gameplay, replacing the rules-result renderer, or exposing unfinished Athena controls. Future Athena work must keep BoardState as the authoritative rules engine and route committed changes through existing canonical event/result and undo paths.
 
 ## Tracking Controls
 

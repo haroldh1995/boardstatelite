@@ -25,6 +25,12 @@ export {
   updateAthenaDependencyGraph,
 } from "./dependencyGraph";
 export {
+  buildAthenaEffectRelationshipMap,
+  buildAthenaEffectRelationshipMapFromContext,
+  createAthenaEffectRelationshipQueryApi,
+  updateAthenaEffectRelationshipMap,
+} from "./effectRelationshipMapper";
+export {
   ATHENA_COMPATIBILITY_VERSION,
   ATHENA_CONTEXT_VERSION,
   ATHENA_FOUNDATION_VERSION,
@@ -34,6 +40,7 @@ export {
   ATHENA_DEPENDENCY_GRAPH_CACHE_VERSION,
   ATHENA_DEPENDENCY_GRAPH_VERSION,
 } from "./dependencyGraphTypes";
+export { ATHENA_EFFECT_RELATIONSHIP_MAPPER_VERSION } from "./effectRelationshipMapperTypes";
 export type {
   AthenaActiveHelperDefinition,
   AthenaAttachmentLink,
@@ -81,3 +88,22 @@ export type {
   AthenaGraphUpdateKind,
   AthenaGraphUpdateResult,
 } from "./dependencyGraphTypes";
+export type {
+  AthenaEffectChoiceRequirementDescriptor,
+  AthenaEffectChoiceRequirementKind,
+  AthenaEffectModificationCategory,
+  AthenaEffectRelationshipBuildOptions,
+  AthenaEffectRelationshipCategory,
+  AthenaEffectRelationshipDiagnostics,
+  AthenaEffectRelationshipIndexes,
+  AthenaEffectRelationshipMap,
+  AthenaEffectRelationshipQueryApi,
+  AthenaEffectRelationshipState,
+  AthenaEffectRelationshipUpdateResult,
+  AthenaEffectSourceDescriptor,
+  AthenaEffectTargetSetDescriptor,
+  AthenaEffectTargetSetKind,
+  AthenaGeneratedEventDescriptor,
+  AthenaMappedEffectRelationship,
+  AthenaTriggerConditionDescriptor,
+} from "./effectRelationshipMapperTypes";

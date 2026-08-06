@@ -125,6 +125,9 @@ export function VoiceSettingsPanel() {
   const resetPronunciationLearning = useFieldStore(
     (state) => state.resetPronunciationLearning,
   );
+  const toggleListeningMute = useFieldStore(
+    (state) => state.toggleListeningMute,
+  );
   const stopListening = useFieldStore((state) => state.stopListening);
   const resetVoiceConfiguration = useFieldStore(
     (state) => state.resetVoiceConfiguration,
@@ -138,6 +141,19 @@ export function VoiceSettingsPanel() {
   const verificationResult = verification.lifecycle.lastResult;
   const currentPhrase = getCurrentEnrollmentPhrase(enrollment);
   const active = isActiveListeningStatus(listening.status);
+  const listeningMuted = isListeningMuted(
+    listening.status,
+    voice.ambientListeningEnabled,
+  );
+  const canToggleListeningMute =
+    voice.voiceFeaturesEnabled &&
+    voice.ambientListeningEnabled &&
+    listening.availability !== "unsupported" &&
+    listening.availability !== "unavailable" &&
+    !isBusyListeningStatus(listening.status);
+  const listeningToggleLabel = listeningMuted
+    ? "Unmute microphone listening"
+    : "Mute microphone listening";
   const enrollmentActive =
     session.status === "active" ||
     session.status === "recording" ||
@@ -165,15 +181,30 @@ export function VoiceSettingsPanel() {
         className={`microphone-status-card microphone-status-${listening.indicator}`}
       >
         <span className="microphone-status-icon" aria-hidden="true">
-          {statusIcon(listening.indicator)}
+          {listeningMuted ? <MicOff /> : statusIcon(listening.indicator)}
         </span>
         <div>
-          <strong>{statusLabel(listening.indicator)}</strong>
+          <strong>
+            {listeningMuted
+              ? "Listening Muted"
+              : statusLabel(listening.indicator)}
+          </strong>
           <span>
             Permission: {permissionLabel(listening.permission)} - Session:{" "}
             {listeningStatusLabel(listening.status)}
           </span>
         </div>
+        <button
+          type="button"
+          className="microphone-status-toggle"
+          aria-pressed={!listeningMuted && listening.status === "listening"}
+          aria-label={listeningToggleLabel}
+          title={listeningToggleLabel}
+          disabled={!canToggleListeningMute}
+          onClick={() => void toggleListeningMute()}
+        >
+          {listeningMuted ? <Mic /> : <MicOff />}
+        </button>
       </div>
       <label className="inline-check">
         <input
@@ -811,6 +842,26 @@ function isActiveListeningStatus(status: EchoListeningStatus): boolean {
     status === "initializing" ||
     status === "temporarilyPaused" ||
     status === "interrupted" ||
+    status === "recovering" ||
+    status === "stopping"
+  );
+}
+
+function isListeningMuted(
+  status: EchoListeningStatus,
+  ambientListeningEnabled: boolean,
+): boolean {
+  return (
+    ambientListeningEnabled &&
+    (status === "stopped" || status === "temporarilyPaused")
+  );
+}
+
+function isBusyListeningStatus(status: EchoListeningStatus): boolean {
+  return (
+    status === "preparing" ||
+    status === "requestingPermission" ||
+    status === "initializing" ||
     status === "recovering" ||
     status === "stopping"
   );

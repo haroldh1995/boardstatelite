@@ -61,6 +61,10 @@ import {
   normalizeCombatDeclarationState,
 } from "../echo/combatDeclaration";
 import {
+  createDefaultCombatResolutionState,
+  normalizeCombatResolutionState,
+} from "../echo/combatResolution";
+import {
   createDefaultVoiceBattlefieldActionState,
   normalizeVoiceBattlefieldActionState,
 } from "../echo/voiceBattlefieldActions";
@@ -195,6 +199,7 @@ export function createDefaultField(): FieldState {
     entityResolution: createDefaultEntityResolutionState(),
     clarification: createDefaultClarificationState(),
     combatDeclaration: createDefaultCombatDeclarationState(),
+    combatResolution: createDefaultCombatResolutionState(),
     voiceBattlefieldActions: createDefaultVoiceBattlefieldActionState(),
     pronunciationLearning: createDefaultPronunciationLearningState(),
     personalGameplay: createDefaultPersonalGameplayState(),
@@ -447,6 +452,15 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
       allowActiveSession: false,
     },
   );
+  const combatResolution = normalizeCombatResolutionState(
+    candidate.combatResolution,
+    {
+      fallbackTimestamp: updatedAt,
+      settings: settings.voice.combatResolution,
+      knownGroupIds: groups.map((group) => group.id),
+      allowActiveSession: false,
+    },
+  );
   const voiceBattlefieldActions = normalizeVoiceBattlefieldActionState(
     candidate.voiceBattlefieldActions,
     {
@@ -505,6 +519,7 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
     entityResolution,
     clarification,
     combatDeclaration,
+    combatResolution,
     voiceBattlefieldActions,
     pronunciationLearning,
     personalGameplay,
@@ -736,6 +751,15 @@ export function normalizeField(field: FieldState): FieldState {
       allowActiveSession: true,
     },
   );
+  const combatResolution = normalizeCombatResolutionState(
+    field.combatResolution,
+    {
+      fallbackTimestamp: field.updatedAt,
+      settings: settings.voice.combatResolution,
+      knownGroupIds: groups.map((group) => group.id),
+      allowActiveSession: true,
+    },
+  );
   const voiceBattlefieldActions = normalizeVoiceBattlefieldActionState(
     field.voiceBattlefieldActions,
     {
@@ -792,6 +816,7 @@ export function normalizeField(field: FieldState): FieldState {
     entityResolution,
     clarification,
     combatDeclaration,
+    combatResolution,
     voiceBattlefieldActions,
     pronunciationLearning,
     personalGameplay,

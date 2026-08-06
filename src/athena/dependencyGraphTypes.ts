@@ -19,7 +19,10 @@ export const ATHENA_DEPENDENCY_GRAPH_CACHE_VERSION = 1;
 export type AthenaEventCategory =
   | GameEventType
   | "token-entered"
+  | "token-removed"
+  | "zone-changed"
   | "attack-declared"
+  | "combat-damage"
   | "combat-completed";
 
 export type AthenaGraphNodeType =
