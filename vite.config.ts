@@ -11,6 +11,27 @@ export default defineConfig({
       checks: {
         pluginTimings: false,
       },
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              name: "react-vendor",
+              test: /node_modules[\\/](?:react|react-dom|scheduler)[\\/]/,
+              includeDependenciesRecursively: false,
+            },
+            {
+              name: "persistence-vendor",
+              test: /node_modules[\\/]dexie[\\/]/,
+              includeDependenciesRecursively: false,
+            },
+            {
+              name: "icons-vendor",
+              test: /node_modules[\\/]lucide-react[\\/]/,
+              includeDependenciesRecursively: false,
+            },
+          ],
+        },
+      },
     },
   },
   plugins: [

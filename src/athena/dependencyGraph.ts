@@ -28,6 +28,7 @@ import {
 import {
   ATHENA_DEPENDENCY_GRAPH_CACHE_VERSION,
   ATHENA_DEPENDENCY_GRAPH_VERSION,
+  ATHENA_EVENT_CATEGORIES,
   type AthenaDependencyGraph,
   type AthenaEchoDependencyQueryResult,
   type AthenaEventCategory,
@@ -44,6 +45,7 @@ import {
   type AthenaGraphRelationship,
   type AthenaGraphRelationshipType,
   type AthenaGraphUpdateResult,
+  type AthenaRelevantTotalSubject,
 } from "./dependencyGraphTypes";
 
 const GRAPH_NODE_TYPES: AthenaGraphNodeType[] = [
@@ -73,36 +75,6 @@ const GRAPH_RELATIONSHIP_TYPES: AthenaGraphRelationshipType[] = [
   "invalidates",
   "requires-choice",
   "requires-authority",
-];
-
-const EVENT_CATEGORIES: AthenaEventCategory[] = [
-  "permanent-entered",
-  "creature-entered",
-  "token-created",
-  "token-entered",
-  "land-entered",
-  "counter-placed",
-  "counter-removed",
-  "life-gained",
-  "life-lost",
-  "damage-dealt",
-  "combat-damage",
-  "permanent-died",
-  "permanent-sacrificed",
-  "permanent-exiled",
-  "permanent-returned-to-hand",
-  "permanent-returned-to-battlefield",
-  "permanent-transformed",
-  "permanent-tapped",
-  "permanent-untapped",
-  "spell-cast",
-  "attack-declared",
-  "combat-completed",
-  "token-removed",
-  "zone-changed",
-  "trigger-announced",
-  "reminder-created",
-  "battlefield-note-created",
 ];
 
 const ZONES: Zone[] = [
@@ -657,7 +629,7 @@ function addZoneNodes(builder: GraphBuilderState): void {
 }
 
 function addEventCategoryNodes(builder: GraphBuilderState): void {
-  for (const eventCategory of EVENT_CATEGORIES) {
+  for (const eventCategory of ATHENA_EVENT_CATEGORIES) {
     addNode(builder, {
       id: eventNodeId(eventCategory),
       type: "event-category",
@@ -1166,6 +1138,7 @@ function addCustomEffectRelationships(builder: GraphBuilderState): void {
         trigger: effect.trigger,
         action: effect.action.kind,
         enabled: effect.enabled,
+        triggerMultiplicity: "per-event",
       },
     };
     addDefinitionNode(builder, definition);
@@ -1440,7 +1413,11 @@ function definitionsForObject(
       counters: [
         { id: `${object.groupId}:+1/+1`, name: "+1/+1", target: "self" },
       ],
-      metadata: { helper: "anim-pakal", localHelperAuthority: true },
+      metadata: {
+        helper: "anim-pakal",
+        localHelperAuthority: true,
+        triggerMultiplicity: "per-event",
+      },
     });
   }
   if (normalizedName.includes("cathars' crusade")) {
@@ -1461,7 +1438,11 @@ function definitionsForObject(
           target: "creatures",
         },
       ],
-      metadata: { helper: "cathars-crusade", localHelperAuthority: true },
+      metadata: {
+        helper: "cathars-crusade",
+        localHelperAuthority: true,
+        triggerMultiplicity: "per-object",
+      },
     });
   }
   if (normalizedName.includes("doubling season")) {
@@ -1477,6 +1458,42 @@ function definitionsForObject(
       creates: [],
       counters: [],
       metadata: { helper: "doubling-season", localHelperAuthority: true },
+    });
+  }
+  if (
+    normalizedName.includes("mondrak, glory dominus") ||
+    normalizedName === "mondrak"
+  ) {
+    definitions.push({
+      ...base,
+      id: `${object.groupId}:mondrak-token-replacement`,
+      label: `${object.label} token replacement boundary`,
+      effectKind: "replacement-effect",
+      observes: [],
+      modifies: ["token-created"],
+      reads: [],
+      affects: "battlefield",
+      creates: [],
+      counters: [],
+      metadata: { helper: "mondrak", localHelperAuthority: true },
+    });
+  }
+  if (normalizedName.includes("anointed procession")) {
+    definitions.push({
+      ...base,
+      id: `${object.groupId}:anointed-procession-token-replacement`,
+      label: `${object.label} token replacement boundary`,
+      effectKind: "replacement-effect",
+      observes: [],
+      modifies: ["token-created"],
+      reads: [],
+      affects: "battlefield",
+      creates: [],
+      counters: [],
+      metadata: {
+        helper: "anointed-procession",
+        localHelperAuthority: true,
+      },
     });
   }
   if (
@@ -1497,6 +1514,7 @@ function definitionsForObject(
       metadata: {
         helper: "life-on-creature-entry",
         localHelperAuthority: true,
+        triggerMultiplicity: "per-object",
       },
     });
   }
@@ -1512,7 +1530,11 @@ function definitionsForObject(
       affects: "players",
       creates: [],
       counters: [],
-      metadata: { helper: "impact-tremors", localHelperAuthority: true },
+      metadata: {
+        helper: "impact-tremors",
+        localHelperAuthority: true,
+        triggerMultiplicity: "per-object",
+      },
     });
   }
   if (normalizedName.includes("rampaging baloths")) {
@@ -1536,7 +1558,11 @@ function definitionsForObject(
         },
       ],
       counters: [],
-      metadata: { helper: "rampaging-baloths", localHelperAuthority: true },
+      metadata: {
+        helper: "rampaging-baloths",
+        localHelperAuthority: true,
+        triggerMultiplicity: "per-object",
+      },
     });
   }
 
@@ -1561,9 +1587,13 @@ function definitionsForObject(
   }
 
   const observedEvents = eventCategoriesForText(text);
+  const triggerEffect = triggerEffectClause(text);
   if (
     observedEvents.length > 0 &&
-    definitions.length === 0 &&
+    !definitions.some(
+      (definition) =>
+        definition.observes.length > 0 || definition.modifies.length > 0,
+    ) &&
     object.supportStatus !== "unsupported"
   ) {
     definitions.push({
@@ -1575,9 +1605,24 @@ function definitionsForObject(
       modifies: replacementEventsForText(text),
       reads: staticReads,
       affects: "battlefield",
-      creates: tokenDefinitionsForText(object, text),
-      counters: counterDefinitionsForText(object, text),
-      metadata: { structuredAwarenessBoundary: true },
+      creates: tokenDefinitionsForText(object, triggerEffect),
+      counters: counterDefinitionsForText(object, triggerEffect),
+      metadata: {
+        structuredAwarenessBoundary: true,
+        triggerMultiplicity: triggerMultiplicityForText(text),
+        generatesLifeChange:
+          triggerEffect.includes("gain") && triggerEffect.includes("life")
+            ? true
+            : triggerEffect.includes("lose") && triggerEffect.includes("life")
+              ? true
+              : false,
+        generatedLifeEvent:
+          triggerEffect.includes("lose") && triggerEffect.includes("life")
+            ? "life-lost"
+            : triggerEffect.includes("gain") && triggerEffect.includes("life")
+              ? "life-gained"
+              : null,
+      },
     });
   }
 
@@ -1590,6 +1635,16 @@ function staticEffectTargetForText(text: string): DefinitionTarget {
   if (text.includes("equipped creature")) return "creatures";
   if (text.includes("creature")) return "creatures";
   return "battlefield";
+}
+
+function triggerMultiplicityForText(
+  text: string,
+): "per-object" | "per-event" | "unknown" {
+  if (text.includes("one or more")) return "per-event";
+  if (/\bwhenever\s+(?:a|an|another|each)\b/.test(text)) {
+    return "per-object";
+  }
+  return "unknown";
 }
 
 function targetObjectsForDefinition(
@@ -2121,8 +2176,8 @@ function supportForStatus(
   return "unsupported-effect";
 }
 
-function relevantTotalsForObject(
-  object: AthenaBattlefieldObject,
+export function getAthenaRelevantTotalsForSubject(
+  object: AthenaRelevantTotalSubject,
 ): RelevantTotalKey[] {
   const totals: RelevantTotalKey[] = [];
   const types = new Set(object.cardTypes);
@@ -2172,7 +2227,19 @@ function relevantTotalsForObject(
   return sortStrings([...new Set(totals)]) as RelevantTotalKey[];
 }
 
+function relevantTotalsForObject(
+  object: AthenaBattlefieldObject,
+): RelevantTotalKey[] {
+  return getAthenaRelevantTotalsForSubject(object);
+}
+
 function relevantTotalsForText(text: string): RelevantTotalKey[] {
+  const readsQuantity =
+    text.includes("for each") ||
+    text.includes("number of") ||
+    text.includes("equal to") ||
+    text.includes("among ");
+  if (!readsQuantity) return [];
   const totals: RelevantTotalKey[] = [];
   if (text.includes("artifact")) totals.push("artifacts");
   if (text.includes("equipment")) totals.push("equipment");
@@ -2187,23 +2254,98 @@ function relevantTotalsForText(text: string): RelevantTotalKey[] {
 }
 
 function eventCategoriesForText(text: string): AthenaEventCategory[] {
+  const condition = triggerConditionClause(text);
+  if (!condition) return [];
   const events: AthenaEventCategory[] = [];
-  if (text.includes("landfall") || text.includes("land enters")) {
+  if (condition.includes("land enters")) {
     events.push("land-entered");
   }
-  if (text.includes("creature enters") || text.includes("creatures enter")) {
+  if (
+    condition.includes("creature enters") ||
+    condition.includes("creatures enter")
+  ) {
     events.push("creature-entered");
   }
-  if (text.includes("enters the battlefield")) {
+  if (
+    condition.includes("token enters") ||
+    condition.includes("tokens enter")
+  ) {
+    events.push("token-entered");
+  }
+  if (
+    condition.includes("enters the battlefield") &&
+    !events.some((event) =>
+      ["creature-entered", "land-entered", "token-entered"].includes(event),
+    )
+  ) {
     events.push("permanent-entered");
   }
-  if (text.includes("token")) events.push("token-created");
-  if (text.includes("counter")) events.push("counter-placed");
-  if (text.includes("gain") && text.includes("life"))
+  if (
+    (condition.includes("create") || condition.includes("created")) &&
+    condition.includes("token")
+  ) {
+    events.push("token-created");
+  }
+  if (
+    condition.includes("counter") &&
+    (condition.includes("put") || condition.includes("placed"))
+  ) {
+    events.push("counter-placed");
+  }
+  if (condition.includes("counter") && condition.includes("removed")) {
+    events.push("counter-removed");
+  }
+  if (condition.includes("gain") && condition.includes("life")) {
     events.push("life-gained");
-  if (text.includes("lose") && text.includes("life")) events.push("life-lost");
-  if (text.includes("attack")) events.push("attack-declared");
+  }
+  if (condition.includes("lose") && condition.includes("life")) {
+    events.push("life-lost");
+  }
+  if (condition.includes("attack")) events.push("attack-declared");
+  if (condition.includes("dies")) events.push("permanent-died");
+  if (condition.includes("sacrificed")) {
+    events.push("permanent-sacrificed");
+  }
+  if (condition.includes("exiled")) events.push("permanent-exiled");
+  if (condition.includes("cast")) events.push("spell-cast");
+  if (condition.includes("transforms")) {
+    events.push("permanent-transformed");
+  }
+  if (condition.includes("becomes tapped")) {
+    events.push("permanent-tapped");
+  }
+  if (condition.includes("becomes untapped")) {
+    events.push("permanent-untapped");
+  }
+  if (condition.includes("combat damage")) {
+    events.push("combat-damage");
+  } else if (condition.includes("damage")) {
+    events.push("damage-dealt");
+  }
+  if (
+    condition.includes("leaves the battlefield") ||
+    condition.includes("changes zones")
+  ) {
+    events.push("zone-changed");
+  }
   return sortStrings([...new Set(events)]) as AthenaEventCategory[];
+}
+
+function triggerConditionClause(text: string): string {
+  const starts = ["whenever ", "when "].map((marker) => text.indexOf(marker));
+  const start = starts.filter((index) => index >= 0).sort((a, b) => a - b)[0];
+  if (start === undefined) return "";
+  const clause = text.slice(start);
+  const end = clause.indexOf(",");
+  return (end >= 0 ? clause.slice(0, end) : clause).trim();
+}
+
+function triggerEffectClause(text: string): string {
+  const condition = triggerConditionClause(text);
+  if (!condition) return text;
+  const conditionStart = text.indexOf(condition);
+  const separator = text.indexOf(",", conditionStart + condition.length);
+  return separator >= 0 ? text.slice(separator + 1).trim() : "";
 }
 
 function replacementEventsForText(text: string): AthenaEventCategory[] {

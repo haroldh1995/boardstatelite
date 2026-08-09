@@ -733,6 +733,9 @@ function generatedEventsForRelationship(
   }
 
   const helper = stringMetadata(effectNode.metadata.helper);
+  const generatedLifeEvent = stringMetadata(
+    effectNode.metadata.generatedLifeEvent,
+  );
   if (
     category === "life-modification" ||
     helper === "life-on-creature-entry" ||
@@ -740,7 +743,10 @@ function generatedEventsForRelationship(
     effectNode.metadata.action === "life"
   ) {
     addGeneratedEvent(generated, {
-      category: helper === "impact-tremors" ? "life-lost" : "life-gained",
+      category:
+        generatedLifeEvent === "life-lost" || helper === "impact-tremors"
+          ? "life-lost"
+          : "life-gained",
       sourceRelationshipId,
       label: `${effectNode.label} may create a life-change event.`,
       optional: isOptionalSource(effectNode, sourceObject),
@@ -1067,17 +1073,13 @@ function createDiagnostics(input: {
 
 function isLifeEffect(
   effectNode: AthenaGraphNode,
-  relationships: AthenaGraphRelationship[],
+  _relationships: AthenaGraphRelationship[],
 ): boolean {
   return (
     effectNode.metadata.helper === "life-on-creature-entry" ||
     effectNode.metadata.helper === "impact-tremors" ||
     effectNode.metadata.action === "life" ||
-    relationships.some(
-      (relationship) =>
-        relationship.eventCategories.includes("life-gained") ||
-        relationship.eventCategories.includes("life-lost"),
-    )
+    effectNode.metadata.generatesLifeChange === true
   );
 }
 

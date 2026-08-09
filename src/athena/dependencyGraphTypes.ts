@@ -25,6 +25,36 @@ export type AthenaEventCategory =
   | "combat-damage"
   | "combat-completed";
 
+export const ATHENA_EVENT_CATEGORIES: readonly AthenaEventCategory[] = [
+  "permanent-entered",
+  "creature-entered",
+  "token-created",
+  "token-entered",
+  "land-entered",
+  "counter-placed",
+  "counter-removed",
+  "life-gained",
+  "life-lost",
+  "damage-dealt",
+  "combat-damage",
+  "permanent-died",
+  "permanent-sacrificed",
+  "permanent-exiled",
+  "permanent-returned-to-hand",
+  "permanent-returned-to-battlefield",
+  "permanent-transformed",
+  "permanent-tapped",
+  "permanent-untapped",
+  "spell-cast",
+  "attack-declared",
+  "combat-completed",
+  "token-removed",
+  "zone-changed",
+  "trigger-announced",
+  "reminder-created",
+  "battlefield-note-created",
+];
+
 export type AthenaGraphNodeType =
   | "battlefield-object"
   | "player-state"
@@ -302,4 +332,13 @@ export interface AthenaGraphQueryApi {
 export interface AthenaGraphContextInput {
   field: FieldState;
   options?: AthenaGraphBuildOptions;
+}
+
+/** Minimal characteristic view accepted by Athena's shared total classifier. */
+export interface AthenaRelevantTotalSubject {
+  zone: Zone;
+  cardTypes: string[];
+  subtypes: string[];
+  supertypes: string[];
+  isToken: boolean;
 }

@@ -21,6 +21,7 @@ export {
   buildAthenaDependencyGraphFromContext,
   createAthenaGraphQueryApi,
   detectAthenaGraphCycles,
+  getAthenaRelevantTotalsForSubject,
   invalidateAthenaDependencyGraph,
   updateAthenaDependencyGraph,
 } from "./dependencyGraph";
@@ -31,6 +32,21 @@ export {
   updateAthenaEffectRelationshipMap,
 } from "./effectRelationshipMapper";
 export {
+  AthenaEventForecastEngine,
+  AthenaForecastCancellationController,
+  athenaEventForecastEngine,
+  createAthenaForecastCancellationController,
+  createAthenaForecastInput,
+  createAthenaForecastInputFromActionStripItem,
+  createAthenaForecastInputFromEchoIntent,
+  createAthenaForecastInputFromGameEvent,
+  createAthenaForecastInputFromPlannerAction,
+  createForecastEnvironment,
+  forecastAthenaEvent,
+  invalidateAthenaForecast,
+  isAthenaForecastCurrent,
+} from "./eventForecast";
+export {
   ATHENA_COMPATIBILITY_VERSION,
   ATHENA_CONTEXT_VERSION,
   ATHENA_FOUNDATION_VERSION,
@@ -39,8 +55,15 @@ export {
 export {
   ATHENA_DEPENDENCY_GRAPH_CACHE_VERSION,
   ATHENA_DEPENDENCY_GRAPH_VERSION,
+  ATHENA_EVENT_CATEGORIES,
 } from "./dependencyGraphTypes";
 export { ATHENA_EFFECT_RELATIONSHIP_MAPPER_VERSION } from "./effectRelationshipMapperTypes";
+export {
+  ATHENA_EVENT_FORECAST_CACHE_VERSION,
+  ATHENA_EVENT_FORECAST_DEFAULT_DEPTH,
+  ATHENA_EVENT_FORECAST_MAX_DEPTH,
+  ATHENA_EVENT_FORECAST_VERSION,
+} from "./eventForecastTypes";
 export type {
   AthenaActiveHelperDefinition,
   AthenaAttachmentLink,
@@ -87,6 +110,7 @@ export type {
   AthenaGraphRelationshipType,
   AthenaGraphUpdateKind,
   AthenaGraphUpdateResult,
+  AthenaRelevantTotalSubject,
 } from "./dependencyGraphTypes";
 export type {
   AthenaEffectChoiceRequirementDescriptor,
@@ -107,3 +131,39 @@ export type {
   AthenaMappedEffectRelationship,
   AthenaTriggerConditionDescriptor,
 } from "./effectRelationshipMapperTypes";
+export type {
+  AthenaActionStripForecastAdapterInput,
+  AthenaEchoForecastAdapterInput,
+  AthenaEventForecastDiagnostics,
+  AthenaEventForecastResult,
+  AthenaForecastAdapterOptions,
+  AthenaForecastCancellationSignal,
+  AthenaForecastCharacteristicField,
+  AthenaForecastCertainty,
+  AthenaForecastChoiceRequirement,
+  AthenaForecastClassification,
+  AthenaForecastConfidence,
+  AthenaForecastDirectConsequence,
+  AthenaForecastEngineDiagnostics,
+  AthenaForecastEngineOptions,
+  AthenaForecastEnvironment,
+  AthenaForecastGeneratedEvent,
+  AthenaGameEventForecastAdapterInput,
+  AthenaForecastInput,
+  AthenaForecastInputDraft,
+  AthenaForecastInputSource,
+  AthenaForecastInvalidationInput,
+  AthenaForecastKnownCharacteristics,
+  AthenaForecastLifecycleRecord,
+  AthenaForecastOptions,
+  AthenaForecastReasonCode,
+  AthenaForecastRelationshipFinding,
+  AthenaForecastRelevantTotalChange,
+  AthenaForecastReplacementFinding,
+  AthenaForecastStaticDependency,
+  AthenaForecastTokenDefinitionReference,
+  AthenaForecastValidity,
+  AthenaForecastVersionSnapshot,
+  AthenaForecastWarning,
+  AthenaPlannerForecastAdapterInput,
+} from "./eventForecastTypes";

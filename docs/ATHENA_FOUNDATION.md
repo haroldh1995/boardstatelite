@@ -104,6 +104,18 @@ The mapper does not execute gameplay, resolve triggers, calculate cascades, muta
 
 Mapped relationships keep replacement effects, triggered abilities, static effects, token creation, counter placement, life modification, custom automation, unsupported effects, and authority-required effects distinct so later Athena modules can query one category without recreating parsing or graph traversal logic.
 
+## Event Forecast And Consequence Preview
+
+ATHENA-04 adds a deterministic Event Forecast and Consequence Preview Engine on top of the awareness context, dependency graph, and effect relationship map. The engine accepts one structured gameplay event and produces a platform-neutral hypothetical result containing direct total changes, relevant triggers, unresolved replacement boundaries, static dependencies, bounded potential follow-up events, missing choices, support findings, and authority requirements.
+
+Forecast results are intentionally not canonical results. They contain no `FieldState`, mutation callback, undo entry, or commit operation, and they always identify themselves as preview-only derived data. Grouped token quantities stay grouped, overlapping relevant totals use the dependency graph's shared classifier, and unresolved replacements make downstream quantities provisional instead of silently applying ATHENA-05 behavior early.
+
+Consequence exploration is bounded to two levels. ATHENA-04 may show that a land-entry relationship could produce a token event and that the token event could interest creature-entry observers, but it does not execute those effects or resolve a cascade.
+
+Echo intents, planner actions, and Action Strip items use explicit adapters that produce the same forecast input contract. Corrections invalidate prior forecasts, plan changes remain hypothetical, and cast events remain distinct from battlefield-entry events.
+
+The core forecast engine has no DOM, browser storage, browser lifecycle, or rendering dependencies. Scheduling and presentation remain outside the domain engine so the same contracts and deterministic analysis can be implemented by future SwiftUI and Android adapters.
+
 ## Preview Boundary
 
 Athena previews are metadata-only. A preview can be created, calculated, marked ready, await choices, await confirmation, be invalidated, accepted, rejected, committed, cancelled, or expired. Preview records contain only safe references such as affected group IDs, pending event IDs, support findings, required choices, and field fingerprints.
