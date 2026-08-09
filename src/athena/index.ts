@@ -47,6 +47,14 @@ export {
   isAthenaForecastCurrent,
 } from "./eventForecast";
 export {
+  AthenaReplacementCancellationController,
+  AthenaReplacementEffectEngine,
+  athenaReplacementEffectEngine,
+  invalidateAthenaReplacementResult,
+  isAthenaReplacementResultCurrent,
+  processAthenaReplacementEffects,
+} from "./replacementEffect";
+export {
   ATHENA_COMPATIBILITY_VERSION,
   ATHENA_CONTEXT_VERSION,
   ATHENA_FOUNDATION_VERSION,
@@ -64,6 +72,12 @@ export {
   ATHENA_EVENT_FORECAST_MAX_DEPTH,
   ATHENA_EVENT_FORECAST_VERSION,
 } from "./eventForecastTypes";
+export {
+  ATHENA_REPLACEMENT_CACHE_VERSION,
+  ATHENA_REPLACEMENT_CHAIN_VERSION,
+  ATHENA_REPLACEMENT_MAX_CHAIN_LENGTH,
+  ATHENA_REPLACEMENT_MAX_SAFE_QUANTITY,
+} from "./replacementEffectTypes";
 export type {
   AthenaActiveHelperDefinition,
   AthenaAttachmentLink,
@@ -167,3 +181,24 @@ export type {
   AthenaForecastWarning,
   AthenaPlannerForecastAdapterInput,
 } from "./eventForecastTypes";
+export type {
+  AthenaExcludedReplacement,
+  AthenaReplacementApplication,
+  AthenaReplacementCancellationSignal,
+  AthenaReplacementChoiceRequirement,
+  AthenaReplacementDefinition,
+  AthenaReplacementDiagnostics,
+  AthenaReplacementEngineDiagnostics,
+  AthenaReplacementEngineOptions,
+  AthenaReplacementEngineRequest,
+  AthenaReplacementInvalidationInput,
+  AthenaReplacementModification,
+  AthenaReplacementModificationCategory,
+  AthenaReplacementProcessingOptions,
+  AthenaReplacementProcessingResult,
+  AthenaReplacementScope,
+  AthenaReplacementScopeKind,
+  AthenaReplacementValidity,
+  AthenaReplacementVersionSnapshot,
+  AthenaReplacementWarning,
+} from "./replacementEffectTypes";

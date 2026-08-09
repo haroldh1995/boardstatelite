@@ -23,9 +23,10 @@ import type {
   AthenaAuthoritySource,
   AthenaAwarenessContext,
 } from "./types";
+import type { AthenaReplacementProcessingResult } from "./replacementEffectTypes";
 
-export const ATHENA_EVENT_FORECAST_VERSION = 1;
-export const ATHENA_EVENT_FORECAST_CACHE_VERSION = 1;
+export const ATHENA_EVENT_FORECAST_VERSION = 2;
+export const ATHENA_EVENT_FORECAST_CACHE_VERSION = 2;
 export const ATHENA_EVENT_FORECAST_DEFAULT_DEPTH = 2;
 export const ATHENA_EVENT_FORECAST_MAX_DEPTH = 2;
 
@@ -83,6 +84,7 @@ export type AthenaForecastReasonCode =
   | "transformation"
   | "trigger-observed"
   | "replacement-discovered"
+  | "replacement-applied"
   | "replacement-unresolved"
   | "static-dependency-invalidated"
   | "generated-event"
@@ -277,7 +279,10 @@ export interface AthenaForecastReplacementFinding {
   optional: boolean;
   overlapping: boolean;
   orderingMayMatter: boolean;
-  applied: false;
+  applied: boolean;
+  quantityBefore: number | null;
+  quantityAfter: number | null;
+  replacementStepId: string | null;
   requiresAuthority: boolean;
   reasonCodes: AthenaForecastReasonCode[];
   description: string;
@@ -400,6 +405,7 @@ export interface AthenaEventForecastResult {
   relevantTotalChanges: AthenaForecastRelevantTotalChange[];
   triggerRelationships: AthenaForecastRelationshipFinding[];
   replacementRelationships: AthenaForecastReplacementFinding[];
+  replacementProcessing: AthenaReplacementProcessingResult | null;
   staticDependencies: AthenaForecastStaticDependency[];
   potentialGeneratedEvents: AthenaForecastGeneratedEvent[];
   potentialCharacteristicChanges: AthenaForecastDirectConsequence[];

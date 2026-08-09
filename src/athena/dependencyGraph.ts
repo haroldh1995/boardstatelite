@@ -1457,7 +1457,17 @@ function definitionsForObject(
       affects: "battlefield",
       creates: [],
       counters: [],
-      metadata: { helper: "doubling-season", localHelperAuthority: true },
+      metadata: {
+        helper: "doubling-season",
+        localHelperAuthority: true,
+        replacementKind: "quantity-multiplier",
+        replacementFactor: 2,
+        replacementCommutative: true,
+        replacementAppliesOnce: true,
+        replacementScope: "source-controller",
+        replacementDefinitionVersion: 1,
+        sourceQuantity: object.quantity,
+      },
     });
   }
   if (
@@ -1475,7 +1485,17 @@ function definitionsForObject(
       affects: "battlefield",
       creates: [],
       counters: [],
-      metadata: { helper: "mondrak", localHelperAuthority: true },
+      metadata: {
+        helper: "mondrak",
+        localHelperAuthority: true,
+        replacementKind: "quantity-multiplier",
+        replacementFactor: 2,
+        replacementCommutative: true,
+        replacementAppliesOnce: true,
+        replacementScope: "source-controller",
+        replacementDefinitionVersion: 1,
+        sourceQuantity: object.quantity,
+      },
     });
   }
   if (normalizedName.includes("anointed procession")) {
@@ -1493,6 +1513,38 @@ function definitionsForObject(
       metadata: {
         helper: "anointed-procession",
         localHelperAuthority: true,
+        replacementKind: "quantity-multiplier",
+        replacementFactor: 2,
+        replacementCommutative: true,
+        replacementAppliesOnce: true,
+        replacementScope: "source-controller",
+        replacementDefinitionVersion: 1,
+        sourceQuantity: object.quantity,
+      },
+    });
+  }
+  if (normalizedName.includes("parallel lives")) {
+    definitions.push({
+      ...base,
+      id: `${object.groupId}:parallel-lives-token-replacement`,
+      label: `${object.label} token replacement boundary`,
+      effectKind: "replacement-effect",
+      observes: [],
+      modifies: ["token-created"],
+      reads: [],
+      affects: "battlefield",
+      creates: [],
+      counters: [],
+      metadata: {
+        helper: "parallel-lives",
+        localHelperAuthority: true,
+        replacementKind: "quantity-multiplier",
+        replacementFactor: 2,
+        replacementCommutative: true,
+        replacementAppliesOnce: true,
+        replacementScope: "source-controller",
+        replacementDefinitionVersion: 1,
+        sourceQuantity: object.quantity,
       },
     });
   }

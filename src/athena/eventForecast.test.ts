@@ -140,7 +140,7 @@ describe("Athena event forecast and consequence preview engine", () => {
     expect(field).toEqual(before);
   });
 
-  it("discovers token and counter replacements without treating base quantity as final", () => {
+  it("applies token replacements before discovering triggers from the final event", () => {
     const field = normalizeField(
       fieldWith([
         tracked(doublingSeason()),
@@ -166,7 +166,9 @@ describe("Athena event forecast and consequence preview engine", () => {
         expect.objectContaining({
           eventCategory: "token-created",
           modificationCategory: "token-multiplier",
-          applied: false,
+          applied: true,
+          quantityBefore: 3,
+          quantityAfter: 6,
         }),
         expect.objectContaining({
           eventCategory: "counter-placed",
@@ -178,26 +180,27 @@ describe("Athena event forecast and consequence preview engine", () => {
       expect.arrayContaining([
         expect.objectContaining({
           key: "tokens",
-          baseDelta: 3,
-          forecastDelta: null,
-          provisional: true,
-          certainty: "replacement-dependent",
+          baseDelta: 6,
+          forecastDelta: 6,
+          provisional: false,
+          certainty: "deterministic",
         }),
       ]),
     );
     expect(result.potentialGeneratedEvents).toContainEqual(
       expect.objectContaining({
         category: "token-entered",
-        certainty: "replacement-dependent",
-        replacementDependent: true,
+        quantity: 6,
+        certainty: "deterministic",
+        replacementDependent: false,
       }),
     );
     expect(result.triggerRelationships).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           sourceLabel: "Cathars' Crusade",
-          instanceCount: null,
-          certainty: "replacement-dependent",
+          instanceCount: 6,
+          certainty: "deterministic",
         }),
         expect.objectContaining({ sourceLabel: "Soul Warden" }),
       ]),
@@ -205,7 +208,7 @@ describe("Athena event forecast and consequence preview engine", () => {
     expect(field).toEqual(before);
   });
 
-  it("represents overlapping token replacements and requires ordering without applying them", () => {
+  it("applies overlapping commutative token replacements deterministically", () => {
     const anointed = tracked(
       testCard({
         name: "Anointed Procession",
@@ -227,17 +230,17 @@ describe("Athena event forecast and consequence preview engine", () => {
     expect(result.replacementRelationships).toHaveLength(2);
     expect(result.replacementRelationships).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ overlapping: true, applied: false }),
+        expect.objectContaining({ overlapping: true, applied: true }),
       ]),
     );
-    expect(result.requiredChoices).toContainEqual(
+    expect(result.requiredChoices).not.toContainEqual(
       expect.objectContaining({ kind: "replacement-order" }),
     );
     expect(result.relevantTotalChanges).toContainEqual(
       expect.objectContaining({
         key: "tokens",
-        baseDelta: 2,
-        forecastValue: null,
+        baseDelta: 8,
+        forecastDelta: 8,
       }),
     );
   });

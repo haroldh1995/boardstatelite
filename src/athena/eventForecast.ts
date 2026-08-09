@@ -36,6 +36,11 @@ import {
   createAthenaAwarenessContext,
   rankAthenaAuthoritySource,
 } from "./foundation";
+import { processAthenaReplacementEffects } from "./replacementEffect";
+import {
+  ATHENA_REPLACEMENT_MAX_SAFE_QUANTITY,
+  type AthenaReplacementProcessingResult,
+} from "./replacementEffectTypes";
 import {
   ATHENA_EVENT_FORECAST_CACHE_VERSION,
   ATHENA_EVENT_FORECAST_DEFAULT_DEPTH,
@@ -169,7 +174,7 @@ export function createAthenaForecastInput(
     sourceObjectId: nullableId(draft.sourceObjectId),
     subjectGroupIds: uniqueStrings(draft.subjectGroupIds ?? []),
     subjectObjectIds: uniqueStrings(draft.subjectObjectIds ?? []),
-    quantity: finiteInteger(draft.quantity, 0, 999999999, 1),
+    quantity: normalizeForecastQuantity(draft.quantity),
     knownCharacteristics,
     zoneOrigin: normalizeZone(draft.zoneOrigin),
     zoneDestination: normalizeZone(draft.zoneDestination),
@@ -280,7 +285,18 @@ export function forecastAthenaEvent(
   }
 
   try {
-    const direct = analyzeDirectConsequences(environment, input);
+    const replacementProcessing = processAthenaReplacementEffects(
+      environment,
+      input,
+      {
+        timestamp,
+        cancellation: options.cancellation,
+        forecastReference: forecastId,
+      },
+    );
+    const analysisInput =
+      replacementProcessing.finalEvent ?? replacementProcessing.originalEvent;
+    const direct = analyzeDirectConsequences(environment, analysisInput);
     if (input.quantity <= 0) {
       direct.warnings.push(
         warning(
@@ -323,27 +339,33 @@ export function forecastAthenaEvent(
       environment.relationshipMap,
       environment.graph,
     );
-    const seedEntries = seedExplorationEntries(input, direct.generatedEvents);
-    const directReplacements =
-      maxDepth > 0 && input.eventSource !== "correction-only"
-        ? discoverReplacements(seedEntries, query)
-        : [];
+    const seedEntries = seedExplorationEntries(
+      analysisInput,
+      direct.generatedEvents,
+    );
+    const directReplacements = replacementFindingsFromProcessing(
+      replacementProcessing,
+    );
     const hasUnresolvedReplacement = directReplacements.some(
       (replacement) => replacement.applied === false,
     );
     const explorationSeedEntries = hasUnresolvedReplacement
-      ? markReplacementDependentEntries(seedEntries, directReplacements, input)
+      ? markReplacementDependentEntries(
+          seedEntries,
+          directReplacements,
+          analysisInput,
+        )
       : seedEntries;
     const totalChanges = hasUnresolvedReplacement
       ? markReplacementDependentTotals(
-          input,
+          analysisInput,
           direct.totalChanges,
           directReplacements,
         )
       : direct.totalChanges;
     const exploration = exploreRelationships({
       environment,
-      input,
+      input: analysisInput,
       seedEntries: explorationSeedEntries,
       maxDepth,
       cancellation: options.cancellation,
@@ -371,7 +393,7 @@ export function forecastAthenaEvent(
       ? markReplacementDependentGeneratedEvents(
           direct.generatedEvents,
           directReplacements,
-          input,
+          analysisInput,
         )
       : direct.generatedEvents;
     const allGeneratedEvents = uniqueGeneratedEvents([
@@ -388,20 +410,31 @@ export function forecastAthenaEvent(
     const choices = uniqueChoices([
       ...direct.choices,
       ...relationshipChoices,
-      ...replacementOrderChoices(replacements, input),
+      ...replacementChoicesFromProcessing(replacementProcessing),
+      ...replacementOrderChoices(replacements, analysisInput),
     ]);
     const warnings = uniqueWarnings([
       ...direct.warnings,
       ...warningsForRelationships(exploration.relationships),
       ...warningsForReplacements(replacements),
-      ...warningsForUnsupportedSources(environment.relationshipMap, input),
+      ...replacementWarningsFromProcessing(replacementProcessing),
+      ...warningsForUnsupportedSources(
+        environment.relationshipMap,
+        analysisInput,
+      ),
     ]);
     const validity: AthenaForecastValidity =
       input.quantity <= 0
         ? "unresolved"
-        : exploration.cancelled
+        : replacementProcessing.validity === "cancelled"
           ? "cancelled"
-          : "valid";
+          : replacementProcessing.validity === "stale"
+            ? "stale"
+            : replacementProcessing.finalEvent === null
+              ? "unresolved"
+              : exploration.cancelled
+                ? "cancelled"
+                : "valid";
     const directConsequences = replaceTotalConsequences(
       direct.consequences,
       totalChanges,
@@ -411,11 +444,17 @@ export function forecastAthenaEvent(
         .filter((relationship) => relationship.optional)
         .map((relationship) => relationship.relationshipId),
     );
-    const manualResolutionRelationshipIds = uniqueStrings(
-      exploration.relationships
+    const manualResolutionRelationshipIds = uniqueStrings([
+      ...exploration.relationships
         .filter((relationship) => relationship.requiresManualResolution)
         .map((relationship) => relationship.relationshipId),
-    );
+      ...replacements
+        .filter(
+          (relationship) =>
+            relationship.certainty === "manual-resolution-dependent",
+        )
+        .map((relationship) => relationship.relationshipId),
+    ]);
     const authorityRequiredRelationshipIds = uniqueStrings([
       ...exploration.relationships
         .filter((relationship) => relationship.requiresAuthority)
@@ -432,6 +471,12 @@ export function forecastAthenaEvent(
         environment.relationshipMap,
         input,
       ).map((relationship) => relationship.id),
+      ...replacementProcessing.applicableDefinitions
+        .filter((definition) => definition.support === "unsupported-effect")
+        .map((definition) => definition.relationshipId),
+      ...replacements
+        .filter((relationship) => relationship.certainty === "unsupported")
+        .map((relationship) => relationship.relationshipId),
     ]);
     const durationMs = monotonicNowMs() - started;
     const result: AthenaEventForecastResult = {
@@ -455,6 +500,7 @@ export function forecastAthenaEvent(
       relevantTotalChanges: totalChanges,
       triggerRelationships: exploration.relationships,
       replacementRelationships: replacements,
+      replacementProcessing,
       staticDependencies,
       potentialGeneratedEvents: allGeneratedEvents,
       potentialCharacteristicChanges: directConsequences.filter(
@@ -486,6 +532,7 @@ export function forecastAthenaEvent(
       warnings,
       semanticDescriptions: semanticDescriptions({
         input,
+        replacementProcessing,
         totalChanges,
         relationships: exploration.relationships,
         replacements,
@@ -1000,6 +1047,15 @@ function analyzeDirectConsequences(
   const choices: AthenaForecastChoiceRequirement[] = [];
   const warnings: AthenaForecastWarning[] = [];
   const quantity = input.quantity;
+  if (quantity === 0) {
+    return {
+      consequences,
+      totalChanges: [],
+      generatedEvents,
+      choices,
+      warnings,
+    };
+  }
   const subjectObjects = input.subjectGroupIds
     .map((groupId) =>
       environment.context.battlefield.find(
@@ -1407,6 +1463,9 @@ function discoverReplacements(
         overlapping: overlap,
         orderingMayMatter: overlap || relationship.optional,
         applied: false,
+        quantityBefore: null,
+        quantityAfter: null,
+        replacementStepId: null,
         requiresAuthority: relationship.requiresAuthority,
         reasonCodes: uniqueReasonCodes([
           "replacement-discovered",
@@ -1418,6 +1477,146 @@ function discoverReplacements(
         description: `${relationship.source.currentCardFace ?? "A replacement effect"} may modify ${entry.category}; the replacement is not applied by this forecast.`,
       });
     }
+  }
+  return uniqueById(findings);
+}
+
+function replacementFindingsFromProcessing(
+  processing: AthenaReplacementProcessingResult,
+): AthenaForecastReplacementFinding[] {
+  const stepsByRelationship = new Map<
+    string,
+    AthenaReplacementProcessingResult["steps"]
+  >();
+  for (const step of processing.steps) {
+    const steps = stepsByRelationship.get(step.relationshipId) ?? [];
+    steps.push(step);
+    stepsByRelationship.set(step.relationshipId, steps);
+  }
+
+  const overlap = processing.applicableDefinitions.length > 1;
+  const findings: AthenaForecastReplacementFinding[] = [];
+  for (const definition of processing.applicableDefinitions) {
+    const steps = stepsByRelationship.get(definition.relationshipId) ?? [];
+    if (steps.length > 0) {
+      for (const step of steps) {
+        findings.push({
+          id: `athena-forecast-replacement:${normalizeIdPart(step.id)}`,
+          relationshipId: step.relationshipId,
+          sourceGroupId: step.sourceGroupId,
+          sourceLabel: step.sourceLabel,
+          eventCategory: step.eventCategoryBefore,
+          modificationCategory: replacementModificationCategory(
+            step.eventCategoryBefore,
+            step.modificationCategory,
+          ),
+          certainty: "deterministic",
+          optional: definition.optional,
+          overlapping: overlap,
+          orderingMayMatter: overlap && !definition.commutative,
+          applied: true,
+          quantityBefore: step.quantityBefore,
+          quantityAfter: step.quantityAfter,
+          replacementStepId: step.id,
+          requiresAuthority: false,
+          reasonCodes: ["replacement-discovered", "replacement-applied"],
+          description: step.explanation,
+        });
+      }
+      continue;
+    }
+
+    const requiresAuthority =
+      definition.requiresAuthority ||
+      processing.validity === "authority-required";
+    const requiresManual =
+      definition.requiresManualResolution ||
+      processing.validity === "manual-required" ||
+      processing.validity === "loop-detected" ||
+      processing.validity === "overflow";
+    findings.push({
+      id: `athena-forecast-replacement:${normalizeIdPart(definition.relationshipId)}:${processing.originalEvent.eventCategory}`,
+      relationshipId: definition.relationshipId,
+      sourceGroupId: definition.sourceGroupId,
+      sourceLabel: definition.sourceLabel,
+      eventCategory: processing.originalEvent.eventCategory,
+      modificationCategory: definition.modification.category,
+      certainty: requiresAuthority
+        ? "authority-dependent"
+        : requiresManual
+          ? "manual-resolution-dependent"
+          : definition.optional
+            ? "optional"
+            : "replacement-dependent",
+      optional: definition.optional,
+      overlapping: overlap,
+      orderingMayMatter: overlap && !definition.commutative,
+      applied: false,
+      quantityBefore: processing.originalEvent.quantity,
+      quantityAfter: null,
+      replacementStepId: null,
+      requiresAuthority,
+      reasonCodes: uniqueReasonCodes([
+        "replacement-discovered",
+        "replacement-unresolved",
+        ...(requiresAuthority
+          ? (["authority-required"] as AthenaForecastReasonCode[])
+          : []),
+        ...(requiresManual
+          ? (["manual-resolution-required"] as AthenaForecastReasonCode[])
+          : []),
+        ...(definition.optional
+          ? (["optional-effect"] as AthenaForecastReasonCode[])
+          : []),
+      ]),
+      description: `${definition.sourceLabel} may modify ${processing.originalEvent.eventCategory}; a final modified event is not yet available.`,
+    });
+  }
+  for (const excluded of processing.excludedReplacements) {
+    if (
+      excluded.reason !== "invalid-definition" &&
+      excluded.reason !== "unsupported" &&
+      excluded.reason !== "manual-required" &&
+      excluded.reason !== "authority-required"
+    ) {
+      continue;
+    }
+    const requiresAuthority = excluded.reason === "authority-required";
+    const unsupported =
+      excluded.reason === "invalid-definition" ||
+      excluded.reason === "unsupported";
+    findings.push({
+      id: `athena-forecast-replacement:${normalizeIdPart(excluded.id)}`,
+      relationshipId: excluded.relationshipId,
+      sourceGroupId: excluded.sourceGroupId,
+      sourceLabel: excluded.sourceLabel,
+      eventCategory: processing.originalEvent.eventCategory,
+      modificationCategory: "unknown",
+      certainty: requiresAuthority
+        ? "authority-dependent"
+        : unsupported
+          ? "unsupported"
+          : "manual-resolution-dependent",
+      optional: false,
+      overlapping: processing.applicableDefinitions.length > 0,
+      orderingMayMatter: false,
+      applied: false,
+      quantityBefore: processing.originalEvent.quantity,
+      quantityAfter: null,
+      replacementStepId: null,
+      requiresAuthority,
+      reasonCodes: uniqueReasonCodes([
+        "replacement-discovered",
+        "replacement-unresolved",
+        ...(requiresAuthority
+          ? (["authority-required"] as AthenaForecastReasonCode[])
+          : []),
+        ...(unsupported
+          ? (["unsupported-effect"] as AthenaForecastReasonCode[])
+          : (["manual-resolution-required"] as AthenaForecastReasonCode[])),
+      ]),
+      description: excluded.explanation,
+    });
   }
   return uniqueById(findings);
 }
@@ -1639,7 +1838,7 @@ function replacementOrderChoices(
     AthenaEventCategory,
     AthenaForecastReplacementFinding[]
   >();
-  for (const replacement of replacements) {
+  for (const replacement of replacements.filter((entry) => !entry.applied)) {
     const entries = byEvent.get(replacement.eventCategory) ?? [];
     entries.push(replacement);
     byEvent.set(replacement.eventCategory, entries);
@@ -1662,6 +1861,22 @@ function replacementOrderChoices(
       requiredBeforeAccurateForecast: true,
       requiredBeforeCommit: true,
     }));
+}
+
+function replacementChoicesFromProcessing(
+  processing: AthenaReplacementProcessingResult,
+): AthenaForecastChoiceRequirement[] {
+  return processing.requiredChoices.map((choice) => ({
+    id: `athena-forecast-choice:${normalizeIdPart(choice.id)}`,
+    kind: choice.kind === "scope" ? "target" : choice.kind,
+    prompt: choice.prompt,
+    sourceRelationshipId: choice.relationshipIds[0] ?? null,
+    sourceGroupId: choice.sourceGroupIds[0] ?? null,
+    candidateGroupIds: [...choice.sourceGroupIds],
+    eventCategories: [processing.originalEvent.eventCategory],
+    requiredBeforeAccurateForecast: true,
+    requiredBeforeCommit: true,
+  }));
 }
 
 function markReplacementDependentTotals(
@@ -1768,6 +1983,7 @@ function seedExplorationEntries(
   input: AthenaForecastInput,
   structuralEvents: AthenaForecastGeneratedEvent[],
 ): EventExplorationEntry[] {
+  if (input.quantity === 0) return [];
   const seeds: EventExplorationEntry[] = [
     {
       category: input.eventCategory,
@@ -2380,6 +2596,7 @@ function emptyForecastResult(input: {
     relevantTotalChanges: [],
     triggerRelationships: [],
     replacementRelationships: [],
+    replacementProcessing: null,
     staticDependencies: [],
     potentialGeneratedEvents: [],
     potentialCharacteristicChanges: [],
@@ -2461,6 +2678,7 @@ function createForecastDiagnostics(input: {
 
 function semanticDescriptions(input: {
   input: AthenaForecastInput;
+  replacementProcessing: AthenaReplacementProcessingResult;
   totalChanges: AthenaForecastRelevantTotalChange[];
   relationships: AthenaForecastRelationshipFinding[];
   replacements: AthenaForecastReplacementFinding[];
@@ -2470,6 +2688,7 @@ function semanticDescriptions(input: {
 }): string[] {
   return uniqueStrings([
     confirmedInputDescription(input.input),
+    ...input.replacementProcessing.semanticDescriptions,
     ...input.totalChanges.map((change) =>
       change.forecastDelta === null
         ? `${readableTotal(change.key)} would change, but unresolved replacement effects prevent a final value.`
@@ -2480,9 +2699,10 @@ function semanticDescriptions(input: {
         ? `${relationship.sourceLabel} may trigger when ${readableEvent(relationship.observedEvent)}.`
         : `${relationship.sourceLabel} would become relevant when ${readableEvent(relationship.observedEvent)}.`,
     ),
-    ...input.replacements.map(
-      (replacement) =>
-        `${replacement.sourceLabel} may modify this ${readableEvent(replacement.eventCategory)} event.`,
+    ...input.replacements.map((replacement) =>
+      replacement.applied
+        ? replacement.description
+        : `${replacement.sourceLabel} may modify this ${readableEvent(replacement.eventCategory)} event.`,
     ),
     ...input.staticDependencies.map(
       (dependency) =>
@@ -2540,16 +2760,45 @@ function warningsForRelationships(
 function warningsForReplacements(
   replacements: AthenaForecastReplacementFinding[],
 ): AthenaForecastWarning[] {
-  if (replacements.length === 0) return [];
-  return replacements.map((replacement) =>
+  return replacements
+    .filter((replacement) => !replacement.applied)
+    .map((replacement) =>
+      warning(
+        "replacement-unresolved",
+        `${replacement.sourceLabel} was discovered but cannot yet be applied safely.`,
+        replacement.relationshipId,
+        replacement.sourceGroupId,
+        replacement.id,
+      ),
+    );
+}
+
+function replacementWarningsFromProcessing(
+  processing: AthenaReplacementProcessingResult,
+): AthenaForecastWarning[] {
+  return processing.warnings.map((entry) =>
     warning(
-      "replacement-unresolved",
-      `${replacement.sourceLabel} was discovered but not applied by ATHENA-04.`,
-      replacement.relationshipId,
-      replacement.sourceGroupId,
-      replacement.id,
+      replacementWarningReasonCode(entry.code),
+      entry.message,
+      entry.relationshipId,
+      entry.sourceGroupId,
+      entry.id,
     ),
   );
+}
+
+function replacementWarningReasonCode(
+  code: AthenaReplacementProcessingResult["warnings"][number]["code"],
+): AthenaForecastReasonCode {
+  if (code === "invalid-event") return "invalid-event";
+  if (code === "invalid-quantity") return "invalid-quantity";
+  if (code === "authority-required") return "authority-required";
+  if (code === "stale-version") return "stale-version";
+  if (code === "cancelled") return "cancelled";
+  if (code === "unresolved-order") return "replacement-unresolved";
+  if (code === "authority-discrepancy") return "authoritative-input";
+  if (code === "duplicate-prevented") return "replacement-discovered";
+  return "manual-resolution-required";
 }
 
 function unsupportedRelationshipsForInput(
@@ -2975,6 +3224,19 @@ function finiteInteger(
 ): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
   return Math.min(max, Math.max(min, Math.trunc(value)));
+}
+
+function normalizeForecastQuantity(value: unknown): number {
+  if (value === undefined) return 1;
+  if (
+    typeof value !== "number" ||
+    !Number.isSafeInteger(value) ||
+    value < 0 ||
+    value > ATHENA_REPLACEMENT_MAX_SAFE_QUANTITY
+  ) {
+    return 0;
+  }
+  return value;
 }
 
 function finiteNumberOrNull(value: unknown): number | null {

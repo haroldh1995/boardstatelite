@@ -106,15 +106,27 @@ Mapped relationships keep replacement effects, triggered abilities, static effec
 
 ## Event Forecast And Consequence Preview
 
-ATHENA-04 adds a deterministic Event Forecast and Consequence Preview Engine on top of the awareness context, dependency graph, and effect relationship map. The engine accepts one structured gameplay event and produces a platform-neutral hypothetical result containing direct total changes, relevant triggers, unresolved replacement boundaries, static dependencies, bounded potential follow-up events, missing choices, support findings, and authority requirements.
+ATHENA-04 adds a deterministic Event Forecast and Consequence Preview Engine on top of the awareness context, dependency graph, and effect relationship map. The engine accepts one structured gameplay event and produces a platform-neutral hypothetical result containing direct total changes, relevant triggers, replacement boundaries, static dependencies, bounded potential follow-up events, missing choices, support findings, and authority requirements.
 
-Forecast results are intentionally not canonical results. They contain no `FieldState`, mutation callback, undo entry, or commit operation, and they always identify themselves as preview-only derived data. Grouped token quantities stay grouped, overlapping relevant totals use the dependency graph's shared classifier, and unresolved replacements make downstream quantities provisional instead of silently applying ATHENA-05 behavior early.
+Forecast results are intentionally not canonical results. They contain no `FieldState`, mutation callback, undo entry, or commit operation, and they always identify themselves as preview-only derived data. Grouped token quantities stay grouped, overlapping relevant totals use the dependency graph's shared classifier, and unresolved replacements make downstream quantities provisional.
 
 Consequence exploration is bounded to two levels. ATHENA-04 may show that a land-entry relationship could produce a token event and that the token event could interest creature-entry observers, but it does not execute those effects or resolve a cascade.
 
 Echo intents, planner actions, and Action Strip items use explicit adapters that produce the same forecast input contract. Corrections invalidate prior forecasts, plan changes remain hypothetical, and cast events remain distinct from battlefield-entry events.
 
 The core forecast engine has no DOM, browser storage, browser lifecycle, or rendering dependencies. Scheduling and presentation remain outside the domain engine so the same contracts and deterministic analysis can be implemented by future SwiftUI and Android adapters.
+
+## Replacement Effects And Event Modification
+
+ATHENA-05 adds a deterministic replacement-processing layer before ATHENA-04 trigger and static-dependency discovery. It preserves an immutable original event, an ordered replacement chain, and a final derived event. Only the final event is used to forecast triggered abilities, relevant-total changes, and static invalidation. Replacement effects never become trigger records and no preview commits battlefield state.
+
+Supported structured definitions cover token and permanent-counter multipliers, additive and setter modifiers, entry-state changes, destination changes, and explicit event substitution. Lite applies only eligible, locally supported definitions. Not Tracked and applicable Depower states disable replacement-source behavior; Correction Only centrally bypasses both replacement processing and gameplay-trigger discovery.
+
+Commutative replacement chains use deterministic stable ordering. Non-commutative chains require explicit structured order, BoardState authority, or manual resolution. Each application has stable event lineage and per-event identity to prevent duplicate application, repeated-state loops, and unbounded chains. Unsafe arithmetic returns an unresolved overflow result rather than wrapping or truncating quantities.
+
+Verified BoardState final events take precedence over local prediction. Athena accepts the authoritative final event and uses it for later personal-battlefield forecasting without calculating a contradictory local chain. Lite helper results remain explicitly non-authoritative.
+
+The replacement engine is a platform-neutral domain service. Its inputs, chain records, diagnostics, caching keys, cancellation signals, and semantic explanations contain no DOM, browser storage, CSS, or web lifecycle state. Web and future SwiftUI presentation consume these shared models through their own adapters.
 
 ## Preview Boundary
 
