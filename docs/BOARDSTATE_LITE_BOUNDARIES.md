@@ -215,6 +215,19 @@ accept uncertain speakers as the user, or present always-listening behavior
 unless a later implemented feature explicitly adds it with matching privacy
 controls.
 
+## Portability Boundary
+
+BoardState Lite gameplay logic must remain portable for a future Swift
+Playground target. Domain rules, state transitions, shared-session metadata,
+Echo interpretation, Athena relationship logic, persistence shape, and undo
+boundaries must not depend directly on React, DOM, browser storage, browser
+networking, browser timers, Web Audio, or other web-only APIs.
+
+Runtime capabilities belong behind platform ports in `src/platform`. The web
+application may provide React UI components, Vite/PWA startup code, and web
+adapters, but new gameplay behavior must live in portable modules and receive
+platform services through explicit boundaries.
+
 ## Local-Only Workflow Preservation
 
 Every ecosystem step must preserve the current local-only physical-table workflow:

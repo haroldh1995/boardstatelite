@@ -1,5 +1,6 @@
 import { supportStatusForCard } from "../domain/cards";
 import type { CardFaceIdentity, CardIdentity } from "../domain/types";
+import { fetchJson, isNetworkOnline } from "../platform/network";
 import { cacheCard, cacheSearch, getCachedCard, getCachedSearch } from "./db";
 
 const SCRYFALL_SEARCH_URL = "https://api.scryfall.com/cards/search";
@@ -21,7 +22,7 @@ export async function searchScryfall(
   const pending = pendingSearches.get(key);
   if (pending) return pending;
 
-  if (typeof navigator !== "undefined" && !navigator.onLine) {
+  if (!isNetworkOnline()) {
     return cached ?? [];
   }
 
@@ -32,7 +33,7 @@ export async function searchScryfall(
     include_extras: "true",
   });
 
-  const request = fetch(`${SCRYFALL_SEARCH_URL}?${params.toString()}`, {
+  const request = fetchJson(`${SCRYFALL_SEARCH_URL}?${params.toString()}`, {
     signal: options.signal,
     headers: {
       Accept: "application/json",
@@ -62,10 +63,10 @@ export async function fetchScryfallCard(
 ): Promise<CardIdentity | null> {
   const cached = await getCachedCard(cardId);
   if (cached) return cached;
-  if (typeof navigator !== "undefined" && !navigator.onLine) return null;
+  if (!isNetworkOnline()) return null;
 
   try {
-    const response = await fetch(
+    const response = await fetchJson(
       `${SCRYFALL_CARDS_URL}/${encodeURIComponent(cardId)}`,
     );
     if (!response.ok) return null;

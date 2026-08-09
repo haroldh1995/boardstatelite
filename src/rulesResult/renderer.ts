@@ -13,6 +13,7 @@ import type {
   ResolutionResult,
 } from "../domain/types";
 import type { BoardStateRulesEvaluation } from "../rulesAdapter/types";
+import { monotonicNowMs } from "../platform/runtime";
 import { createObjectResolver } from "./objectResolver";
 import {
   canonicalizeBoardStateEvaluation,
@@ -561,7 +562,7 @@ function announcementsFor(
 }
 
 function performanceNow(): number {
-  return typeof performance !== "undefined" ? performance.now() : Date.now();
+  return monotonicNowMs();
 }
 
 function installRulesRendererDiagnosticsGlobal(): void {

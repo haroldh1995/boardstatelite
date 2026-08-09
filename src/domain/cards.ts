@@ -8,6 +8,7 @@ import type {
   SupportStatus,
   Zone,
 } from "./types";
+import { createPortableId, nowMs } from "../platform/runtime";
 
 const CARD_TYPES = [
   "Artifact",
@@ -71,11 +72,7 @@ export function emptyStatuses(): StatusFlags {
 }
 
 export function makeId(prefix: string): string {
-  const random =
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  return `${prefix}-${random}`;
+  return createPortableId(prefix);
 }
 
 export function parseCharacteristics(
@@ -265,7 +262,7 @@ export function createGenericGroup(input: {
     statuses: emptyStatuses(),
     attachments: [],
     attachedTo: null,
-    order: Date.now(),
+    order: nowMs(),
     abilitiesActive: false,
     trackingEnabled: true,
     depowerMode: "none",
@@ -306,7 +303,7 @@ export function createCardGroup(
     statuses: emptyStatuses(),
     attachments: [],
     attachedTo: null,
-    order: Date.now(),
+    order: nowMs(),
     abilitiesActive: true,
     trackingEnabled: true,
     depowerMode: "none",

@@ -1,5 +1,6 @@
 import { makeId } from "../domain/cards";
 import type { FieldState } from "../domain/types";
+import { nowMs } from "../platform/runtime";
 import type { AmbientGameplayMode } from "./ambientTypes";
 import type { EchoListeningWindowKind } from "./contextualListeningTypes";
 import {
@@ -1338,7 +1339,7 @@ function observationKey(
 function addMilliseconds(timestamp: string, milliseconds: number): string {
   const base = Date.parse(timestamp);
   return new Date(
-    Number.isFinite(base) ? base + milliseconds : Date.now() + milliseconds,
+    Number.isFinite(base) ? base + milliseconds : nowMs() + milliseconds,
   ).toISOString();
 }
 

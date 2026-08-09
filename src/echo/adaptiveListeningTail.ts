@@ -1,6 +1,12 @@
 import type { FieldState } from "../domain/types";
 import { makeId } from "../domain/cards";
 import {
+  clearRuntimeTimer,
+  nowMs,
+  setRuntimeTimer,
+  type RuntimeTimer,
+} from "../platform/runtime";
+import {
   AmbientEventPipeline,
   ambientEventPipeline,
 } from "./ambientEventPipeline";
@@ -748,7 +754,7 @@ export class EchoAdaptiveListeningTailManager {
   private listeners = new Set<
     (state: EchoAdaptiveListeningTailState) => void
   >();
-  private timer: ReturnType<typeof setTimeout> | null = null;
+  private timer: RuntimeTimer | null = null;
   private context: {
     field: FieldState;
     speakerVerification: EchoSpeakerVerificationResult | null;
@@ -990,16 +996,16 @@ export class EchoAdaptiveListeningTailManager {
     }
     const delay = Math.max(
       0,
-      new Date(active.finalizeAfter).getTime() - Date.now(),
+      new Date(active.finalizeAfter).getTime() - nowMs(),
     );
-    this.timer = setTimeout(() => {
+    this.timer = setRuntimeTimer(() => {
       this.timer = null;
       this.expire(new Date().toISOString());
     }, delay);
   }
 
   private clearTimer(): void {
-    if (this.timer) clearTimeout(this.timer);
+    if (this.timer !== null) clearRuntimeTimer(this.timer);
     this.timer = null;
   }
 

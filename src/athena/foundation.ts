@@ -11,6 +11,7 @@ import type {
   Zone,
 } from "../domain/types";
 import { getActiveListeningWindow } from "../echo/contextualListening";
+import { monotonicNowMs } from "../platform/runtime";
 import { localParticipantId } from "../sharedSession";
 import {
   ATHENA_COMPATIBILITY_VERSION,
@@ -1577,5 +1578,5 @@ function isString(value: unknown): value is string {
 }
 
 function performanceNow(): number {
-  return typeof performance !== "undefined" ? performance.now() : Date.now();
+  return monotonicNowMs();
 }

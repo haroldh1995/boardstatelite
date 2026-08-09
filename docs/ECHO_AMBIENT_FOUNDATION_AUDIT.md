@@ -23,7 +23,8 @@ The current app is a React, TypeScript, Vite, Zustand, Dexie, Vitest, Playwright
 - `src/domain`: field shape, card/group construction, totals, local helper engine, stack splitting/merging, counters, tracking, depower, transformations, and import normalization.
 - `src/state`: Zustand store, transaction history, modal state, persistence calls, and UI-facing actions.
 - `src/components`: life tracker, totals, battlefield sections, card presentation, bottom dock, Scryfall search, and shared modal system.
-- `src/services`: Dexie/localStorage persistence and Scryfall search/cache integration.
+- `src/services`: portable persistence/cache wrappers and Scryfall search/cache integration through platform ports.
+- `src/platform`: web runtime adapters for persistence, storage, network, timing, IDs, and microphone access.
 - `src/rulesAdapter`: future BoardState authority boundary and current Lite-helper fallback.
 - `src/rulesResult`: canonical rules-result rendering for local helper and future authoritative results.
 - `src/sharedSession`, `src/gameModes`, `src/multiplayer`, and `src/hub`: local-only ecosystem metadata and inert future integration hooks.

@@ -1,4 +1,5 @@
 import type { ObjectSessionBinding, SharedSessionMetadata } from "./types";
+import { randomToken } from "../platform/runtime";
 
 export const LOCAL_UNASSIGNED_SESSION_ID = "BS-SESSION-LOCAL-UNASSIGNED";
 
@@ -59,14 +60,6 @@ export function localParticipantId(session: SharedSessionMetadata): string {
     session.participants[0]?.id ??
     "BS-PARTICIPANT-LOCAL"
   );
-}
-
-function randomToken(length: number): string {
-  const source =
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID().replace(/-/g, "")
-      : `${Date.now().toString(16)}${Math.random().toString(16).slice(2)}`;
-  return source.toUpperCase().padEnd(length, "0").slice(0, length);
 }
 
 function stableHash(value: string): string {

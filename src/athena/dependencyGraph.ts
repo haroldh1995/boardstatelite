@@ -11,6 +11,7 @@ import type {
   AmbientIntent,
   AmbientIntentKind,
 } from "../echo/ambientEventTypes";
+import { monotonicNowMs } from "../platform/runtime";
 import { serializeStable } from "../utils/stableSerialization";
 import {
   createAthenaAwarenessContext,
@@ -2502,5 +2503,5 @@ function detectRelationshipCycles(
 }
 
 function performanceNow(): number {
-  return globalThis.performance?.now?.() ?? Date.now();
+  return monotonicNowMs();
 }

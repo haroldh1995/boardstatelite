@@ -1,5 +1,6 @@
 import type { FieldState, RelevantTotalKey, Zone } from "../domain/types";
 import type { AmbientIntentKind } from "../echo/ambientEventTypes";
+import { monotonicNowMs } from "../platform/runtime";
 import { serializeStable } from "../utils/stableSerialization";
 import {
   buildAthenaDependencyGraph,
@@ -1456,5 +1457,5 @@ function mapperIdentity(relationshipMap: AthenaEffectRelationshipMap): string {
 }
 
 function performanceNow(): number {
-  return typeof performance === "undefined" ? Date.now() : performance.now();
+  return monotonicNowMs();
 }

@@ -1,47 +1,20 @@
-import Dexie, { type Table } from "dexie";
 import type { CardIdentity, FieldState } from "../domain/types";
-
-interface CachedSearch {
-  query: string;
-  cachedAt: number;
-  cards: CardIdentity[];
-}
-
-interface CachedCard {
-  cardId: string;
-  cachedAt: number;
-  card: CardIdentity;
-}
-
-interface SavedFieldRecord {
-  id: string;
-  updatedAt: string;
-  field: FieldState;
-}
-
-class BaordStateLiteDb extends Dexie {
-  fields!: Table<SavedFieldRecord, string>;
-  searchCache!: Table<CachedSearch, string>;
-  cardCache!: Table<CachedCard, string>;
-
-  constructor() {
-    super("baord-state-lite");
-    this.version(1).stores({
-      fields: "id, updatedAt",
-      searchCache: "query, cachedAt",
-      cardCache: "cardId, cachedAt",
-    });
-  }
-}
-
-export const db = new BaordStateLiteDb();
+import { getFieldPersistencePort } from "../platform/persistence";
+import { nowMs } from "../platform/runtime";
+import { getKeyValueStorage } from "../platform/storage";
 
 export async function saveField(field: FieldState): Promise<void> {
+  const storage = getKeyValueStorage();
+  const persistence = getFieldPersistencePort();
   try {
-    await db.fields.put({ id: field.id, updatedAt: field.updatedAt, field });
-    localStorage.setItem("baord-state-lite:last-field-id", field.id);
+    await persistence.saveField({
+      id: field.id,
+      updatedAt: field.updatedAt,
+      field,
+    });
+    storage.setItem("baord-state-lite:last-field-id", field.id);
   } catch {
-    localStorage.setItem(
+    storage.setItem(
       "baord-state-lite:last-field-fallback",
       JSON.stringify(field),
     );
@@ -49,18 +22,18 @@ export async function saveField(field: FieldState): Promise<void> {
 }
 
 export async function loadLastField(): Promise<FieldState | null> {
+  const storage = getKeyValueStorage();
+  const persistence = getFieldPersistencePort();
   try {
-    const lastId = localStorage.getItem("baord-state-lite:last-field-id");
+    const lastId = storage.getItem("baord-state-lite:last-field-id");
     if (lastId) {
-      const record = await db.fields.get(lastId);
+      const record = await persistence.getField(lastId);
       if (record?.field) return record.field;
     }
-    const latest = await db.fields.orderBy("updatedAt").last();
+    const latest = await persistence.getLatestField();
     if (latest?.field) return latest.field;
   } catch {
-    const fallback = localStorage.getItem(
-      "baord-state-lite:last-field-fallback",
-    );
+    const fallback = storage.getItem("baord-state-lite:last-field-fallback");
     if (fallback) {
       return JSON.parse(fallback) as FieldState;
     }
@@ -70,7 +43,7 @@ export async function loadLastField(): Promise<FieldState | null> {
 
 export async function listFields(): Promise<FieldState[]> {
   try {
-    const records = await db.fields.orderBy("updatedAt").reverse().toArray();
+    const records = await getFieldPersistencePort().listFields();
     return records.map((record) => record.field);
   } catch {
     return [];
@@ -78,23 +51,26 @@ export async function listFields(): Promise<FieldState[]> {
 }
 
 export async function deleteField(id: string): Promise<void> {
-  await db.fields.delete(id);
+  await getFieldPersistencePort().deleteField(id);
 }
 
 export async function cacheSearch(
   query: string,
   cards: CardIdentity[],
 ): Promise<void> {
+  const storage = getKeyValueStorage();
+  const persistence = getFieldPersistencePort();
+  const cachedAt = nowMs();
   try {
-    await db.searchCache.put({
+    await persistence.cacheSearch({
       query: query.toLowerCase(),
-      cachedAt: Date.now(),
+      cachedAt,
       cards,
     });
   } catch {
-    localStorage.setItem(
+    storage.setItem(
       `baord-state-lite:search:${query.toLowerCase()}`,
-      JSON.stringify({ cachedAt: Date.now(), cards }),
+      JSON.stringify({ cachedAt, cards }),
     );
   }
 }
@@ -103,30 +79,35 @@ export async function getCachedSearch(
   query: string,
   maxAgeMs: number,
 ): Promise<CardIdentity[] | null> {
+  const storage = getKeyValueStorage();
+  const persistence = getFieldPersistencePort();
   const key = query.toLowerCase();
   try {
-    const cached = await db.searchCache.get(key);
-    if (cached && Date.now() - cached.cachedAt <= maxAgeMs) return cached.cards;
+    const cached = await persistence.getCachedSearch(key);
+    if (cached && nowMs() - cached.cachedAt <= maxAgeMs) return cached.cards;
   } catch {
-    const fallback = localStorage.getItem(`baord-state-lite:search:${key}`);
+    const fallback = storage.getItem(`baord-state-lite:search:${key}`);
     if (fallback) {
       const parsed = JSON.parse(fallback) as {
         cachedAt: number;
         cards: CardIdentity[];
       };
-      if (Date.now() - parsed.cachedAt <= maxAgeMs) return parsed.cards;
+      if (nowMs() - parsed.cachedAt <= maxAgeMs) return parsed.cards;
     }
   }
   return null;
 }
 
 export async function cacheCard(card: CardIdentity): Promise<void> {
+  const storage = getKeyValueStorage();
+  const persistence = getFieldPersistencePort();
+  const cachedAt = nowMs();
   try {
-    await db.cardCache.put({ cardId: card.cardId, cachedAt: Date.now(), card });
+    await persistence.cacheCard({ cardId: card.cardId, cachedAt, card });
   } catch {
-    localStorage.setItem(
+    storage.setItem(
       `baord-state-lite:card:${card.cardId}`,
-      JSON.stringify({ cachedAt: Date.now(), card }),
+      JSON.stringify({ cachedAt, card }),
     );
   }
 }
@@ -134,11 +115,13 @@ export async function cacheCard(card: CardIdentity): Promise<void> {
 export async function getCachedCard(
   cardId: string,
 ): Promise<CardIdentity | null> {
+  const storage = getKeyValueStorage();
+  const persistence = getFieldPersistencePort();
   try {
-    const cached = await db.cardCache.get(cardId);
+    const cached = await persistence.getCachedCard(cardId);
     if (cached?.card) return cached.card;
   } catch {
-    const fallback = localStorage.getItem(`baord-state-lite:card:${cardId}`);
+    const fallback = storage.getItem(`baord-state-lite:card:${cardId}`);
     if (fallback) {
       return (JSON.parse(fallback) as { card: CardIdentity }).card;
     }
@@ -147,6 +130,5 @@ export async function getCachedCard(
 }
 
 export async function clearCaches(): Promise<void> {
-  await db.searchCache.clear();
-  await db.cardCache.clear();
+  await getFieldPersistencePort().clearCaches();
 }

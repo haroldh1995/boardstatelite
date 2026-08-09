@@ -74,7 +74,7 @@ export {
   EchoMicrophoneService,
   createDefaultEchoListeningState,
   createDefaultEchoVoiceSettings,
-  createWebMicrophonePlatformAdapter,
+  createUnavailableMicrophonePlatformAdapter,
   deriveEchoListeningIndicator,
   echoMicrophoneService,
   getEchoListeningDiagnostics,
@@ -83,6 +83,7 @@ export {
   normalizeEchoVoiceSettings,
   transitionEchoListeningState,
 } from "./microphoneService";
+export { createWebMicrophonePlatformAdapter } from "../platform/webMicrophoneAdapter";
 export {
   DEFAULT_VOICE_ENROLLMENT_PHRASES,
   addEnvironmentCalibration,
