@@ -128,6 +128,20 @@ Verified BoardState final events take precedence over local prediction. Athena a
 
 The replacement engine is a platform-neutral domain service. Its inputs, chain records, diagnostics, caching keys, cancellation signals, and semantic explanations contain no DOM, browser storage, CSS, or web lifecycle state. Web and future SwiftUI presentation consume these shared models through their own adapters.
 
+## Trigger Instances And Pending Queue
+
+ATHENA-06 adds the platform-neutral boundary between confirmed final events and unresolved trigger work. Trigger instances can be generated only from a confirmed event after ATHENA-05 has produced a resolved final event. Forecasts, planner actions, unconfirmed or cancelled Echo reports, stale inputs, and Correction Only changes cannot enter the live pending queue.
+
+Trigger identity derives deterministically from the canonical event lineage, structured relationship source, ability definition, controller, and relationship version. Replayed canonical or synchronized events therefore reconcile with existing queue entries instead of duplicating them. Replacement lineage remains attached to each trigger so multiplicity is calculated from the final event quantity rather than the proposed quantity.
+
+The queue stores grouped domain records, not UI cards. Equivalent high-volume triggers retain exact logical multiplicity in one entry when source, controller, choices, authority, generated events, and event lineage are equivalent. Explicit queue states distinguish ready, input-required, optional, authority-required, manual, unsupported, resolving, resolved, declined, invalidated, and cancelled work. `READY` means only that a later resolver has enough supported information; ATHENA-06 never resolves the trigger or mutates the battlefield.
+
+Pending entries retain a small immutable source snapshot so legitimate triggers survive later source removal or transformation. Undo cancels unresolved entries by canonical event lineage, redo restores the same deterministic identities, and restoration rejects corrupt or wrong-session records without changing canonical saves. The queue remains a derived session companion and does not create another battlefield, event history, undo stack, or synchronization model.
+
+BoardState authoritative trigger records supersede contradictory local entries during reconciliation. Echo, Activate Field, manual actions, combat reports, and canonical helper events all adapt into the same confirmed-event pipeline; Echo does not own a separate queue and Athena does not parse speech.
+
+Trigger generation, queue transitions, semantic summaries, diagnostics, and serialization have no DOM, browser storage, CSS, PWA, or browser lifecycle dependency. Current web and future SwiftUI adapters may persist or present the same platform-neutral snapshot through their respective capability layers.
+
 ## Preview Boundary
 
 Athena previews are metadata-only. A preview can be created, calculated, marked ready, await choices, await confirmation, be invalidated, accepted, rejected, committed, cancelled, or expired. Preview records contain only safe references such as affected group IDs, pending event IDs, support findings, required choices, and field fingerprints.
@@ -186,14 +200,14 @@ Athena is designed for Commander games with large personal battlefields:
 - ATHENA-03: Trigger source and effect relationship mapper.
 - ATHENA-04: Event consequence analyzer for supported local helper events.
 - ATHENA-05: Replacement awareness and authority-aware ordering boundary.
-- ATHENA-06: Static effect and relevant-total recalculation awareness.
-- ATHENA-07: Token, stack, and grouped-object consequence handling.
-- ATHENA-08: Counter and power/toughness consequence handling.
-- ATHENA-09: Choice requirement collection and clarification handoff.
-- ATHENA-10: Cascade preview builder.
-- ATHENA-11: Rules-result reconciliation with BoardState authority.
-- ATHENA-12: Echo intent analysis handoff and preview staging.
-- ATHENA-13: Undo, recovery, and stale-result invalidation hardening.
-- ATHENA-14: Performance optimization for large Commander battlefields.
-- ATHENA-15: Accessibility and animation coordination for awareness previews.
+- ATHENA-06: Confirmed-event trigger generation and deterministic pending queue.
+- ATHENA-07: Supported trigger-resolution preparation and fast-path contracts.
+- ATHENA-08: Token, stack, counter, and grouped-result preparation.
+- ATHENA-09: Static effect and relevant-total reconciliation.
+- ATHENA-10: Choice requirement collection and clarification handoff.
+- ATHENA-11: Bounded cascade preview and staged consequence preparation.
+- ATHENA-12: Echo intent analysis handoff and action staging.
+- ATHENA-13: Rules-result reconciliation with BoardState authority.
+- ATHENA-14: Recovery, stale-work protection, and large-session performance hardening.
+- ATHENA-15: Loop safety, accessibility, and animation coordination.
 - ATHENA-16: Final Athena production integration audit.

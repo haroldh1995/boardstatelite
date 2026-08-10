@@ -55,6 +55,18 @@ export {
   processAthenaReplacementEffects,
 } from "./replacementEffect";
 export {
+  AthenaPendingTriggerQueue,
+  AthenaTriggerGenerationCancellationController,
+  createAthenaPendingTriggerQueue,
+  createAthenaTriggerQueueForField,
+  generateAthenaTriggerInstances,
+  processAthenaGameEvent,
+  processAthenaGameEventBatch,
+  processConfirmedAthenaEvent,
+  restoreAthenaPendingTriggerQueue,
+  serializeAthenaPendingTriggerQueue,
+} from "./triggerQueue";
+export {
   ATHENA_COMPATIBILITY_VERSION,
   ATHENA_CONTEXT_VERSION,
   ATHENA_FOUNDATION_VERSION,
@@ -78,6 +90,12 @@ export {
   ATHENA_REPLACEMENT_MAX_CHAIN_LENGTH,
   ATHENA_REPLACEMENT_MAX_SAFE_QUANTITY,
 } from "./replacementEffectTypes";
+export {
+  ATHENA_PENDING_TRIGGER_QUEUE_SCHEMA_VERSION,
+  ATHENA_PENDING_TRIGGER_QUEUE_VERSION,
+  ATHENA_TRIGGER_INSTANCE_VERSION,
+  ATHENA_TRIGGER_MAX_SAFE_MULTIPLICITY,
+} from "./triggerQueueTypes";
 export type {
   AthenaActiveHelperDefinition,
   AthenaAttachmentLink,
@@ -202,3 +220,29 @@ export type {
   AthenaReplacementVersionSnapshot,
   AthenaReplacementWarning,
 } from "./replacementEffectTypes";
+export type {
+  AthenaAuthoritativeTriggerRecord,
+  AthenaConfirmedEventProcessingOptions,
+  AthenaConfirmedEventProcessingResult,
+  AthenaGameEventBatchProcessingResult,
+  AthenaGameEventTriggerAdapterInput,
+  AthenaPendingTriggerQueueDiagnostics,
+  AthenaPendingTriggerQueueRestoreResult,
+  AthenaPendingTriggerQueueSnapshot,
+  AthenaPendingTriggerQueueSummary,
+  AthenaSkippedTriggerRelationship,
+  AthenaTriggerEventFacet,
+  AthenaTriggerEventLineage,
+  AthenaTriggerGenerationCancellationSignal,
+  AthenaTriggerGenerationDiagnostics,
+  AthenaTriggerGenerationOptions,
+  AthenaTriggerGenerationResult,
+  AthenaTriggerGenerationValidity,
+  AthenaTriggerInstance,
+  AthenaTriggerMultiplicity,
+  AthenaTriggerOrderingMetadata,
+  AthenaTriggerQueueState,
+  AthenaTriggerRequirement,
+  AthenaTriggerRequirementKind,
+  AthenaTriggerSourceSnapshot,
+} from "./triggerQueueTypes";

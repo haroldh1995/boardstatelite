@@ -1135,6 +1135,7 @@ function addCustomEffectRelationships(builder: GraphBuilderState): void {
         effect.action.target === "selected",
       metadata: {
         custom: true,
+        customName: effect.name,
         trigger: effect.trigger,
         action: effect.action.kind,
         enabled: effect.enabled,
