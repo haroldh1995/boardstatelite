@@ -71,6 +71,51 @@ describe("Baord State Lite app shell", () => {
     ).toBeInTheDocument();
   }, 20_000);
 
+  it("opens the player counter editor from every top counter and applies manual corrections", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+
+    await user.click(
+      await screen.findByRole("button", { name: /continue to field/i }),
+    );
+
+    for (const counterName of [
+      "Poison",
+      "Energy",
+      "CMD Damage",
+      "Experience",
+    ]) {
+      await user.click(
+        screen.getByRole("button", {
+          name: new RegExp(`${counterName}: 0\\. Tap to edit`, "i"),
+        }),
+      );
+      expect(
+        screen.getByRole("heading", { name: /player counters/i }),
+      ).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: /close/i }));
+    }
+
+    await user.click(
+      screen.getByRole("button", { name: /poison: 0\. tap to edit/i }),
+    );
+    const poisonInput = screen.getByLabelText(/^poison$/i);
+    await user.clear(poisonInput);
+    await user.type(poisonInput, "7");
+    await user.click(screen.getByRole("button", { name: /close/i }));
+
+    expect(
+      screen.getByRole("button", { name: /poison: 7\. tap to edit/i }),
+    ).toBeInTheDocument();
+    expect(useFieldStore.getState().field.player.counters.poison).toBe(7);
+
+    await user.click(
+      screen.getByRole("button", { name: /expand life controls/i }),
+    );
+    await user.click(screen.getByRole("button", { name: /^undo$/i }));
+    expect(useFieldStore.getState().field.player.counters.poison).toBe(0);
+  }, 20_000);
+
   it("loads Lite without original BoardState globals and shows primary controls", async () => {
     const globals = globalThis as typeof globalThis & {
       BoardState?: unknown;

@@ -49,11 +49,13 @@ export function LifeTracker() {
           icon={<Skull />}
           label="Poison"
           value={player.counters.poison}
+          onOpen={() => openModal({ kind: "playerCounters" })}
         />
         <PlayerCounter
           icon={<Zap />}
           label="Energy"
           value={player.counters.energy}
+          onOpen={() => openModal({ kind: "playerCounters" })}
         />
       </div>
 
@@ -88,11 +90,13 @@ export function LifeTracker() {
           icon={<Shield />}
           label="CMD Damage"
           value={player.counters.commanderDamage}
+          onOpen={() => openModal({ kind: "playerCounters" })}
         />
         <PlayerCounter
           icon={<Sparkles />}
           label="Experience"
           value={player.counters.experience}
+          onOpen={() => openModal({ kind: "playerCounters" })}
         />
       </div>
 
@@ -142,16 +146,19 @@ function PlayerCounter({
   icon,
   label,
   value,
+  onOpen,
 }: {
   icon: React.ReactNode;
   label: string;
   value: number;
+  onOpen: () => void;
 }) {
   return (
     <button
       type="button"
       className="player-counter"
-      aria-label={`${label}: ${value}`}
+      aria-label={`${label}: ${value}. Tap to edit`}
+      onClick={onOpen}
     >
       <span aria-hidden="true">{icon}</span>
       <span>

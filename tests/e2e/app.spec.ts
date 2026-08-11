@@ -37,6 +37,30 @@ for (const width of widths) {
   });
 }
 
+test("top player counters open the manual editor and retain corrected values", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await continuePastStartup(page);
+
+  await page.getByRole("button", { name: /Poison: 0\. Tap to edit/i }).click();
+  await expect(
+    page.getByRole("heading", { name: "Player Counters" }),
+  ).toBeVisible();
+  await page.getByLabel("poison", { exact: true }).fill("7");
+  await page.getByRole("button", { name: "Close" }).click();
+
+  await expect(
+    page.getByRole("button", { name: /Poison: 7\. Tap to edit/i }),
+  ).toBeVisible();
+
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: /Poison: 7\. Tap to edit/i }),
+  ).toBeVisible();
+});
+
 test("not-tracked card state can be stopped and resumed from the permanent menu", async ({
   page,
 }) => {
