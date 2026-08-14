@@ -123,8 +123,16 @@ import type {
   EchoVoiceSettings,
 } from "../echo/listeningTypes";
 import { applyAthenaDerivedStateToField } from "../athena/derivedState";
+import {
+  createAthenaPendingTriggerQueue,
+  type AthenaPendingTriggerQueue,
+} from "../athena/triggerQueue";
+import { processAthenaConfirmedEventWithBookkeeping } from "../athena/triggerResolution";
+import type { AthenaForecastInput } from "../athena/eventForecastTypes";
+import type { AthenaConfirmedConsequencePipelineResult } from "../athena/triggerResolutionTypes";
 
 const HISTORY_LIMIT = 80;
+let activeAthenaTriggerQueue: AthenaPendingTriggerQueue | null = null;
 
 interface FieldStore {
   field: FieldState;
@@ -198,6 +206,9 @@ interface FieldStore {
     intent: AmbientIntent | AmbientIntentInput,
     mutation: AmbientFieldMutation,
   ) => AmbientPipelineResult;
+  processConfirmedAthenaEvent: (
+    event: AthenaForecastInput,
+  ) => AthenaConfirmedConsequencePipelineResult;
   plannerAddAction: (input: PlannedActionInput) => void;
   plannerUpdateAction: (actionId: string, update: PlannedActionUpdate) => void;
   plannerRemoveAction: (actionId: string) => void;
@@ -268,6 +279,7 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
   redoStack: [],
 
   async initialize() {
+    activeAthenaTriggerQueue = null;
     if (isReferenceFixtureMode()) {
       const field = withDerivedField(createReferenceFixtureField());
       set({
@@ -608,6 +620,31 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
     });
     void saveField(coordinatedField);
     return outcome;
+  },
+
+  processConfirmedAthenaEvent(event) {
+    const before = get().field;
+    const queue = athenaTriggerQueueForField(before, event.timestamp);
+    const result = processAthenaConfirmedEventWithBookkeeping({
+      field: before,
+      event,
+      queue,
+      timestamp: event.timestamp,
+    });
+    if (result.validity !== "committed") return result;
+    commitField(
+      "Athena automatic bookkeeping",
+      before,
+      result.resultingField,
+      [
+        result.autoResolution?.semanticDescription ??
+          "Confirmed event committed through Athena.",
+      ],
+      set,
+      null,
+      false,
+    );
+    return result;
   },
 
   plannerAddAction(input) {
@@ -1366,6 +1403,7 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
   resetField() {
     const before = get().field;
     const next = createDefaultField();
+    activeAthenaTriggerQueue = null;
     commitField("Reset field", before, next, ["Field reset."], set);
   },
 
@@ -1373,6 +1411,7 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
     const imported = sanitizeImportedField(value);
     if (!imported) return false;
     const before = get().field;
+    activeAthenaTriggerQueue = null;
     commitField(
       "Import field",
       before,
@@ -1392,6 +1431,7 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
     const entry = undoStack.at(-1);
     if (!entry) return;
     const field = withDerivedField(entry.before);
+    activeAthenaTriggerQueue = null;
     set({
       field,
       undoStack: undoStack.slice(0, -1),
@@ -1407,6 +1447,7 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
     const entry = redoStack[0];
     if (!entry) return;
     const field = withDerivedField(entry.after);
+    activeAthenaTriggerQueue = null;
     set({
       field,
       undoStack: [...undoStack, entry].slice(-HISTORY_LIMIT),
@@ -1553,6 +1594,26 @@ function commitField(
   });
   syncSubscribedMicrophoneService(derivedAfter);
   void saveField(derivedAfter);
+}
+
+function athenaTriggerQueueForField(
+  field: FieldState,
+  timestamp: string,
+): AthenaPendingTriggerQueue {
+  const participantId = field.multiplayer.registry.localParticipantId;
+  const snapshot = activeAthenaTriggerQueue?.toSnapshot();
+  if (
+    !snapshot ||
+    snapshot.canonicalSessionId !== field.session.id ||
+    snapshot.participantId !== participantId
+  ) {
+    activeAthenaTriggerQueue = createAthenaPendingTriggerQueue({
+      canonicalSessionId: field.session.id,
+      participantId,
+      timestamp,
+    });
+  }
+  return activeAthenaTriggerQueue!;
 }
 
 function withDerivedField(field: FieldState): FieldState {

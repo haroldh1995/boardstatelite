@@ -12,8 +12,18 @@ import App from "./App";
 import { createDefaultField } from "./domain/field";
 import { MicrophoneStatusIndicator } from "./components/MicrophoneStatusIndicator";
 import { useFieldStore } from "./state/useFieldStore";
-import { animPakal, testCard } from "./test/factories";
+import {
+  animPakal,
+  doublingSeason,
+  fieldWith,
+  testCard,
+  tracked,
+} from "./test/factories";
 import { athenaDerivedStateEngine } from "./athena/derivedState";
+import {
+  createAthenaForecastInput,
+  createForecastEnvironment,
+} from "./athena/eventForecast";
 
 describe("Baord State Lite app shell", () => {
   beforeEach(() => {
@@ -78,6 +88,85 @@ describe("Baord State Lite app shell", () => {
     useFieldStore.getState().setTrackingEnabled(anthem().id, true, "all", 1);
     expect(recipient().pt.currentPower).toBe(3);
   }, 20_000);
+
+  it("commits confirmed Athena events and automatic bookkeeping through one store boundary", () => {
+    const field = fieldWith([
+      tracked(
+        testCard({
+          name: "Soul Warden",
+          typeLine: "Creature - Human Cleric",
+          oracleText: "Whenever another creature enters, you gain 1 life.",
+          power: "1",
+          toughness: "1",
+        }),
+      ),
+      tracked(doublingSeason()),
+    ]);
+    useFieldStore.setState({ field });
+    const environment = createForecastEnvironment(field);
+    const event = createAthenaForecastInput(
+      {
+        eventId: "store-confirmed-token-event",
+        eventCategory: "token-created",
+        eventSource: "canonical-event",
+        authoritySource: "confirmed-canonical-session-result",
+        timestamp: "2026-08-14T12:00:00.000Z",
+        quantity: 2,
+        knownCharacteristics: {
+          cardTypes: ["Creature"],
+          subtypes: ["Gnome"],
+          isToken: true,
+          isCreature: true,
+        },
+        tokenDefinition: {
+          id: "token:gnome:1/1",
+          name: "Gnome",
+          power: 1,
+          toughness: 1,
+          characteristics: {
+            cardTypes: ["Creature"],
+            supertypes: [],
+            subtypes: ["Gnome"],
+            colors: [],
+            manaValue: 0,
+            isToken: true,
+            isCreature: true,
+            isLegendary: false,
+            knownFields: [
+              "cardTypes",
+              "supertypes",
+              "subtypes",
+              "colors",
+              "manaValue",
+              "isToken",
+              "isCreature",
+              "isLegendary",
+            ],
+          },
+        },
+        metadata: { confirmed: true },
+      },
+      environment,
+    );
+
+    const result = useFieldStore.getState().processConfirmedAthenaEvent(event);
+
+    expect(result.validity).toBe("committed");
+    expect(useFieldStore.getState().field.player.life).toBe(44);
+    expect(
+      useFieldStore
+        .getState()
+        .field.groups.find((group) => group.label === "Gnome")?.quantity,
+    ).toBe(4);
+
+    useFieldStore.getState().undo();
+    expect(useFieldStore.getState().field.player.life).toBe(40);
+    expect(
+      useFieldStore
+        .getState()
+        .field.groups.some((group) => group.label === "Gnome"),
+    ).toBe(false);
+  });
 
   it("shows a blocking startup warning that cannot be dismissed by outside tap", async () => {
     const { container } = render(<App />);
