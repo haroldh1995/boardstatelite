@@ -70,16 +70,21 @@ const ACTIVE_RELATIONSHIP_STATES = new Set([
 const QUEUE_STATES = new Set<AthenaTriggerQueueState>([
   "pending",
   "ready",
+  "auto-resolvable",
   "awaiting-choice",
   "awaiting-target",
   "awaiting-quantity",
   "awaiting-mode",
+  "awaiting-selection",
+  "awaiting-order",
   "optional-decision-required",
   "authority-required",
   "manual-resolution-required",
   "resolving",
   "resolved",
   "declined",
+  "failed-safe",
+  "stale",
   "invalidated",
   "cancelled",
   "unsupported",
@@ -366,6 +371,19 @@ export class AthenaPendingTriggerQueue {
     return true;
   }
 
+  replaceFromSnapshot(snapshot: AthenaPendingTriggerQueueSnapshot): boolean {
+    if (
+      snapshot.schemaVersion !== ATHENA_PENDING_TRIGGER_QUEUE_SCHEMA_VERSION ||
+      snapshot.version !== ATHENA_PENDING_TRIGGER_QUEUE_VERSION ||
+      snapshot.canonicalSessionId !== this.canonicalSessionId ||
+      snapshot.participantId !== this.participantId
+    ) {
+      return false;
+    }
+    this.loadSnapshot(snapshot);
+    return true;
+  }
+
   markAwaitingChoice(id: string, timestamp: string): boolean {
     return this.transition(id, "awaiting-choice", timestamp);
   }
@@ -376,6 +394,34 @@ export class AthenaPendingTriggerQueue {
 
   markReady(id: string, timestamp: string): boolean {
     return this.transition(id, "ready", timestamp);
+  }
+
+  markAutoResolvable(id: string, timestamp: string): boolean {
+    return this.transition(id, "auto-resolvable", timestamp);
+  }
+
+  markAwaitingQuantity(id: string, timestamp: string): boolean {
+    return this.transition(id, "awaiting-quantity", timestamp);
+  }
+
+  markAwaitingMode(id: string, timestamp: string): boolean {
+    return this.transition(id, "awaiting-mode", timestamp);
+  }
+
+  markAwaitingSelection(id: string, timestamp: string): boolean {
+    return this.transition(id, "awaiting-selection", timestamp);
+  }
+
+  markAwaitingOrder(id: string, timestamp: string): boolean {
+    return this.transition(id, "awaiting-order", timestamp);
+  }
+
+  markFailedSafe(id: string, timestamp: string): boolean {
+    return this.transition(id, "failed-safe", timestamp);
+  }
+
+  markStale(id: string, timestamp: string): boolean {
+    return this.transition(id, "stale", timestamp);
   }
 
   markAuthorityRequired(id: string, timestamp: string): boolean {
@@ -654,13 +700,16 @@ export class AthenaPendingTriggerQueue {
   private refreshStateDiagnostics(): void {
     const entries = [...this.entries.values()];
     this.diagnostics.readyTriggerCount = entries.filter(
-      (entry) => entry.queueState === "ready",
+      (entry) =>
+        entry.queueState === "ready" || entry.queueState === "auto-resolvable",
     ).length;
     this.diagnostics.choiceRequiredCount = entries.filter((entry) =>
       [
         "awaiting-choice",
         "awaiting-quantity",
         "awaiting-mode",
+        "awaiting-selection",
+        "awaiting-order",
         "optional-decision-required",
       ].includes(entry.queueState),
     ).length;
@@ -834,15 +883,25 @@ function buildTriggerInstance(input: {
   const occurrenceCount =
     multiplicityMode === "per-object"
       ? input.facet.quantity
-      : multiplicityMode === "per-event" || multiplicityMode === "single"
-        ? 1
-        : input.facet.quantity === 1
+      : multiplicityMode === "per-event"
+        ? input.facet.logicalEventCount
+        : multiplicityMode === "single"
           ? 1
-          : null;
-  const product =
+          : input.facet.quantity === 1
+            ? 1
+            : null;
+  const baseProduct =
     occurrenceCount === null
       ? null
       : safeMultiply(occurrenceCount, sourceQuantity);
+  const additionalTriggerFactor = travelingChocoboTriggerFactor(
+    input.environment,
+    input.replacement.finalEvent!,
+  );
+  const product =
+    baseProduct === null
+      ? null
+      : safeMultiply(baseProduct, additionalTriggerFactor);
   const multiplicityKnown = product !== null;
   const logicalMultiplicity = product;
   const requirements = requirementsForRelationship(
@@ -921,9 +980,21 @@ function buildTriggerInstance(input: {
       requirements,
       knownValues: {
         finalEventQuantity: input.facet.quantity,
+        logicalEventCount: input.facet.logicalEventCount,
         sourceQuantity,
+        additionalTriggerFactor,
         multiplicityKnown,
         replacementStepCount: input.replacement.steps.length,
+        resolutionDefinitionId:
+          textMetadata(
+            input.relationship.relationshipMetadata.resolutionDefinitionId,
+          ) ?? textMetadata(input.relationship.relationshipMetadata.helper),
+        resolutionDefinitionVersion:
+          typeof input.relationship.relationshipMetadata
+            .resolutionDefinitionVersion === "number"
+            ? input.relationship.relationshipMetadata
+                .resolutionDefinitionVersion
+            : null,
       },
       generatedEventCategories: [
         ...input.relationship.generatedEventCategories,
@@ -963,6 +1034,43 @@ function buildTriggerInstance(input: {
       ? null
       : `${sourceLabel} trigger multiplicity requires BoardState authority or manual resolution.`,
   };
+}
+
+function travelingChocoboTriggerFactor(
+  environment: AthenaForecastEnvironment,
+  event: AthenaForecastInput,
+): number {
+  const enteringBird =
+    event.knownCharacteristics?.subtypes.some(
+      (subtype) => subtype.toLowerCase() === "bird",
+    ) === true &&
+    [
+      "creature-entered",
+      "permanent-entered",
+      "token-created",
+      "token-entered",
+      "permanent-returned-to-battlefield",
+    ].includes(event.eventCategory);
+  const enteringLand =
+    event.eventCategory === "land-entered" ||
+    (event.knownCharacteristics?.cardTypes.some(
+      (type) => type.toLowerCase() === "land",
+    ) === true &&
+      ["permanent-entered", "permanent-returned-to-battlefield"].includes(
+        event.eventCategory,
+      ));
+  if (!enteringBird && !enteringLand) return 1;
+  const additional = environment.context.battlefield.reduce(
+    (sum, object) =>
+      object.canBeEffectSource &&
+      (object.identityName ?? object.label)
+        .toLowerCase()
+        .includes("traveling chocobo")
+        ? sum + object.quantity
+        : sum,
+    0,
+  );
+  return additional >= Number.MAX_SAFE_INTEGER ? 1 : additional + 1;
 }
 
 function authoritativeGenerationResult(
@@ -1106,6 +1214,7 @@ function eventFacets(event: AthenaForecastInput): AthenaTriggerEventFacet[] {
       id: `athena-trigger-facet:${normalizeIdPart(event.eventId)}:${eventCategory}`,
       eventCategory,
       quantity: event.quantity,
+      logicalEventCount: logicalEventCountForEvent(event),
       structural,
       reason,
     });
@@ -1151,6 +1260,15 @@ function eventFacets(event: AthenaForecastInput): AthenaTriggerEventFacet[] {
       facetPriority(event, a) - facetPriority(event, b) ||
       a.eventCategory.localeCompare(b.eventCategory),
   );
+}
+
+function logicalEventCountForEvent(event: AthenaForecastInput): number {
+  const candidate = event.metadata.logicalEventCount;
+  return typeof candidate === "number" &&
+    Number.isSafeInteger(candidate) &&
+    candidate > 0
+    ? candidate
+    : 1;
 }
 
 function requirementsForRelationship(
@@ -1527,6 +1645,8 @@ function generationDiagnostics(input: {
         "awaiting-choice",
         "awaiting-quantity",
         "awaiting-mode",
+        "awaiting-selection",
+        "awaiting-order",
         "optional-decision-required",
       ].includes(entry.queueState),
     ).length,
@@ -1574,6 +1694,8 @@ function summarizeQueue(
       "awaiting-target",
       "awaiting-quantity",
       "awaiting-mode",
+      "awaiting-selection",
+      "awaiting-order",
       "optional-decision-required",
     ].includes(entry.queueState),
   );
@@ -1587,8 +1709,9 @@ function summarizeQueue(
     totalEntries: entries.length,
     pendingEntries: pending.length,
     logicalPendingMultiplicity,
-    readyEntries: pending.filter((entry) => entry.queueState === "ready")
-      .length,
+    readyEntries: pending.filter((entry) =>
+      ["ready", "auto-resolvable"].includes(entry.queueState),
+    ).length,
     inputRequiredEntries: inputRequired.length,
     authorityRequiredEntries: pending.filter(
       (entry) => entry.queueState === "authority-required",
@@ -1770,8 +1893,14 @@ function validQueueTransition(
   if (from === to) return true;
   if (TERMINAL_QUEUE_STATES.has(from)) return false;
   if (to === "invalidated" || to === "cancelled") return true;
-  if (to === "resolving") return from === "ready";
-  if (to === "resolved") return from === "resolving" || from === "ready";
+  if (to === "resolving") {
+    return from === "ready" || from === "auto-resolvable";
+  }
+  if (to === "resolved") {
+    return (
+      from === "resolving" || from === "ready" || from === "auto-resolvable"
+    );
+  }
   if (to === "declined") return from === "optional-decision-required";
   return to !== "pending";
 }

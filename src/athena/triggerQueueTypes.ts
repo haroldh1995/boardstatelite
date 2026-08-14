@@ -36,16 +36,21 @@ export type AthenaTriggerGenerationValidity =
 export type AthenaTriggerQueueState =
   | "pending"
   | "ready"
+  | "auto-resolvable"
   | "awaiting-choice"
   | "awaiting-target"
   | "awaiting-quantity"
   | "awaiting-mode"
+  | "awaiting-selection"
+  | "awaiting-order"
   | "optional-decision-required"
   | "authority-required"
   | "manual-resolution-required"
   | "resolving"
   | "resolved"
   | "declined"
+  | "failed-safe"
+  | "stale"
   | "invalidated"
   | "cancelled"
   | "unsupported";
@@ -150,6 +155,7 @@ export interface AthenaTriggerEventFacet {
   id: string;
   eventCategory: AthenaEventCategory;
   quantity: number;
+  logicalEventCount: number;
   structural: boolean;
   reason: "final-event" | "entry-facet" | "token-facet";
 }

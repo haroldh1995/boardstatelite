@@ -77,6 +77,17 @@ export {
   updateAthenaDerivedBattlefieldState,
 } from "./derivedState";
 export {
+  AthenaTriggerResolutionCancellationController,
+  AthenaTriggerResolutionCoordinator,
+  DEFAULT_ATHENA_AUTO_RESOLUTION_BUDGET,
+  applyAthenaCanonicalConsequenceEvent,
+  athenaTriggerResolutionCoordinator,
+  evaluateAthenaTriggerResolutionEligibility,
+  processAthenaConfirmedEventWithBookkeeping,
+  processAthenaPendingTriggers,
+  resolveAthenaPendingTrigger,
+} from "./triggerResolution";
+export {
   ATHENA_COMPATIBILITY_VERSION,
   ATHENA_CONTEXT_VERSION,
   ATHENA_FOUNDATION_VERSION,
@@ -112,6 +123,7 @@ export {
   ATHENA_DERIVED_STATE_CACHE_VERSION,
   ATHENA_DERIVED_STATE_VERSION,
 } from "./derivedStateTypes";
+export { ATHENA_TRIGGER_RESOLUTION_VERSION } from "./triggerResolutionTypes";
 export type {
   AthenaActiveHelperDefinition,
   AthenaAttachmentLink,
@@ -280,3 +292,19 @@ export type {
   AthenaDerivedStateUpdateResult,
   AthenaDerivedStateValidity,
 } from "./derivedStateTypes";
+export type {
+  AthenaAutoResolutionBudget,
+  AthenaAutoResolutionCycleResult,
+  AthenaAutoResolutionStopReason,
+  AthenaCanonicalEventCommitResult,
+  AthenaConfirmedConsequencePipelineResult,
+  AthenaTriggerResolutionCancellationSignal,
+  AthenaTriggerResolutionDecision,
+  AthenaTriggerResolutionDiagnostics,
+  AthenaTriggerResolutionEligibility,
+  AthenaTriggerResolutionEligibilityStatus,
+  AthenaTriggerResolutionEventRecord,
+  AthenaTriggerResolutionOptions,
+  AthenaTriggerResolutionResult,
+  AthenaTriggerResolutionStatus,
+} from "./triggerResolutionTypes";

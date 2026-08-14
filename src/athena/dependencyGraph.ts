@@ -1428,6 +1428,8 @@ function definitionsForObject(
       ],
       metadata: {
         helper: "anim-pakal",
+        resolutionDefinitionId: "anim-pakal",
+        resolutionDefinitionVersion: 1,
         localHelperAuthority: true,
         triggerMultiplicity: "per-event",
       },
@@ -1453,6 +1455,8 @@ function definitionsForObject(
       ],
       metadata: {
         helper: "cathars-crusade",
+        resolutionDefinitionId: "cathars-crusade",
+        resolutionDefinitionVersion: 1,
         localHelperAuthority: true,
         triggerMultiplicity: "per-object",
       },
@@ -1578,6 +1582,32 @@ function definitionsForObject(
       counters: [],
       metadata: {
         helper: "life-on-creature-entry",
+        resolutionDefinitionId: "life-on-creature-entry",
+        resolutionDefinitionVersion: 1,
+        localHelperAuthority: true,
+        triggerMultiplicity: "per-object",
+      },
+    });
+  }
+  if (normalizedName.includes("soul's attendant")) {
+    definitions.push({
+      ...base,
+      id: `${object.groupId}:souls-attendant`,
+      label: `${object.label} optional life trigger`,
+      effectKind: "triggered-ability",
+      observes: ["creature-entered"],
+      modifies: [],
+      reads: [],
+      affects: "players",
+      creates: [],
+      counters: [],
+      supportStatus: "fully-automated",
+      support: "fully-understood-consequence",
+      requiresManualResolution: false,
+      metadata: {
+        helper: "souls-attendant",
+        resolutionDefinitionId: "souls-attendant",
+        resolutionDefinitionVersion: 1,
         localHelperAuthority: true,
         triggerMultiplicity: "per-object",
       },
@@ -1597,6 +1627,8 @@ function definitionsForObject(
       counters: [],
       metadata: {
         helper: "impact-tremors",
+        resolutionDefinitionId: "impact-tremors",
+        resolutionDefinitionVersion: 1,
         localHelperAuthority: true,
         triggerMultiplicity: "per-object",
       },
@@ -1625,7 +1657,96 @@ function definitionsForObject(
       counters: [],
       metadata: {
         helper: "rampaging-baloths",
+        resolutionDefinitionId: "rampaging-baloths",
+        resolutionDefinitionVersion: 1,
         localHelperAuthority: true,
+        triggerMultiplicity: "per-object",
+      },
+    });
+  }
+  if (normalizedName.includes("mossborn hydra")) {
+    definitions.push({
+      ...base,
+      id: `${object.groupId}:mossborn-hydra-landfall`,
+      label: `${object.label} landfall trigger`,
+      effectKind: "triggered-ability",
+      observes: ["land-entered"],
+      modifies: [],
+      reads: [],
+      affects: "self",
+      creates: [],
+      counters: [
+        {
+          id: `${object.groupId}:mossborn:+1/+1`,
+          name: "+1/+1",
+          target: "self",
+        },
+      ],
+      supportStatus: "fully-automated",
+      support: "fully-understood-consequence",
+      requiresManualResolution: false,
+      metadata: {
+        helper: "mossborn-hydra",
+        resolutionDefinitionId: "mossborn-hydra",
+        resolutionDefinitionVersion: 1,
+        localHelperAuthority: true,
+        triggerMultiplicity: "per-object",
+      },
+    });
+  }
+  if (normalizedName.includes("scute swarm")) {
+    definitions.push({
+      ...base,
+      id: `${object.groupId}:scute-swarm-landfall`,
+      label: `${object.label} landfall trigger`,
+      effectKind: "triggered-ability",
+      observes: ["land-entered"],
+      modifies: [],
+      reads: ["lands"],
+      affects: "none",
+      creates: [
+        {
+          id: `${object.groupId}:scute-swarm-token`,
+          name: "Insect",
+          power: 1,
+          toughness: 1,
+          cardTypes: ["Creature"],
+          subtypes: ["Insect"],
+        },
+      ],
+      counters: [],
+      supportStatus: "fully-automated",
+      support: "fully-understood-consequence",
+      requiresManualResolution: false,
+      metadata: {
+        helper: "scute-swarm",
+        resolutionDefinitionId: "scute-swarm",
+        resolutionDefinitionVersion: 1,
+        localHelperAuthority: true,
+        triggerMultiplicity: "per-object",
+      },
+    });
+  }
+  if (normalizedName.includes("warleader's call")) {
+    definitions.push({
+      ...base,
+      id: `${object.groupId}:warleaders-call-entry`,
+      label: `${object.label} creature-entry trigger`,
+      effectKind: "triggered-ability",
+      observes: ["creature-entered"],
+      modifies: [],
+      reads: [],
+      affects: "players",
+      creates: [],
+      counters: [],
+      supportStatus: "partially-automated",
+      support: "partially-understood-consequence",
+      requiresManualResolution: true,
+      metadata: {
+        helper: "impact-tremors",
+        resolutionDefinitionId: "impact-tremors",
+        resolutionDefinitionVersion: 1,
+        localHelperAuthority: false,
         triggerMultiplicity: "per-object",
       },
     });
