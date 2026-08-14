@@ -142,6 +142,16 @@ BoardState authoritative trigger records supersede contradictory local entries d
 
 Trigger generation, queue transitions, semantic summaries, diagnostics, and serialization have no DOM, browser storage, CSS, PWA, or browser lifecycle dependency. Current web and future SwiftUI adapters may persist or present the same platform-neutral snapshot through their respective capability layers.
 
+## Static Effects And Derived Battlefield State
+
+ATHENA-07 adds one platform-neutral derived battlefield state engine over canonical field state, the dependency graph, and structured static relationships. Canonical object identity, counters, attachments, tracking, Depower, transformation, grouped quantities, base overrides, and zone totals remain the source of truth. Current power/toughness and continuous contributions are disposable, deterministic read models that can be rebuilt after load, import, undo, redo, or authority replacement.
+
+The engine executes only explicit static-effect definitions. Supported characteristic-defining values, relevant-total readers, anthems, attachments, counters, and temporary modifiers are calculated in a fixed local boundary. Unknown layer interactions, conflicting setters, cycles, invalid values, and unsupported definitions are reported as manual or BoardState-authority work instead of being guessed. Verified BoardState derived values take precedence over local helper output.
+
+Relevant-total changes invalidate dependent values, attachment moves target their old and new hosts, and tracking or Depower changes immediately remove or restore continuous contributions. Grouped token quantities remain grouped; one thousand identical tokens do not become one thousand derived objects. Continuous effects never enter the pending trigger queue, and correction-only changes update derived presentation without creating gameplay events.
+
+The canonical commit path refreshes derived values automatically, so deterministic current P/T no longer depends on Activate Field or a manual refresh. Planner and Action Strip requests use isolated preview results and cannot alter committed presentation. Calculation inputs, outputs, diagnostics, cancellation, caching, and semantic explanations contain no browser runtime state and are suitable for equivalent future SwiftUI adapters.
+
 ## Preview Boundary
 
 Athena previews are metadata-only. A preview can be created, calculated, marked ready, await choices, await confirmation, be invalidated, accepted, rejected, committed, cancelled, or expired. Preview records contain only safe references such as affected group IDs, pending event IDs, support findings, required choices, and field fingerprints.

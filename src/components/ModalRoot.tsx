@@ -613,6 +613,16 @@ function ManagePermanentSheet({ groupId }: { groupId?: string }) {
         </section>
         <section>
           <h3>Base Power/Toughness</h3>
+          <p className="support-copy">
+            Current: {group.pt.currentPower ?? "-"}/
+            {group.pt.currentToughness ?? "-"}. Base:{" "}
+            {group.pt.basePower ?? "-"}/{group.pt.baseToughness ?? "-"}.
+            Counters: {group.counters["+1/+1"] ?? 0} plus-one,{" "}
+            {group.counters["-1/-1"] ?? 0} minus-one. Continuous bonus:{" "}
+            {group.pt.staticPower >= 0 ? "+" : ""}
+            {group.pt.staticPower}/{group.pt.staticToughness >= 0 ? "+" : ""}
+            {group.pt.staticToughness}.
+          </p>
           <label>
             Base power
             <input

@@ -25,7 +25,7 @@ import { normalizePronunciationLearningState } from "../echo/pronunciationLearni
 import { normalizePersonalGameplayState } from "../echo/personalGameplay";
 import { normalizeAmbientOrchestratorState } from "../echo/ambientOrchestrator";
 import { normalizeEntityResolutionState } from "../echo/entityResolution";
-import { normalizeAthenaState } from "../athena";
+import { normalizeAthenaState } from "../athena/foundation";
 import {
   LITE_APP_VERSION,
   LITE_SNAPSHOT_VERSION,

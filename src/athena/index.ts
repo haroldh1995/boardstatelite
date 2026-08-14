@@ -67,6 +67,16 @@ export {
   serializeAthenaPendingTriggerQueue,
 } from "./triggerQueue";
 export {
+  AthenaDerivedStateEngine,
+  applyAthenaDerivedStateToField,
+  athenaDerivedStateEngine,
+  buildAthenaDerivedBattlefieldState,
+  canonicalDerivedFingerprint,
+  createAthenaDerivedStateQueryApi,
+  previewAthenaDerivedState,
+  updateAthenaDerivedBattlefieldState,
+} from "./derivedState";
+export {
   ATHENA_COMPATIBILITY_VERSION,
   ATHENA_CONTEXT_VERSION,
   ATHENA_FOUNDATION_VERSION,
@@ -96,6 +106,12 @@ export {
   ATHENA_TRIGGER_INSTANCE_VERSION,
   ATHENA_TRIGGER_MAX_SAFE_MULTIPLICITY,
 } from "./triggerQueueTypes";
+export {
+  ATHENA_DERIVED_MAX_SAFE_VALUE,
+  ATHENA_DERIVED_STATE_CACHE_LIMIT,
+  ATHENA_DERIVED_STATE_CACHE_VERSION,
+  ATHENA_DERIVED_STATE_VERSION,
+} from "./derivedStateTypes";
 export type {
   AthenaActiveHelperDefinition,
   AthenaAttachmentLink,
@@ -246,3 +262,21 @@ export type {
   AthenaTriggerRequirementKind,
   AthenaTriggerSourceSnapshot,
 } from "./triggerQueueTypes";
+export type {
+  AthenaAuthoritativeDerivedValue,
+  AthenaDerivedBattlefieldState,
+  AthenaDerivedCancellationSignal,
+  AthenaDerivedCanonicalGroupView,
+  AthenaDerivedContribution,
+  AthenaDerivedContributionKind,
+  AthenaDerivedFieldApplicationResult,
+  AthenaDerivedObjectState,
+  AthenaDerivedPreviewRequest,
+  AthenaDerivedPreviewResult,
+  AthenaDerivedStateBuildOptions,
+  AthenaDerivedStateDiagnostics,
+  AthenaDerivedStateQueryApi,
+  AthenaDerivedStateUpdateOptions,
+  AthenaDerivedStateUpdateResult,
+  AthenaDerivedStateValidity,
+} from "./derivedStateTypes";

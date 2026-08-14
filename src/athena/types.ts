@@ -150,6 +150,7 @@ export interface AthenaBattlefieldObject {
   cardId: string | null;
   oracleId: string | null;
   oracleText: string | null;
+  manaCost: string;
   originalCardId: string | null;
   supportStatus: SupportStatus | null;
   isGeneric: boolean;
@@ -160,6 +161,7 @@ export interface AthenaBattlefieldObject {
   trackingEnabled: boolean;
   abilitiesActive: boolean;
   depowerMode: PermanentGroup["depowerMode"];
+  disabledAbilities: string[];
   sourceUnavailableReason: AthenaSourceUnavailableReason;
   canBeEffectSource: boolean;
   canBeEffectRecipient: boolean;

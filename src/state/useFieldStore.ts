@@ -122,6 +122,7 @@ import type {
   EchoAudioSampleMetrics,
   EchoVoiceSettings,
 } from "../echo/listeningTypes";
+import { applyAthenaDerivedStateToField } from "../athena/derivedState";
 
 const HISTORY_LIMIT = 80;
 
@@ -268,8 +269,9 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
 
   async initialize() {
     if (isReferenceFixtureMode()) {
+      const field = withDerivedField(createReferenceFixtureField());
       set({
-        field: createReferenceFixtureField(),
+        field,
         hydrated: true,
         startupVisible: false,
         modal: null,
@@ -284,7 +286,7 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
       const sanitized = sanitizeImportedField(loaded);
       if (sanitized) {
         set({
-          field: sanitized,
+          field: withDerivedField(sanitized),
           hydrated: true,
           startupVisible: true,
           modal: { kind: "startup" },
@@ -588,10 +590,12 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
       outcome.feedback.map((entry) => entry.message),
       timestamp,
     );
-    const coordinatedField = withAmbientOrchestratorPipelineCompletion(
-      observedField,
-      outcome,
-      timestamp,
+    const coordinatedField = withDerivedField(
+      withAmbientOrchestratorPipelineCompletion(
+        observedField,
+        outcome,
+        timestamp,
+      ),
     );
     set({
       field: coordinatedField,
@@ -1387,28 +1391,30 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
     const { undoStack, redoStack } = get();
     const entry = undoStack.at(-1);
     if (!entry) return;
+    const field = withDerivedField(entry.before);
     set({
-      field: entry.before,
+      field,
       undoStack: undoStack.slice(0, -1),
       redoStack: [entry, ...redoStack].slice(0, HISTORY_LIMIT),
       lastResult: null,
     });
-    syncSubscribedMicrophoneService(entry.before);
-    void saveField(entry.before);
+    syncSubscribedMicrophoneService(field);
+    void saveField(field);
   },
 
   redo() {
     const { undoStack, redoStack } = get();
     const entry = redoStack[0];
     if (!entry) return;
+    const field = withDerivedField(entry.after);
     set({
-      field: entry.after,
+      field,
       undoStack: [...undoStack, entry].slice(-HISTORY_LIMIT),
       redoStack: redoStack.slice(1),
       lastResult: null,
     });
-    syncSubscribedMicrophoneService(entry.after);
-    void saveField(entry.after);
+    syncSubscribedMicrophoneService(field);
+    void saveField(field);
   },
 }));
 
@@ -1442,14 +1448,16 @@ function persistMicrophoneStateFromService(
   set: (partial: Partial<FieldStore>) => void,
 ): void {
   const current = useFieldStore.getState();
-  const next = normalizeField({
-    ...current.field,
-    settings: normalizeSettings({
-      ...current.field.settings,
-      voice: echoMicrophoneService.getSettings(),
+  const next = withDerivedField(
+    normalizeField({
+      ...current.field,
+      settings: normalizeSettings({
+        ...current.field.settings,
+        voice: echoMicrophoneService.getSettings(),
+      }),
+      listening: echoMicrophoneService.getState(),
     }),
-    listening: echoMicrophoneService.getState(),
-  });
+  );
   set({ field: next });
   void saveField(next);
 }
@@ -1526,24 +1534,33 @@ function commitField(
     observedAfter,
     committedAt,
   );
+  const derivedAfter = withDerivedField(coordinatedAfter);
   const entry: HistoryEntry = {
     id: makeId("history"),
     label,
     before,
-    after: coordinatedAfter,
+    after: derivedAfter,
     summary,
     createdAt: committedAt,
   };
   const current = useFieldStore.getState();
   set({
-    field: coordinatedAfter,
+    field: derivedAfter,
     undoStack: [...current.undoStack, entry].slice(-HISTORY_LIMIT),
     redoStack: [],
-    lastResult: result,
+    lastResult: result ? { ...result, field: derivedAfter } : null,
     modal: result ? { kind: "summary" } : current.modal,
   });
-  syncSubscribedMicrophoneService(coordinatedAfter);
-  void saveField(coordinatedAfter);
+  syncSubscribedMicrophoneService(derivedAfter);
+  void saveField(derivedAfter);
+}
+
+function withDerivedField(field: FieldState): FieldState {
+  const derived = applyAthenaDerivedStateToField(field, {
+    timestamp: field.updatedAt,
+    reason: "canonical-field-change",
+  });
+  return derived.field;
 }
 
 function commitPlannerField(
@@ -1555,7 +1572,9 @@ function commitPlannerField(
     "Planner interaction",
     ["Planner workflow updated."],
   );
-  const coordinatedField = withAmbientOrchestratorContext(observedField);
+  const coordinatedField = withDerivedField(
+    withAmbientOrchestratorContext(observedField),
+  );
   set({ field: coordinatedField, lastResult: null });
   syncSubscribedMicrophoneService(coordinatedField);
   void saveField(coordinatedField);
@@ -1763,10 +1782,12 @@ function processActionStripItem(
       outcome.feedback.map((entry) => entry.message),
       timestamp,
     );
-    const coordinatedField = withAmbientOrchestratorPipelineCompletion(
-      observedField,
-      outcome,
-      timestamp,
+    const coordinatedField = withDerivedField(
+      withAmbientOrchestratorPipelineCompletion(
+        observedField,
+        outcome,
+        timestamp,
+      ),
     );
     set({
       field: coordinatedField,
@@ -1805,10 +1826,12 @@ function processActionStripItem(
     [message],
     timestamp,
   );
-  const coordinatedBlocked = withAmbientOrchestratorPipelineCompletion(
-    observedBlocked,
-    outcome,
-    timestamp,
+  const coordinatedBlocked = withDerivedField(
+    withAmbientOrchestratorPipelineCompletion(
+      observedBlocked,
+      outcome,
+      timestamp,
+    ),
   );
   set({ field: coordinatedBlocked, lastResult: null });
   syncSubscribedMicrophoneService(coordinatedBlocked);

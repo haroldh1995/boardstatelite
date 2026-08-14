@@ -12,7 +12,8 @@ import App from "./App";
 import { createDefaultField } from "./domain/field";
 import { MicrophoneStatusIndicator } from "./components/MicrophoneStatusIndicator";
 import { useFieldStore } from "./state/useFieldStore";
-import { animPakal } from "./test/factories";
+import { animPakal, testCard } from "./test/factories";
+import { athenaDerivedStateEngine } from "./athena/derivedState";
 
 describe("Baord State Lite app shell", () => {
   beforeEach(() => {
@@ -31,6 +32,52 @@ describe("Baord State Lite app shell", () => {
   afterEach(() => {
     cleanup();
   });
+
+  it("recalculates continuous values through canonical store commits", async () => {
+    athenaDerivedStateEngine.discard();
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(
+      await screen.findByRole("button", { name: /continue to field/i }),
+    );
+
+    useFieldStore.getState().addCard(
+      testCard({
+        name: "Glorious Anthem",
+        typeLine: "Enchantment",
+        oracleText: "Creatures you control get +1/+1.",
+      }),
+    );
+    useFieldStore.getState().addGeneric({
+      kind: "Creature",
+      label: "Test creature",
+      power: 2,
+      toughness: 2,
+    });
+
+    const field = () => useFieldStore.getState().field;
+    const anthem = () =>
+      field().groups.find(
+        (group) => group.identity?.name === "Glorious Anthem",
+      )!;
+    const recipient = () =>
+      field().groups.find((group) => group.label === "Test creature")!;
+
+    expect(recipient().pt.currentPower).toBe(3);
+    expect(recipient().pt.currentToughness).toBe(3);
+
+    useFieldStore.getState().setTrackingEnabled(anthem().id, false, "all", 1);
+    expect(recipient().pt.currentPower).toBe(2);
+
+    useFieldStore.getState().undo();
+    expect(recipient().pt.currentPower).toBe(3);
+
+    useFieldStore.getState().redo();
+    expect(recipient().pt.currentPower).toBe(2);
+
+    useFieldStore.getState().setTrackingEnabled(anthem().id, true, "all", 1);
+    expect(recipient().pt.currentPower).toBe(3);
+  }, 20_000);
 
   it("shows a blocking startup warning that cannot be dismissed by outside tap", async () => {
     const { container } = render(<App />);

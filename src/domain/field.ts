@@ -93,7 +93,7 @@ import {
   createDefaultAthenaState,
   normalizeAthenaSettings,
   normalizeAthenaState,
-} from "../athena";
+} from "../athena/foundation";
 import type {
   FieldState,
   OpponentValues,
@@ -145,6 +145,11 @@ export const TOTAL_LABELS: Record<RelevantTotalKey, string> = {
   cardsInGraveyard: "Graveyard",
   cardsInExile: "Exile",
   cardsRemainingInLibrary: "Library",
+  devotionWhite: "Devotion to White",
+  devotionBlue: "Devotion to Blue",
+  devotionBlack: "Devotion to Black",
+  devotionRed: "Devotion to Red",
+  devotionGreen: "Devotion to Green",
   commanderCasts: "Commander casts",
   custom: "Custom",
 };
@@ -651,9 +656,28 @@ export function calculateTotals(
     if (group.characteristics.isToken && subtypes.has("Map"))
       totals.mapTokens += quantity;
     if (subtypes.has("Powerstone")) totals.powerstones += quantity;
+
+    const devotion = devotionForManaCost(group.identity?.manaCost ?? "");
+    totals.devotionWhite += devotion.W * quantity;
+    totals.devotionBlue += devotion.U * quantity;
+    totals.devotionBlack += devotion.B * quantity;
+    totals.devotionRed += devotion.R * quantity;
+    totals.devotionGreen += devotion.G * quantity;
   }
 
   return totals;
+}
+
+export function devotionForManaCost(
+  manaCost: string,
+): Record<"W" | "U" | "B" | "R" | "G", number> {
+  const devotion = { W: 0, U: 0, B: 0, R: 0, G: 0 };
+  for (const symbol of manaCost.toUpperCase().match(/\{[^}]+\}/g) ?? []) {
+    for (const color of Object.keys(devotion) as Array<keyof typeof devotion>) {
+      if (symbol.includes(color)) devotion[color] += 1;
+    }
+  }
+  return devotion;
 }
 
 export function normalizeField(field: FieldState): FieldState {
@@ -860,6 +884,8 @@ function normalizeGroupShape(
 ): PermanentGroup {
   const quantity = clampNumber(group.quantity, 1, 999999999, 1);
   const participantId = localParticipantId(session);
+  const preserveAuthorityDerivedState =
+    session.currentRulesAuthority === "boardstate-authority";
   return withStackKey(
     recalculateStats({
       ...group,
@@ -879,6 +905,13 @@ function normalizeGroupShape(
         typeof group.trackingEnabled === "boolean"
           ? group.trackingEnabled
           : true,
+      pt: {
+        ...group.pt,
+        staticPower: preserveAuthorityDerivedState ? group.pt.staticPower : 0,
+        staticToughness: preserveAuthorityDerivedState
+          ? group.pt.staticToughness
+          : 0,
+      },
     }),
   );
 }

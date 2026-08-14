@@ -98,6 +98,10 @@ export function PermanentCard({
       onPointerUp={pointerUp}
       onPointerCancel={() => setGesture("idle")}
       aria-label={`${group.label}, stack size ${group.quantity}${
+        group.characteristics.isCreature
+          ? `, current power ${group.pt.currentPower ?? "unknown"} and toughness ${group.pt.currentToughness ?? "unknown"}`
+          : ""
+      }${
         trackingDisabled
           ? ". Not Tracked. This permanent remains on the battlefield but its abilities will be ignored by automatic resolution"
           : ""

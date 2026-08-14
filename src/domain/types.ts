@@ -379,6 +379,11 @@ export type RelevantTotalKey =
   | "cardsInGraveyard"
   | "cardsInExile"
   | "cardsRemainingInLibrary"
+  | "devotionWhite"
+  | "devotionBlue"
+  | "devotionBlack"
+  | "devotionRed"
+  | "devotionGreen"
   | "commanderCasts"
   | "custom";
 

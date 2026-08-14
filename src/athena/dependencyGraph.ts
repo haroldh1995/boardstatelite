@@ -1,4 +1,4 @@
-import { calculateTotals } from "../domain/field";
+import { calculateTotals, devotionForManaCost } from "../domain/field";
 import type {
   CustomEffect,
   FieldState,
@@ -6,6 +6,10 @@ import type {
   SupportStatus,
   Zone,
 } from "../domain/types";
+import {
+  getAthenaStaticEffectDefinitionsForCard,
+  type AthenaStaticEffectDefinition,
+} from "../domain/staticEffects";
 import type {
   AmbientEntityReference,
   AmbientIntent,
@@ -89,6 +93,7 @@ const ZONES: Zone[] = [
 type DefinitionTarget =
   | "self"
   | "creatures"
+  | "attached-host"
   | "battlefield"
   | "players"
   | "none";
@@ -139,6 +144,7 @@ interface GraphBuilderState {
   nodes: Map<string, AthenaGraphNode>;
   relationships: Map<string, AthenaGraphRelationship>;
   staleReferences: Set<string>;
+  staticDefinitions?: readonly AthenaStaticEffectDefinition[];
 }
 
 export function buildAthenaDependencyGraph(
@@ -172,6 +178,7 @@ export function buildAthenaDependencyGraphFromContext(
     nodes: new Map(),
     relationships: new Map(),
     staleReferences: new Set(),
+    staticDefinitions: options.staticDefinitions,
   };
 
   addBaselineNodes(builder);
@@ -199,7 +206,11 @@ export function buildAthenaDependencyGraphFromContext(
     createdAt: builder.timestamp,
     authoritySource,
     authorityPrecedence: builder.authorityPrecedence,
-    fingerprint: fingerprintGraphInput(context, options.field ?? null),
+    fingerprint: fingerprintGraphInput(
+      context,
+      options.field ?? null,
+      options.staticDefinitions,
+    ),
     nodes,
     relationships,
     indexes,
@@ -697,6 +708,7 @@ function addObjectRelationships(builder: GraphBuilderState): void {
     });
 
     for (const total of relevantTotalsForObject(object)) {
+      const contributionQuantity = contributionQuantityForTotal(object, total);
       addRelationship(builder, {
         type: "contributes-to",
         from: objectId,
@@ -707,7 +719,7 @@ function addObjectRelationships(builder: GraphBuilderState): void {
         targetObjectIds: [],
         eventCategories: [],
         relevantTotals: [total],
-        quantity: object.quantity,
+        quantity: contributionQuantity,
         label: `${object.label} contributes to ${total}.`,
         supportStatus: object.supportStatus,
         support: "fully-understood-consequence",
@@ -717,7 +729,7 @@ function addObjectRelationships(builder: GraphBuilderState): void {
         requiresManualResolution: false,
         invalidatesNodeIds: [totalNodeId(total)],
         metadata: {
-          stackQuantityApplied: object.quantity,
+          stackQuantityApplied: contributionQuantity,
           groupCountedOnceForTotal: true,
         },
       });
@@ -1619,6 +1631,44 @@ function definitionsForObject(
     });
   }
 
+  for (const staticDefinition of getAthenaStaticEffectDefinitionsForCard(
+    object.identityName,
+    builder.staticDefinitions,
+  )) {
+    const availability = staticDefinitionAvailability(object, staticDefinition);
+    definitions.push({
+      ...base,
+      id: `${object.groupId}:static:${staticDefinition.id}`,
+      label: `${object.label} ${staticDefinition.abilityId}`,
+      effectKind: staticDefinition.category,
+      observes: [],
+      modifies: [],
+      reads: staticDefinition.reads,
+      affects:
+        staticDefinition.target.kind === "self"
+          ? "self"
+          : staticDefinition.target.kind === "attached-host"
+            ? "attached-host"
+            : "creatures",
+      creates: [],
+      counters: [],
+      supportStatus: "fully-automated",
+      support: "fully-understood-consequence",
+      enabled: availability.enabled,
+      disabledReason: availability.disabledReason,
+      requiresAuthority: false,
+      requiresManualResolution: false,
+      metadata: {
+        structuredStaticDefinition: true,
+        staticDefinitionId: staticDefinition.id,
+        staticAbilityId: staticDefinition.abilityId,
+        staticOperation: staticDefinition.operation,
+        staticTargetKind: staticDefinition.target.kind,
+        staticDefinitionVersion: staticDefinition.version,
+      },
+    });
+  }
+
   const staticReads = relevantTotalsForText(text);
   if (
     staticReads.length > 0 &&
@@ -1690,6 +1740,37 @@ function staticEffectTargetForText(text: string): DefinitionTarget {
   return "battlefield";
 }
 
+function staticDefinitionAvailability(
+  object: AthenaBattlefieldObject,
+  definition: AthenaStaticEffectDefinition,
+): { enabled: boolean; disabledReason: AthenaGraphDisabledReason } {
+  if (object.zone !== "battlefield") {
+    return { enabled: false, disabledReason: "zone-not-battlefield" };
+  }
+  if (!object.trackingEnabled) {
+    return { enabled: false, disabledReason: "not-tracked" };
+  }
+  if (object.isGeneric || !object.identityName) {
+    return { enabled: false, disabledReason: "generic-placeholder" };
+  }
+  if (object.depowerMode === "all") {
+    return { enabled: false, disabledReason: "depowered" };
+  }
+  if (
+    object.depowerMode === "selected" &&
+    object.disabledAbilities.some(
+      (ability) =>
+        ability === definition.id || ability === definition.abilityId,
+    )
+  ) {
+    return { enabled: false, disabledReason: "depowered" };
+  }
+  if (!object.abilitiesActive && object.depowerMode === "none") {
+    return { enabled: false, disabledReason: "depowered" };
+  }
+  return { enabled: true, disabledReason: "none" };
+}
+
 function triggerMultiplicityForText(
   text: string,
 ): "per-object" | "per-event" | "unknown" {
@@ -1709,6 +1790,15 @@ function targetObjectsForDefinition(
   if (definition.affects === "self") {
     return builder.context.battlefield.filter(
       (object) => object.groupId === definition.sourceGroupId,
+    );
+  }
+  if (definition.affects === "attached-host") {
+    const source = builder.context.battlefield.find(
+      (object) => object.groupId === definition.sourceGroupId,
+    );
+    if (!source?.attachedTo) return [];
+    return builder.context.battlefield.filter(
+      (object) => object.groupId === source.attachedTo,
     );
   }
   if (definition.affects === "creatures") {
@@ -2277,6 +2367,12 @@ export function getAthenaRelevantTotalsForSubject(
   if (object.isToken && subtypes.has("Blood")) totals.push("bloodTokens");
   if (object.isToken && subtypes.has("Map")) totals.push("mapTokens");
   if (subtypes.has("Powerstone")) totals.push("powerstones");
+  const devotion = devotionForManaCost(object.manaCost ?? "");
+  if (devotion.W > 0) totals.push("devotionWhite");
+  if (devotion.U > 0) totals.push("devotionBlue");
+  if (devotion.B > 0) totals.push("devotionBlack");
+  if (devotion.R > 0) totals.push("devotionRed");
+  if (devotion.G > 0) totals.push("devotionGreen");
   return sortStrings([...new Set(totals)]) as RelevantTotalKey[];
 }
 
@@ -2284,6 +2380,26 @@ function relevantTotalsForObject(
   object: AthenaBattlefieldObject,
 ): RelevantTotalKey[] {
   return getAthenaRelevantTotalsForSubject(object);
+}
+
+function contributionQuantityForTotal(
+  object: AthenaBattlefieldObject,
+  total: RelevantTotalKey,
+): number {
+  const devotion = devotionForManaCost(object.manaCost);
+  const pips =
+    total === "devotionWhite"
+      ? devotion.W
+      : total === "devotionBlue"
+        ? devotion.U
+        : total === "devotionBlack"
+          ? devotion.B
+          : total === "devotionRed"
+            ? devotion.R
+            : total === "devotionGreen"
+              ? devotion.G
+              : 1;
+  return object.quantity * pips;
 }
 
 function relevantTotalsForText(text: string): RelevantTotalKey[] {
@@ -2303,6 +2419,11 @@ function relevantTotalsForText(text: string): RelevantTotalKey[] {
   if (text.includes("graveyard")) totals.push("cardsInGraveyard");
   if (text.includes("exile")) totals.push("cardsInExile");
   if (text.includes("hand")) totals.push("cardsInHand");
+  if (text.includes("devotion to white")) totals.push("devotionWhite");
+  if (text.includes("devotion to blue")) totals.push("devotionBlue");
+  if (text.includes("devotion to black")) totals.push("devotionBlack");
+  if (text.includes("devotion to red")) totals.push("devotionRed");
+  if (text.includes("devotion to green")) totals.push("devotionGreen");
   return sortStrings([...new Set(totals)]) as RelevantTotalKey[];
 }
 
@@ -2605,6 +2726,7 @@ function fingerprintValue(value: unknown): string {
 function fingerprintGraphInput(
   context: AthenaAwarenessContext,
   field: FieldState | null,
+  staticDefinitions?: readonly AthenaStaticEffectDefinition[],
 ): string {
   return fingerprintValue({
     version: ATHENA_DEPENDENCY_GRAPH_VERSION,
@@ -2619,6 +2741,7 @@ function fingerprintGraphInput(
       quantity: object.quantity,
       zone: object.zone,
       identityName: object.identityName,
+      manaCost: object.manaCost,
       cardId: object.cardId,
       originalCardId: object.originalCardId,
       supportStatus: object.supportStatus,
@@ -2630,6 +2753,7 @@ function fingerprintGraphInput(
       trackingEnabled: object.trackingEnabled,
       abilitiesActive: object.abilitiesActive,
       depowerMode: object.depowerMode,
+      disabledAbilities: object.disabledAbilities,
       counters: object.counters,
       statuses: object.statuses,
       attachedTo: object.attachedTo,
@@ -2638,6 +2762,7 @@ function fingerprintGraphInput(
     })),
     player: field?.player ?? null,
     customEffects: field?.customEffects ?? [],
+    staticDefinitions: staticDefinitions ?? null,
     totals: calculateTotals(field?.groups ?? []),
   });
 }

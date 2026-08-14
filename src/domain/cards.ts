@@ -9,6 +9,7 @@ import type {
   Zone,
 } from "./types";
 import { createPortableId, nowMs } from "../platform/runtime";
+import { hasAthenaStaticEffectDefinition } from "./staticEffects";
 
 const CARD_TYPES = [
   "Artifact",
@@ -115,7 +116,8 @@ export function supportStatusForCard(
     normalizedName.includes("soul warden") ||
     normalizedName.includes("essence warden") ||
     normalizedName.includes("impact tremors") ||
-    normalizedName.includes("rampaging baloths")
+    normalizedName.includes("rampaging baloths") ||
+    hasAthenaStaticEffectDefinition(name)
   ) {
     return "fully-automated";
   }

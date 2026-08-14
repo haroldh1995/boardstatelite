@@ -6,6 +6,7 @@ import type {
   Zone,
 } from "../domain/types";
 import type { AmbientIntentKind } from "../echo/ambientEventTypes";
+import type { AthenaStaticEffectDefinition } from "../domain/staticEffects";
 import type {
   AthenaAuthorityPrecedence,
   AthenaAuthoritySource,
@@ -271,6 +272,7 @@ export interface AthenaGraphBuildOptions {
   authoritySource?: AthenaAuthoritySource;
   reason?: AthenaGraphBuildReason;
   maxRelationships?: number;
+  staticDefinitions?: readonly AthenaStaticEffectDefinition[];
 }
 
 export interface AthenaGraphUpdateResult {
@@ -341,4 +343,5 @@ export interface AthenaRelevantTotalSubject {
   subtypes: string[];
   supertypes: string[];
   isToken: boolean;
+  manaCost?: string;
 }

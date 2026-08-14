@@ -502,10 +502,17 @@ function categoriesForEffectNode(
   if (effectKind === "replacement-effect" || hasModifies) {
     categories.add("replacement-effect");
   }
-  if (effectKind === "static-effect" || hasReads) {
+  const structuredStaticCategory =
+    effectKind === "continuous-effect" ||
+    effectKind === "scaling-effect" ||
+    effectKind === "characteristic-defining-effect"
+      ? effectKind
+      : null;
+  if (effectKind === "static-effect" || structuredStaticCategory || hasReads) {
     categories.add("static-effect");
+    if (structuredStaticCategory) categories.add(structuredStaticCategory);
     categories.add("relevant-total-reader");
-    if (hasReads) categories.add("scaling-effect");
+    if (hasReads && !structuredStaticCategory) categories.add("scaling-effect");
   }
   if (effectKind === "custom-automation") {
     categories.add("custom-supported-automation");
