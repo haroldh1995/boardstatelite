@@ -29,6 +29,10 @@ import type {
   EchoVoiceSettings,
 } from "../echo/listeningTypes";
 import type { AthenaSettings, AthenaState } from "../athena/types";
+import type {
+  ZoneCategoryRelevantTotalKey,
+  ZoneCompositionCollectionState,
+} from "./zoneCompositionTypes";
 
 export type Zone =
   | "battlefield"
@@ -67,6 +71,7 @@ export type ModalKind =
   | "settings"
   | "planner"
   | "exactTotal"
+  | "zoneComposition"
   | "triggerOrder"
   | "customEffect";
 
@@ -334,6 +339,7 @@ export interface FieldState {
   player: PlayerState;
   opponentValues: OpponentValues;
   groups: PermanentGroup[];
+  zoneCompositions: ZoneCompositionCollectionState;
   pinnedTotals: RelevantTotalKey[];
   customEffects: CustomEffect[];
   settings: SettingsState;
@@ -344,7 +350,7 @@ export interface FieldState {
   recentCards: CardIdentity[];
 }
 
-export type RelevantTotalKey =
+export type BaseRelevantTotalKey =
   | "lands"
   | "basicLands"
   | "nonbasicLands"
@@ -386,6 +392,10 @@ export type RelevantTotalKey =
   | "devotionGreen"
   | "commanderCasts"
   | "custom";
+
+export type RelevantTotalKey =
+  | BaseRelevantTotalKey
+  | ZoneCategoryRelevantTotalKey;
 
 export interface RelevantTotal {
   key: RelevantTotalKey;

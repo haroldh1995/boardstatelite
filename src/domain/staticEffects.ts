@@ -234,6 +234,12 @@ export const ATHENA_STATIC_EFFECT_DEFINITIONS: readonly AthenaStaticEffectDefini
       total: "cardsInHand",
     }),
     selfCharacteristic({
+      id: "boneyard-wurm-graveyard-creature-cda",
+      abilityId: "power-toughness-equal-graveyard-creatures",
+      cardNames: ["Boneyard Wurm"],
+      total: "graveyard.creature",
+    }),
+    selfCharacteristic({
       id: "dauntless-dourbark-forest-cda",
       abilityId: "power-toughness-equal-forests",
       cardNames: ["Dauntless Dourbark"],

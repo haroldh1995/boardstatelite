@@ -130,6 +130,11 @@ import {
 import { processAthenaConfirmedEventWithBookkeeping } from "../athena/triggerResolution";
 import type { AthenaForecastInput } from "../athena/eventForecastTypes";
 import type { AthenaConfirmedConsequencePipelineResult } from "../athena/triggerResolutionTypes";
+import { applyZoneCompositionCorrection } from "../domain/zoneComposition";
+import type {
+  ZoneCompositionCommandResult,
+  ZoneCompositionCorrectionInput,
+} from "../domain/zoneCompositionTypes";
 
 const HISTORY_LIMIT = 80;
 let activeAthenaTriggerQueue: AthenaPendingTriggerQueue | null = null;
@@ -202,6 +207,9 @@ interface FieldStore {
     value: number,
     mode?: "one-at-a-time" | "simultaneous" | "correction",
   ) => void;
+  correctZoneComposition: (
+    input: ZoneCompositionCorrectionInput,
+  ) => ZoneCompositionCommandResult<FieldState>;
   processAmbientIntent: (
     intent: AmbientIntent | AmbientIntentInput,
     mutation: AmbientFieldMutation,
@@ -558,6 +566,23 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
 
   setRelevantTotal(key, value, mode = "correction") {
     const field = get().field;
+    if (key === "cardsInGraveyard" || key === "cardsInExile") {
+      const result = applyZoneCompositionCorrection(field, {
+        zone: key === "cardsInGraveyard" ? "graveyard" : "exile",
+        physicalTotal: value,
+      });
+      if (!result.ok) return;
+      commitField(
+        `${key === "cardsInGraveyard" ? "Graveyard" : "Exile"} corrected`,
+        field,
+        normalizeField(result.field),
+        result.summary,
+        set,
+        null,
+        false,
+      );
+      return;
+    }
     const totals = calculateTotals(field.groups);
     const current = totals[key] ?? 0;
     const nextValue = Math.max(0, Math.trunc(value));
@@ -583,6 +608,22 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
       [`${key} adjusted by ${delta}.`],
       set,
     );
+  },
+
+  correctZoneComposition(input) {
+    const before = get().field;
+    const result = applyZoneCompositionCorrection(before, input);
+    if (!result.ok) return result;
+    commitField(
+      `${input.zone === "graveyard" ? "Graveyard" : "Exile"} composition corrected`,
+      before,
+      normalizeField(result.field),
+      result.summary,
+      set,
+      null,
+      false,
+    );
+    return { ...result, field: get().field };
   },
 
   processAmbientIntent(intent, mutation) {

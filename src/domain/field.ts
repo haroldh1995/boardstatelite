@@ -94,7 +94,14 @@ import {
   normalizeAthenaSettings,
   normalizeAthenaState,
 } from "../athena/foundation";
+import {
+  createDefaultZoneCompositionCollection,
+  normalizeZoneCompositionCollection,
+  zoneCategoryLabel,
+  zoneCategoryFromRelevantTotal,
+} from "./zoneComposition";
 import type {
+  BaseRelevantTotalKey,
   FieldState,
   OpponentValues,
   PermanentGroup,
@@ -110,7 +117,7 @@ import type {
 import type { SharedSessionMetadata } from "../sharedSession/types";
 import type { HubIntegrationState } from "../hub/types";
 
-export const TOTAL_LABELS: Record<RelevantTotalKey, string> = {
+export const TOTAL_LABELS: Record<BaseRelevantTotalKey, string> = {
   lands: "Lands",
   basicLands: "Basic lands",
   nonbasicLands: "Nonbasic",
@@ -223,6 +230,7 @@ export function createDefaultField(): FieldState {
         zone: "battlefield",
       }),
     ],
+    zoneCompositions: createDefaultZoneCompositionCollection(now),
     pinnedTotals: DEFAULT_PINNED_TOTALS,
     customEffects: [],
     settings,
@@ -557,6 +565,11 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
       custom: sanitizeNumberRecord(candidate.opponentValues?.custom),
     },
     groups,
+    zoneCompositions: normalizeZoneCompositionCollection(
+      candidate.zoneCompositions,
+      groups,
+      updatedAt,
+    ),
     settings,
     pinnedTotals: Array.isArray(candidate.pinnedTotals)
       ? candidate.pinnedTotals
@@ -590,7 +603,7 @@ export function getVisibleTotals(field: FieldState): RelevantTotal[] {
 
   return [...required].map((key) => ({
     key,
-    label: TOTAL_LABELS[key],
+    label: relevantTotalLabel(key),
     value: aggregate[key] ?? 0,
     required: !field.pinnedTotals.includes(key),
     zone: zoneForTotal(key),
@@ -825,6 +838,11 @@ export function normalizeField(field: FieldState): FieldState {
     settings: settings.athena,
     allowActivePreview: true,
   });
+  const zoneCompositions = normalizeZoneCompositionCollection(
+    field.zoneCompositions,
+    groups,
+    updatedAt,
+  );
   return {
     ...field,
     session: sessionWithHub,
@@ -847,6 +865,7 @@ export function normalizeField(field: FieldState): FieldState {
     ambientOrchestrator,
     athena,
     groups,
+    zoneCompositions,
     settings,
     updatedAt,
   };
@@ -984,4 +1003,13 @@ function zoneForTotal(key: RelevantTotalKey): Zone | undefined {
   if (key === "cardsInExile") return "exile";
   if (key === "cardsRemainingInLibrary") return "library";
   return undefined;
+}
+
+export function relevantTotalLabel(key: RelevantTotalKey): string {
+  const fixed = TOTAL_LABELS[key as BaseRelevantTotalKey];
+  if (fixed) return fixed;
+  const category = zoneCategoryFromRelevantTotal(key);
+  if (!category) return key;
+  const zone = key.startsWith("graveyard.") ? "Graveyard" : "Exile";
+  return `${zone} ${zoneCategoryLabel(category)}`;
 }

@@ -26,6 +26,7 @@ import { normalizePersonalGameplayState } from "../echo/personalGameplay";
 import { normalizeAmbientOrchestratorState } from "../echo/ambientOrchestrator";
 import { normalizeEntityResolutionState } from "../echo/entityResolution";
 import { normalizeAthenaState } from "../athena/foundation";
+import { zoneCategoryRelevantTotals } from "../domain/zoneComposition";
 import {
   LITE_APP_VERSION,
   LITE_SNAPSHOT_VERSION,
@@ -164,6 +165,13 @@ export function createLiteFieldSnapshot(field: FieldState): LiteFieldSnapshot {
   const sortedGroups = [...field.groups].sort(
     (a, b) => a.order - b.order || a.id.localeCompare(b.id),
   );
+  const relevantTotals = calculateTotals(field.groups);
+  for (const [key, value] of Object.entries(
+    zoneCategoryRelevantTotals(field),
+  )) {
+    if (value !== undefined)
+      relevantTotals[key as keyof typeof relevantTotals] = value;
+  }
 
   return {
     metadata: {
@@ -211,7 +219,8 @@ export function createLiteFieldSnapshot(field: FieldState): LiteFieldSnapshot {
       },
       statuses: { ...field.player.statuses },
     },
-    relevantTotals: calculateTotals(field.groups),
+    zoneCompositions: field.zoneCompositions,
+    relevantTotals,
     opponentValues: {
       ...field.opponentValues,
       custom: sortNumberRecord(field.opponentValues.custom),

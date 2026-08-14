@@ -1488,6 +1488,132 @@ textarea:focus-visible {
   gap: 12px;
 }
 
+.zone-composition-sheet {
+  display: grid;
+  gap: 14px;
+}
+
+.zone-composition-summary {
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) repeat(2, minmax(72px, 0.65fr));
+  gap: 8px;
+  align-items: end;
+}
+
+.zone-composition-summary > div {
+  min-height: 62px;
+  display: grid;
+  align-content: center;
+  gap: 3px;
+  padding: 8px 10px;
+  border: 1px solid rgba(143, 211, 255, 0.2);
+  border-radius: 6px;
+  background: rgba(5, 12, 18, 0.68);
+}
+
+.zone-composition-summary span,
+.zone-category-row small {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+}
+
+.zone-composition-summary strong {
+  font-size: 1.15rem;
+}
+
+.zone-category-section h3 {
+  margin-bottom: 7px;
+}
+
+.zone-category-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.zone-category-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 122px;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 8px;
+  border: 1px solid rgba(171, 255, 205, 0.15);
+  border-radius: 6px;
+  background: rgba(3, 9, 11, 0.56);
+}
+
+.zone-category-row > span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.zone-category-row strong {
+  overflow-wrap: anywhere;
+  font-size: 0.78rem;
+}
+
+.zone-category-stepper {
+  display: grid;
+  grid-template-columns: 34px minmax(42px, 1fr) 34px;
+  gap: 4px;
+}
+
+.zone-category-stepper button {
+  width: 34px;
+  min-height: 38px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 6px;
+}
+
+.zone-category-stepper svg {
+  width: 16px;
+  height: 16px;
+}
+
+.zone-category-stepper input {
+  min-width: 0;
+  min-height: 38px;
+  padding: 5px;
+  text-align: center;
+}
+
+.zone-category-more {
+  border-top: 1px solid rgba(143, 211, 255, 0.16);
+  padding-top: 10px;
+}
+
+.zone-category-more summary {
+  cursor: pointer;
+  color: #d9f3ff;
+  font-weight: 800;
+  margin-bottom: 9px;
+}
+
+.zone-accounted-input {
+  grid-template-columns: minmax(0, 1fr) 100px;
+  align-items: center;
+}
+
+.form-error {
+  color: #ffb5b5 !important;
+  font-weight: 750;
+}
+
+@media (max-width: 520px) {
+  .zone-category-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .zone-composition-summary {
+    grid-template-columns: minmax(120px, 1fr) repeat(2, minmax(62px, 0.6fr));
+  }
+}
+
 label {
   display: grid;
   gap: 5px;

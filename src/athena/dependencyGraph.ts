@@ -10,6 +10,13 @@ import {
   getAthenaStaticEffectDefinitionsForCard,
   type AthenaStaticEffectDefinition,
 } from "../domain/staticEffects";
+import {
+  isZoneCategoryRelevantTotalKey,
+  zoneCategoryReliability,
+  zoneCategoryRelevantTotalKey,
+  zoneCategoryRelevantTotals,
+  zoneSubtypeCategory,
+} from "../domain/zoneComposition";
 import type {
   AmbientEntityReference,
   AmbientIntent,
@@ -592,23 +599,50 @@ function addPlayerNodes(builder: GraphBuilderState): void {
 }
 
 function addRelevantTotalNodes(builder: GraphBuilderState): void {
-  for (const total of builder.context.relevantTotals) {
+  const requestedTotals = (builder.staticDefinitions ?? []).flatMap(
+    (definition) => definition.reads,
+  );
+  const categoryTotals = builder.field
+    ? zoneCategoryRelevantTotals(builder.field, requestedTotals)
+    : {};
+  const reliability = builder.field
+    ? zoneCategoryReliability(builder.field, requestedTotals)
+    : new Map();
+  const totals = new Map<RelevantTotalKey, number>(
+    builder.context.relevantTotals.map((total) => [total.key, total.value]),
+  );
+  for (const [key, value] of Object.entries(categoryTotals)) {
+    totals.set(key as RelevantTotalKey, value ?? 0);
+  }
+  for (const [key, value] of [...totals.entries()].sort(([a], [b]) =>
+    a.localeCompare(b),
+  )) {
+    const category = isZoneCategoryRelevantTotalKey(key)
+      ? reliability.get(key)
+      : null;
     addNode(builder, {
-      id: totalNodeId(total.key),
+      id: totalNodeId(key),
       type: "relevant-total",
-      label: total.key,
+      label: key,
       groupId: null,
       objectIds: [],
-      relevantTotal: total.key,
+      relevantTotal: key,
       zone: null,
       eventCategory: null,
       effectKind: null,
-      quantity: total.value,
+      quantity: value,
       supportStatus: null,
-      support: "fully-understood-consequence",
+      support:
+        category && !category.exact
+          ? "partially-understood-consequence"
+          : "fully-understood-consequence",
       enabled: true,
       disabledReason: "none",
-      metadata: { derived: true },
+      metadata: {
+        derived: true,
+        exact: category?.exact ?? true,
+        unaccountedCategoryPossible: Boolean(category && !category.exact),
+      },
     });
   }
 }
@@ -2451,6 +2485,78 @@ export function getAthenaRelevantTotalsForSubject(
   if (object.zone === "graveyard") totals.push("cardsInGraveyard");
   if (object.zone === "exile") totals.push("cardsInExile");
   if (object.zone === "library") totals.push("cardsRemainingInLibrary");
+  if (
+    (object.zone === "graveyard" || object.zone === "exile") &&
+    object.identityKnown !== false
+  ) {
+    const zone = object.zone;
+    for (const type of types) {
+      const normalized =
+        type.toLowerCase() === "tribal" ? "kindred" : type.toLowerCase();
+      if (
+        [
+          "creature",
+          "artifact",
+          "enchantment",
+          "instant",
+          "sorcery",
+          "land",
+          "planeswalker",
+          "battle",
+          "kindred",
+        ].includes(normalized)
+      ) {
+        totals.push(
+          zoneCategoryRelevantTotalKey(
+            zone,
+            normalized as Parameters<typeof zoneCategoryRelevantTotalKey>[1],
+          ),
+        );
+      }
+    }
+    if (supertypes.has("Legendary")) {
+      totals.push(zoneCategoryRelevantTotalKey(zone, "legendary"));
+    }
+    totals.push(
+      zoneCategoryRelevantTotalKey(zone, object.isToken ? "token" : "nontoken"),
+    );
+    if (object.isCommander) {
+      totals.push(zoneCategoryRelevantTotalKey(zone, "commander"));
+    }
+    if (
+      types.has("Artifact") ||
+      supertypes.has("Legendary") ||
+      subtypes.has("Saga")
+    ) {
+      totals.push(zoneCategoryRelevantTotalKey(zone, "historic"));
+    }
+    const colors = [...new Set(object.colors ?? [])];
+    if (colors.length === 0) {
+      totals.push(zoneCategoryRelevantTotalKey(zone, "colorless"));
+    } else {
+      const colorKeys: Record<
+        string,
+        "white" | "blue" | "black" | "red" | "green"
+      > = {
+        W: "white",
+        U: "blue",
+        B: "black",
+        R: "red",
+        G: "green",
+      };
+      for (const color of colors) {
+        const key = colorKeys[color.toUpperCase()];
+        if (key) totals.push(zoneCategoryRelevantTotalKey(zone, key));
+      }
+      if (colors.length > 1) {
+        totals.push(zoneCategoryRelevantTotalKey(zone, "multicolor"));
+      }
+    }
+    for (const subtype of subtypes) {
+      const key = zoneSubtypeCategory(subtype);
+      if (key) totals.push(zoneCategoryRelevantTotalKey(zone, key));
+    }
+  }
   if (object.zone !== "battlefield")
     return sortStrings(totals) as RelevantTotalKey[];
 
@@ -2500,7 +2606,10 @@ export function getAthenaRelevantTotalsForSubject(
 function relevantTotalsForObject(
   object: AthenaBattlefieldObject,
 ): RelevantTotalKey[] {
-  return getAthenaRelevantTotalsForSubject(object);
+  return getAthenaRelevantTotalsForSubject({
+    ...object,
+    identityKnown: Boolean(object.cardId),
+  });
 }
 
 function contributionQuantityForTotal(

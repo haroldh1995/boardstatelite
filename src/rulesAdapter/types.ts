@@ -116,6 +116,7 @@ export interface LiteFieldSnapshot {
     counters: PlayerCounters;
     statuses: PlayerStatuses;
   };
+  zoneCompositions: FieldState["zoneCompositions"];
   relevantTotals: Partial<Record<RelevantTotalKey, number>>;
   opponentValues: FieldState["opponentValues"];
   battlefield: LitePermanentSnapshot[];

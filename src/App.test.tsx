@@ -24,6 +24,7 @@ import {
   createAthenaForecastInput,
   createForecastEnvironment,
 } from "./athena/eventForecast";
+import { getZoneCompositionSnapshot } from "./domain/zoneComposition";
 
 describe("Baord State Lite app shell", () => {
   beforeEach(() => {
@@ -167,6 +168,52 @@ describe("Baord State Lite app shell", () => {
         .field.groups.some((group) => group.label === "Gnome"),
     ).toBe(false);
   });
+
+  it("corrects exile composition quickly and keeps outside dismissal non-mutating", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<App />);
+    await user.click(
+      await screen.findByRole("button", { name: /continue to field/i }),
+    );
+
+    await user.click(screen.getByRole("button", { name: "Exile: 0" }));
+    expect(screen.getByRole("heading", { name: "Exile" })).toBeInTheDocument();
+    await user.clear(screen.getByLabelText("Total cards"));
+    await user.type(screen.getByLabelText("Total cards"), "5");
+    await user.click(screen.getByText("More categories"));
+    await user.clear(screen.getByLabelText("Creature cards"));
+    await user.type(screen.getByLabelText("Creature cards"), "2");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(
+      getZoneCompositionSnapshot(useFieldStore.getState().field, "exile"),
+    ).toMatchObject({
+      physicalTotal: 5,
+      unaccountedPhysicalCards: 5,
+      categoryTotals: { creature: 2 },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Exile: 5" }));
+    await user.clear(screen.getByLabelText("Total cards"));
+    await user.type(screen.getByLabelText("Total cards"), "8");
+    fireEvent.pointerDown(container.querySelector(".modal-overlay")!);
+    expect(screen.queryByRole("heading", { name: "Exile" })).toBeNull();
+    expect(
+      getZoneCompositionSnapshot(useFieldStore.getState().field, "exile")
+        .physicalTotal,
+    ).toBe(5);
+
+    useFieldStore.getState().undo();
+    expect(
+      getZoneCompositionSnapshot(useFieldStore.getState().field, "exile")
+        .physicalTotal,
+    ).toBe(0);
+    useFieldStore.getState().redo();
+    expect(
+      getZoneCompositionSnapshot(useFieldStore.getState().field, "exile")
+        .categoryTotals.creature,
+    ).toBe(2);
+  }, 20_000);
 
   it("shows a blocking startup warning that cannot be dismissed by outside tap", async () => {
     const { container } = render(<App />);

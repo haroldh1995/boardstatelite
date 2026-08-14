@@ -124,6 +124,8 @@ export {
   ATHENA_DERIVED_STATE_VERSION,
 } from "./derivedStateTypes";
 export { ATHENA_TRIGGER_RESOLUTION_VERSION } from "./triggerResolutionTypes";
+export * from "../domain/zoneComposition";
+export * from "../domain/zoneCompositionTypes";
 export type {
   AthenaActiveHelperDefinition,
   AthenaAttachmentLink,

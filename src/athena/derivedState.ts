@@ -11,6 +11,15 @@ import type {
   PermanentGroup,
   RelevantTotalKey,
 } from "../domain/types";
+import {
+  isZoneCategoryRelevantTotalKey,
+  zoneCategoryReliability,
+  zoneCategoryRelevantTotals,
+} from "../domain/zoneComposition";
+import type {
+  ZoneCategoryRelevantTotalKey,
+  ZoneCategorySnapshot,
+} from "../domain/zoneCompositionTypes";
 import { monotonicNowMs } from "../platform/runtime";
 import { serializeStable } from "../utils/stableSerialization";
 import { buildAthenaDependencyGraph } from "./dependencyGraph";
@@ -55,6 +64,10 @@ interface BuildEnvironment {
   field: FieldState;
   definitions: readonly AthenaStaticEffectDefinition[];
   totals: Record<RelevantTotalKey, number>;
+  zoneCategoryReliability: Map<
+    ZoneCategoryRelevantTotalKey,
+    ZoneCategorySnapshot
+  >;
   graph: AthenaDependencyGraph;
   relationshipMap: AthenaEffectRelationshipMap;
   relationshipsByDefinition: Map<string, StaticRelationshipReference>;
@@ -142,6 +155,7 @@ export function canonicalDerivedFingerprint(field: FieldState): string {
         damage: group.pt.damage,
       },
     })),
+    zoneCompositions: field.zoneCompositions,
   });
 }
 
@@ -174,14 +188,22 @@ export function buildAthenaDerivedBattlefieldState(
     graph,
     { timestamp, reason: options.reason ?? "full-rebuild" },
   );
+  const requestedTotals = definitions.flatMap((definition) => definition.reads);
+  const canonicalTotals = calculateTotals(field.groups);
+  for (const [key, value] of Object.entries(
+    zoneCategoryRelevantTotals(field, requestedTotals),
+  )) {
+    if (value !== undefined) canonicalTotals[key as RelevantTotalKey] = value;
+  }
   const totals = applyTotalOverrides(
-    calculateTotals(field.groups),
+    canonicalTotals,
     options.relevantTotalOverrides,
   );
   const environment: BuildEnvironment = {
     field,
     definitions,
     totals,
+    zoneCategoryReliability: zoneCategoryReliability(field, requestedTotals),
     graph,
     relationshipMap,
     relationshipsByDefinition: relationshipIndex(relationshipMap, graph),
@@ -748,6 +770,17 @@ function applyDefinition(
   definition: AthenaStaticEffectDefinition,
   relationship: StaticRelationshipReference,
 ): void {
+  const incompleteCategory = definition.reads.find(
+    (total) =>
+      isZoneCategoryRelevantTotalKey(total) &&
+      !environment.zoneCategoryReliability.get(total)?.exact,
+  );
+  if (incompleteCategory) {
+    object.validity = "manual-resolution-required";
+    object.support = "partially-understood-consequence";
+    object.reasonCodes.add(`partial-zone-composition:${incompleteCategory}`);
+    return;
+  }
   const power = evaluateExpression(environment, object.group, definition.power);
   const toughness = evaluateExpression(
     environment,

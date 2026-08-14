@@ -61,9 +61,22 @@ export function TotalsStrip() {
             type="button"
             key={total.key}
             className="total-chip"
-            onClick={() =>
-              openModal({ kind: "exactTotal", payload: { total } })
-            }
+            onClick={() => {
+              if (
+                total.key === "cardsInGraveyard" ||
+                total.key === "cardsInExile"
+              ) {
+                openModal({
+                  kind: "zoneComposition",
+                  payload: {
+                    zone:
+                      total.key === "cardsInGraveyard" ? "graveyard" : "exile",
+                  },
+                });
+                return;
+              }
+              openModal({ kind: "exactTotal", payload: { total } });
+            }}
             aria-label={`${total.label}: ${value}`}
           >
             <span aria-hidden="true">{ICONS[total.key] ?? <Castle />}</span>

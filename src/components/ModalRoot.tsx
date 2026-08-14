@@ -1,7 +1,7 @@
-import { X } from "lucide-react";
+import { Minus, Plus, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { COUNTER_OPTIONS } from "../domain/cards";
-import { TOTAL_LABELS } from "../domain/field";
+import { relevantTotalLabel } from "../domain/field";
 import type {
   CounterApplicationMode,
   ModalState,
@@ -9,6 +9,15 @@ import type {
   RelevantTotal,
   StackScope,
 } from "../domain/types";
+import {
+  getZoneCategoryOptions,
+  getZoneCompositionSnapshot,
+  zoneCategoryLabel,
+} from "../domain/zoneComposition";
+import type {
+  CategoricalZone,
+  ZoneCategoryKey,
+} from "../domain/zoneCompositionTypes";
 import type { EchoPersonalGameplayLearningSensitivity } from "../echo/personalGameplayTypes";
 import { useFieldStore } from "../state/useFieldStore";
 import { PreTurnPlannerSheet } from "./PreTurnPlannerSheet";
@@ -132,6 +141,14 @@ function ModalContent({ modal }: { modal: ModalState }) {
       return (
         <ExactTotalSheet
           total={(modal.payload as { total: RelevantTotal }).total}
+        />
+      );
+    case "zoneComposition":
+      return (
+        <ZoneCompositionSheet
+          zone={
+            (modal.payload as { zone?: CategoricalZone })?.zone ?? "graveyard"
+          }
         />
       );
     default:
@@ -1398,7 +1415,7 @@ function ExactTotalSheet({ total }: { total: RelevantTotal }) {
         closeModal();
       }}
     >
-      <h2 id="modal-title">{TOTAL_LABELS[total.key]}</h2>
+      <h2 id="modal-title">{relevantTotalLabel(total.key)}</h2>
       <label>
         Exact value
         <input
@@ -1421,6 +1438,178 @@ function ExactTotalSheet({ total }: { total: RelevantTotal }) {
       </label>
       <button type="submit" className="primary-action">
         Apply
+      </button>
+    </form>
+  );
+}
+
+function ZoneCompositionSheet({ zone }: { zone: CategoricalZone }) {
+  const field = useFieldStore((state) => state.field);
+  const correctZoneComposition = useFieldStore(
+    (state) => state.correctZoneComposition,
+  );
+  const closeModal = useFieldStore((state) => state.closeModal);
+  const snapshot = getZoneCompositionSnapshot(field, zone);
+  const options = getZoneCategoryOptions(field, zone);
+  const categoriesByKey = new Map(
+    snapshot.categories.map((category) => [category.key, category]),
+  );
+  const categoryKeys = [...options.prioritized, ...options.additional];
+  const [physicalTotal, setPhysicalTotal] = useState(snapshot.physicalTotal);
+  const [manuallyAccounted, setManuallyAccounted] = useState(
+    snapshot.manuallyAccountedPhysicalCards,
+  );
+  const [categoryTotals, setCategoryTotals] = useState<
+    Partial<Record<ZoneCategoryKey, number>>
+  >(() =>
+    Object.fromEntries(
+      categoryKeys.map((key) => [key, categoriesByKey.get(key)?.value ?? 0]),
+    ),
+  );
+  const [changedCategoryKeys, setChangedCategoryKeys] = useState<
+    ZoneCategoryKey[]
+  >([]);
+  const [error, setError] = useState<string | null>(null);
+
+  const priorityKeys = options.prioritized;
+  const secondaryKeys = options.additional;
+  const visibleUnaccounted = Math.max(
+    0,
+    physicalTotal - snapshot.knownPhysicalCards - manuallyAccounted,
+  );
+
+  const setCategoryValue = (key: ZoneCategoryKey, value: number) => {
+    setCategoryTotals((current) => ({
+      ...current,
+      [key]: Math.max(0, Math.trunc(value || 0)),
+    }));
+    setChangedCategoryKeys((current) =>
+      current.includes(key) ? current : [...current, key],
+    );
+  };
+
+  const renderCategory = (key: ZoneCategoryKey) => {
+    const category = categoriesByKey.get(key);
+    const value = categoryTotals[key] ?? category?.value ?? 0;
+    return (
+      <div className="zone-category-row" key={key}>
+        <span>
+          <strong>{zoneCategoryLabel(key)}</strong>
+          {category && !category.exact && <small>Partial</small>}
+        </span>
+        <div className="zone-category-stepper">
+          <button
+            type="button"
+            onClick={() => setCategoryValue(key, value - 1)}
+            aria-label={`Decrease ${zoneCategoryLabel(key)}`}
+          >
+            <Minus />
+          </button>
+          <input
+            type="number"
+            min={0}
+            value={value}
+            aria-label={`${zoneCategoryLabel(key)} cards`}
+            onChange={(event) =>
+              setCategoryValue(key, Number(event.target.value))
+            }
+          />
+          <button
+            type="button"
+            onClick={() => setCategoryValue(key, value + 1)}
+            aria-label={`Increase ${zoneCategoryLabel(key)}`}
+          >
+            <Plus />
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <form
+      className="zone-composition-sheet"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const result = correctZoneComposition({
+          zone,
+          physicalTotal,
+          categoryTotals: Object.fromEntries(
+            changedCategoryKeys.map((key) => [key, categoryTotals[key] ?? 0]),
+          ),
+          manuallyAccountedPhysicalCards: manuallyAccounted,
+          selectedCategoryKeys: changedCategoryKeys,
+        });
+        if (!result.ok) {
+          setError(result.reason);
+          return;
+        }
+        closeModal();
+      }}
+    >
+      <h2 id="modal-title">{zoneCategoryLabel(zone)}</h2>
+      <div className="zone-composition-summary">
+        <label>
+          Total cards
+          <input
+            type="number"
+            min={snapshot.knownPhysicalCards}
+            value={physicalTotal}
+            onChange={(event) => {
+              const nextTotal = Math.max(0, Number(event.target.value));
+              setPhysicalTotal(nextTotal);
+              setManuallyAccounted((current) =>
+                Math.min(
+                  current,
+                  Math.max(0, nextTotal - snapshot.knownPhysicalCards),
+                ),
+              );
+            }}
+          />
+        </label>
+        <div>
+          <span>Known</span>
+          <strong>{snapshot.knownPhysicalCards}</strong>
+        </div>
+        <div>
+          <span>Unaccounted</span>
+          <strong>{visibleUnaccounted}</strong>
+        </div>
+      </div>
+
+      {priorityKeys.length > 0 && (
+        <section className="zone-category-section">
+          <h3>Relevant categories</h3>
+          <div className="zone-category-grid">
+            {priorityKeys.map(renderCategory)}
+          </div>
+        </section>
+      )}
+
+      {secondaryKeys.length > 0 && (
+        <details className="zone-category-more">
+          <summary>More categories</summary>
+          <div className="zone-category-grid">
+            {secondaryKeys.map(renderCategory)}
+          </div>
+        </details>
+      )}
+
+      <label className="zone-accounted-input">
+        Unknown cards categorized
+        <input
+          type="number"
+          min={0}
+          max={Math.max(0, physicalTotal - snapshot.knownPhysicalCards)}
+          value={manuallyAccounted}
+          onChange={(event) =>
+            setManuallyAccounted(Math.max(0, Number(event.target.value)))
+          }
+        />
+      </label>
+      {error && <p className="form-error">{error}</p>}
+      <button type="submit" className="primary-action">
+        Save
       </button>
     </form>
   );

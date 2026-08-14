@@ -2,6 +2,7 @@ import {
   createTokenGroup,
   mergeCompatibleStacks,
   recalculateStats,
+  splitGroupForQuantity,
   withStackKey,
 } from "../domain/cards";
 import { calculateTotals } from "../domain/field";
@@ -1029,6 +1030,50 @@ export function applyAthenaCanonicalConsequenceEvent(
     if (retained) {
       changed.add(retained.id);
       if (!beforeIds.has(retained.id)) generated.add(retained.id);
+    }
+  } else if (
+    event.eventCategory === "permanent-died" ||
+    event.eventCategory === "permanent-sacrificed" ||
+    event.eventCategory === "permanent-exiled" ||
+    event.eventCategory === "permanent-returned-to-hand" ||
+    event.eventCategory === "permanent-returned-to-battlefield"
+  ) {
+    if (!event.zoneDestination || event.subjectGroupIds.length === 0) {
+      return fail(
+        "Zone movement consequences require a final destination and subject.",
+      );
+    }
+    const targetIds = [...new Set(event.subjectGroupIds)];
+    if (
+      targetIds.some((id) => !working.groups.some((group) => group.id === id))
+    ) {
+      return fail("A zone movement subject is no longer available.");
+    }
+    for (const targetId of targetIds) {
+      const current = working.groups.find((group) => group.id === targetId);
+      if (!current)
+        return fail("A zone movement subject is no longer available.");
+      const quantity =
+        targetIds.length === 1
+          ? Math.min(current.quantity, event.quantity)
+          : current.quantity;
+      const split = splitGroupForQuantity(working.groups, current.id, quantity);
+      if (!split.targetId)
+        return fail("The zone movement could not be prepared.");
+      working.groups = split.groups.map((group) =>
+        group.id === split.targetId
+          ? withStackKey({
+              ...group,
+              zone: event.zoneDestination!,
+              statuses: {
+                ...group.statuses,
+                attacking: false,
+                blocking: false,
+              },
+            })
+          : group,
+      );
+      changed.add(split.targetId);
     }
   } else {
     return fail(

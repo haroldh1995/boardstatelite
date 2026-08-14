@@ -63,6 +63,10 @@ export interface EchoDeckSnapshotCard {
   name: string;
   typeLine?: string;
   oracleText?: string;
+  colors?: string[];
+  colorIdentity?: string[];
+  manaValue?: number;
+  isToken?: boolean;
   isCommander?: boolean;
   quantity?: number;
 }

@@ -342,6 +342,9 @@ export interface AthenaRelevantTotalSubject {
   cardTypes: string[];
   subtypes: string[];
   supertypes: string[];
+  colors?: string[];
   isToken: boolean;
+  identityKnown?: boolean;
+  isCommander?: boolean;
   manaCost?: string;
 }

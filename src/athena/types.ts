@@ -176,6 +176,7 @@ export interface AthenaBattlefieldObject {
   cardTypes: string[];
   supertypes: string[];
   subtypes: string[];
+  colors: string[];
   lineage: {
     transformed: boolean;
     originalName: string | null;

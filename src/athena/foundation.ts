@@ -10,6 +10,7 @@ import type {
   SupportStatus,
   Zone,
 } from "../domain/types";
+import { zoneCategoryRelevantTotals } from "../domain/zoneComposition";
 import { getActiveListeningWindow } from "../echo/contextualListening";
 import { monotonicNowMs } from "../platform/runtime";
 import { localParticipantId } from "../sharedSession";
@@ -661,6 +662,7 @@ function battlefieldObjectFromGroup(
     cardTypes: [...group.characteristics.cardTypes],
     supertypes: [...group.characteristics.supertypes],
     subtypes: [...group.characteristics.subtypes],
+    colors: [...group.characteristics.colors],
     lineage: {
       transformed: group.statuses.transformed,
       originalName: group.originalIdentity?.name ?? null,
@@ -1083,6 +1085,11 @@ function totalsSnapshot(
   field: FieldState,
 ): AthenaAwarenessContext["relevantTotals"] {
   const totals = calculateTotals(field.groups);
+  for (const [key, value] of Object.entries(
+    zoneCategoryRelevantTotals(field),
+  )) {
+    if (value !== undefined) totals[key as RelevantTotalKey] = value;
+  }
   return Object.entries(totals)
     .map(([key, value]) => ({
       key: key as RelevantTotalKey,

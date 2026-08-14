@@ -61,6 +61,43 @@ test("top player counters open the manual editor and retain corrected values", a
   ).toBeVisible();
 });
 
+test("graveyard and exile composition can be corrected without click-through", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await continuePastStartup(page);
+
+  await page.getByRole("button", { name: "Exile: 0" }).click();
+  await expect(page.getByRole("heading", { name: "Exile" })).toBeVisible();
+  await page.getByLabel("Total cards").fill("5");
+  await page.getByText("More categories", { exact: true }).click();
+  await page.getByLabel("Artifact cards").fill("3");
+  await page.getByLabel("Unknown cards categorized").fill("2");
+  await page.getByRole("button", { name: "Save" }).click();
+
+  await expect(page.getByRole("button", { name: "Exile: 5" })).toBeVisible();
+  await page.getByRole("button", { name: "Exile: 5" }).click();
+  await page.getByLabel("Total cards").fill("7");
+  await page.mouse.click(4, 4);
+  await expect(page.locator(".modal-overlay")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Exile: 5" })).toBeVisible();
+
+  await page.reload();
+  await continuePastStartup(page);
+  await page.getByRole("button", { name: "Exile: 5" }).click();
+  await page.getByText("More categories", { exact: true }).click();
+  await expect(page.getByLabel("Artifact cards")).toHaveValue("3");
+  await page.getByLabel("Total cards").fill("1");
+  await expect(page.getByLabel("Unknown cards categorized")).toHaveValue("1");
+  await page.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("button", { name: "Exile: 1" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Exile: 1" }).click();
+  await page.getByText("More categories", { exact: true }).click();
+  await expect(page.getByLabel("Artifact cards")).toHaveValue("1");
+});
+
 test("not-tracked card state can be stopped and resumed from the permanent menu", async ({
   page,
 }) => {
