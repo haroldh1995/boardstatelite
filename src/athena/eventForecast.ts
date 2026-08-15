@@ -1,4 +1,5 @@
 import type {
+  CardIdentity,
   Characteristics,
   FieldState,
   RelevantTotalKey,
@@ -183,6 +184,7 @@ export function createAthenaForecastInput(
       draft.tokenDefinition,
       knownCharacteristics,
     ),
+    permanentDefinition: clonePermanentDefinition(draft.permanentDefinition),
     lifeDelta: finiteNumberOrNull(draft.lifeDelta),
     commanderDamageDelta: finiteNumberOrNull(draft.commanderDamageDelta),
     relevantTotalImplications: normalizeTotalImplications(
@@ -3066,6 +3068,19 @@ function normalizeTokenDefinition(
     power: finiteNumberOrNull(value.power),
     toughness: finiteNumberOrNull(value.toughness),
     characteristics: { ...characteristics, isToken: true },
+  };
+}
+
+function clonePermanentDefinition(
+  value: CardIdentity | null | undefined,
+): CardIdentity | null {
+  if (!value?.cardId || !value.name) return null;
+  return {
+    ...value,
+    colors: [...value.colors],
+    colorIdentity: [...value.colorIdentity],
+    keywords: [...value.keywords],
+    cardFaces: value.cardFaces.map((face) => ({ ...face })),
   };
 }
 

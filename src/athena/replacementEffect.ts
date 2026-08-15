@@ -1918,6 +1918,17 @@ function copyForecastInput(event: AthenaForecastInput): AthenaForecastInput {
           },
         }
       : null,
+    permanentDefinition: event.permanentDefinition
+      ? {
+          ...event.permanentDefinition,
+          colors: [...event.permanentDefinition.colors],
+          colorIdentity: [...event.permanentDefinition.colorIdentity],
+          keywords: [...event.permanentDefinition.keywords],
+          cardFaces: event.permanentDefinition.cardFaces.map((face) => ({
+            ...face,
+          })),
+        }
+      : null,
     relevantTotalImplications: { ...event.relevantTotalImplications },
     confidence: event.confidence ? { ...event.confidence } : null,
     metadata: { ...event.metadata },

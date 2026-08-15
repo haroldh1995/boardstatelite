@@ -1,12 +1,12 @@
-import type { Owner } from "../domain/types";
+import type { CardIdentity, GameEventType, Owner, Zone } from "../domain/types";
 import type { AmbientGameplayMode } from "./ambientTypes";
 import type {
   AmbientIntentInput,
   AmbientIntentKind,
 } from "./ambientEventTypes";
 
-export const PRE_TURN_PLANNER_VERSION = 1;
-export const PRE_TURN_PLANNER_ACTION_STRIP_VERSION = 1;
+export const PRE_TURN_PLANNER_VERSION = 2;
+export const PRE_TURN_PLANNER_ACTION_STRIP_VERSION = 2;
 
 export type PreTurnPlannerActionType =
   | "land-play"
@@ -16,6 +16,9 @@ export type PreTurnPlannerActionType =
   | "blocker-reminder"
   | "token-creation"
   | "counter-placement"
+  | "sacrifice"
+  | "activated-ability"
+  | "zone-movement"
   | "trigger-reminder"
   | "end-step-reminder"
   | "hold-up-interaction"
@@ -26,7 +29,93 @@ export type PreTurnPlannerActionStatus =
   | "planned"
   | "completed"
   | "skipped"
-  | "cancelled";
+  | "cancelled"
+  | "invalidated"
+  | "diverged";
+
+export type TurnIntentConfidence =
+  | "explicit"
+  | "inferred-high-confidence"
+  | "inferred-low-confidence";
+
+export type TurnIntentSource =
+  | "pre-turn-survey"
+  | "manual-planner"
+  | "echo-voice"
+  | "card-selection"
+  | "scryfall"
+  | "known-card-state"
+  | "boardstate-session"
+  | "previous-intent";
+
+export type PreparedActionValidity =
+  | "prepared"
+  | "ready"
+  | "awaiting-confirmation"
+  | "awaiting-target"
+  | "awaiting-quantity"
+  | "awaiting-mode"
+  | "awaiting-selection"
+  | "awaiting-order"
+  | "authority-required"
+  | "manual-action-required"
+  | "unsupported"
+  | "invalidated"
+  | "diverged"
+  | "stale";
+
+export type PreparedActionRequirement =
+  | "confirmation"
+  | "target"
+  | "quantity"
+  | "mode"
+  | "selection"
+  | "order"
+  | "authority"
+  | "manual-resolution";
+
+export interface PlannedTokenDefinition {
+  name: string;
+  power: number;
+  toughness: number;
+  cardTypes: string[];
+  subtypes: string[];
+  colors: string[];
+  tapped: boolean;
+  attacking: boolean;
+}
+
+export interface PlannedActionExecution {
+  support: "local" | "manual" | "authority" | "unsupported";
+  eventCategory: GameEventType | null;
+  quantity: number;
+  counterType: string | null;
+  originZone: Zone | null;
+  destinationZone: Zone | null;
+  targetGroupIds: string[];
+  mode: string | null;
+  requirements: PreparedActionRequirement[];
+  token: PlannedTokenDefinition | null;
+}
+
+export interface PreparedActionMetadata {
+  preparedActionId: string;
+  validity: PreparedActionValidity;
+  confidence: TurnIntentConfidence;
+  intentSource: TurnIntentSource;
+  canonicalStateFingerprint: string | null;
+  forecastReference: string | null;
+  expectedReplacementReferences: string[];
+  expectedTriggerSummary: string[];
+  expectedBookkeeping: string[];
+  reasonCodes: string[];
+  authorityRequired: boolean;
+  manualActionRequired: boolean;
+  confirmedAt: string | null;
+  confirmationReceiptId: string | null;
+  canonicalEventIds: string[];
+  sourceFaceCardId: string | null;
+}
 
 export type PreTurnPlannerAvailability =
   | "available"
@@ -76,8 +165,12 @@ export interface PlannedAction {
   completedAt: string | null;
   skippedAt: string | null;
   cancelledAt: string | null;
+  quantity: number;
+  cardSnapshot: CardIdentity | null;
   land: PlannedLandOptions | null;
   mana: PlannedManaUse | null;
+  execution: PlannedActionExecution;
+  prepared: PreparedActionMetadata;
   actionStrip: {
     intentKind: AmbientIntentKind;
     readyForActionStrip: boolean;
@@ -97,8 +190,13 @@ export interface PlannedActionInput {
   notes?: string;
   reminders?: string[];
   status?: PreTurnPlannerActionStatus;
+  quantity?: number;
+  cardSnapshot?: CardIdentity | null;
   land?: Partial<PlannedLandOptions> | null;
   mana?: Partial<PlannedManaUse> | null;
+  execution?: Partial<PlannedActionExecution> | null;
+  confidence?: TurnIntentConfidence;
+  intentSource?: TurnIntentSource;
 }
 
 export interface PlannedActionUpdate extends Partial<
@@ -121,9 +219,21 @@ export interface PreTurnPlannerActionStripItem {
 export interface PreTurnPlannerState {
   version: typeof PRE_TURN_PLANNER_VERSION;
   sessionId: string | null;
+  participantId: string | null;
   status: PreTurnPlannerLifecycleStatus;
   createdAt: string;
   updatedAt: string;
+  turnId: string;
+  intentVersion: number;
+  canonicalSessionVersion: string | null;
+  privateToParticipant: true;
+  availableLandPlays: {
+    planned: number;
+    remaining: number;
+    confirmed: number;
+    updatedAt: string;
+    source: TurnIntentSource;
+  };
   actions: PlannedAction[];
   collapsedGroups: Record<PreTurnPlannerActionType | "completed", boolean>;
   lifecycle: {
@@ -151,4 +261,8 @@ export interface PreTurnPlannerDiagnostics {
   completedActionCount: number;
   cancelledActionCount: number;
   readOnly: boolean;
+  availableLandPlays: number;
+  preparedActionCount: number;
+  invalidatedActionCount: number;
+  divergedActionCount: number;
 }

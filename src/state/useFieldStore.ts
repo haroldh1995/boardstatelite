@@ -28,6 +28,7 @@ import type {
   CardIdentity,
   CounterApplicationMode,
   FieldState,
+  GameEvent,
   HistoryEntry,
   ModalState,
   RelevantTotalKey,
@@ -50,6 +51,7 @@ import {
   removePlannedAction,
   reorderPlannedAction,
   resetPreTurnPlanner,
+  setAvailableLandPlays,
   setPlannedActionStatus,
   setPlannerGroupCollapsed,
   syncPlannerWithAmbientMode,
@@ -118,6 +120,7 @@ import type {
   PreTurnPlannerActionType,
 } from "../echo/preTurnPlannerTypes";
 import type { ActiveTurnActionStatus } from "../echo/activeTurnActionStripTypes";
+import type { AmbientIntentKind } from "../echo/ambientEventTypes";
 import type {
   EchoAudioSampleMetrics,
   EchoVoiceSettings,
@@ -130,6 +133,12 @@ import {
 import { processAthenaConfirmedEventWithBookkeeping } from "../athena/triggerResolution";
 import type { AthenaForecastInput } from "../athena/eventForecastTypes";
 import type { AthenaConfirmedConsequencePipelineResult } from "../athena/triggerResolutionTypes";
+import {
+  executeAthenaPreparedAction,
+  matchAthenaPreparedActionForVoice,
+  reconcileAthenaTurnIntentWithCanonicalAction,
+  revalidateAthenaTurnIntent,
+} from "../athena/turnIntent";
 import { applyZoneCompositionCorrection } from "../domain/zoneComposition";
 import type {
   ZoneCompositionCommandResult,
@@ -228,11 +237,17 @@ interface FieldStore {
   plannerClearCompleted: () => void;
   plannerClearAll: () => void;
   plannerReset: () => void;
+  plannerSetAvailableLandPlays: (remaining: number) => void;
   plannerSetGroupCollapsed: (
     group: PreTurnPlannerActionType | "completed",
     collapsed: boolean,
   ) => void;
   actionStripSelectItem: (itemId: string) => AmbientPipelineResult | null;
+  actionStripConfirmVoice: (input: {
+    intentKind: AmbientIntentKind;
+    transcript: string;
+    speakerVerified: boolean;
+  }) => AmbientPipelineResult | null;
   actionStripSetItemStatus: (
     itemId: string,
     status: ActiveTurnActionStatus,
@@ -823,6 +838,24 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
     );
   },
 
+  plannerSetAvailableLandPlays(remaining) {
+    const before = get().field;
+    const timestamp = new Date().toISOString();
+    const prepared = preparePlannerField(before, timestamp);
+    commitPlannerField(
+      normalizeField({
+        ...prepared,
+        preTurnPlanner: setAvailableLandPlays(
+          prepared.preTurnPlanner,
+          remaining,
+          timestamp,
+          "pre-turn-survey",
+        ),
+      }),
+      set,
+    );
+  },
+
   plannerSetGroupCollapsed(group, collapsed) {
     const before = get().field;
     const timestamp = new Date().toISOString();
@@ -843,6 +876,21 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
 
   actionStripSelectItem(itemId) {
     return processActionStripItem(get, set, itemId, "completed");
+  },
+
+  actionStripConfirmVoice(input) {
+    const field = syncActionStripField(get().field, new Date().toISOString());
+    const match = matchAthenaPreparedActionForVoice({ field, ...input });
+    if (!match.accepted || !match.itemId) return null;
+    return processActionStripItem(
+      get,
+      set,
+      match.itemId,
+      "completed",
+      "voice",
+      input.speakerVerified,
+      input.transcript,
+    );
   },
 
   actionStripSetItemStatus(itemId, status) {
@@ -1596,6 +1644,8 @@ function commitResult(
     rendered.result.summary,
     set,
     showSummary ? rendered.result : null,
+    true,
+    rendered.result.events,
   );
 }
 
@@ -1607,11 +1657,27 @@ function commitField(
   set: (partial: Partial<FieldStore>) => void,
   result: ResolutionResult | null = null,
   observePersonalGameplay = true,
+  canonicalEvents: GameEvent[] = result?.events ?? [],
 ): void {
   const committedAt = new Date().toISOString();
+  const reconciledAfter =
+    canonicalEvents.reduce(
+      (current, event) =>
+        reconcileAthenaTurnIntentWithCanonicalAction(
+          current,
+          event,
+          committedAt,
+        ),
+      after,
+    ) ?? after;
   const observedAfter = observePersonalGameplay
-    ? withPersonalGameplayObservation(after, label, summary, committedAt)
-    : after;
+    ? withPersonalGameplayObservation(
+        reconciledAfter,
+        label,
+        summary,
+        committedAt,
+      )
+    : reconciledAfter;
   const coordinatedAfter = withAmbientOrchestratorContext(
     observedAfter,
     committedAt,
@@ -1662,7 +1728,7 @@ function withDerivedField(field: FieldState): FieldState {
     timestamp: field.updatedAt,
     reason: "canonical-field-change",
   });
-  return derived.field;
+  return revalidateAthenaTurnIntent(derived.field, field.updatedAt);
 }
 
 function commitPlannerField(
@@ -1849,6 +1915,9 @@ function processActionStripItem(
   set: (partial: Partial<FieldStore>) => void,
   itemId: string,
   status: ActiveTurnActionStatus,
+  channel: "tap" | "voice" = "tap",
+  speakerVerified: boolean | null = null,
+  recognizedText: string | null = null,
 ): AmbientPipelineResult | null {
   const timestamp = new Date().toISOString();
   const baseField = syncActionStripField(get().field, timestamp);
@@ -1856,23 +1925,66 @@ function processActionStripItem(
     (entry) => entry.id === itemId,
   );
   if (!item) return null;
+  if (
+    status === "completed" &&
+    (item.status === "completed" || item.confirmationReceiptId)
+  ) {
+    return null;
+  }
+
+  const confirmationIntentId = `prepared-confirmation:${item.preparedActionId}`;
 
   const outcome = ambientEventPipeline.process({
     field: baseField,
     intent: {
       ...item.intent,
-      id: makeId("strip-intent"),
+      id:
+        status === "completed"
+          ? confirmationIntentId
+          : `${confirmationIntentId}:${status}:${timestamp}`,
       confidence: "high",
       requiresPreview: false,
       payload: {
         ...(item.intent.payload ?? {}),
         actionStripItemId: item.id,
         actionStripStatus: status,
+        confirmationChannel: channel,
       },
     },
     approval: { method: "automatic" },
-    mutation: ({ field: current }) =>
-      applyActionStripMutation(current, item.id, status, timestamp),
+    mutation: ({ field: current }) => {
+      if (status === "completed" && isPreparedGameplayItem(item.kind)) {
+        const preparedExecution = executeAthenaPreparedAction({
+          field: current,
+          item,
+          queue: athenaTriggerQueueForField(current, timestamp),
+          channel,
+          timestamp,
+          speakerVerified,
+          recognizedText,
+        });
+        if (preparedExecution.status !== "committed") {
+          throw new Error(preparedExecution.reason);
+        }
+        return {
+          field: preparedExecution.field,
+          title: "Prepared Action Completed",
+          summary: [preparedExecution.semanticDescription],
+          details: [],
+          events: preparedExecution.canonicalEvents,
+          changedGroupIds: uniqueStrings(
+            preparedExecution.canonicalEvents.flatMap(
+              (event) => event.groupIds,
+            ),
+          ),
+          loopDetected: false,
+          accessibilityAnnouncements: [
+            preparedExecution.accessibilityDescription,
+          ],
+        } satisfies ResolutionResult;
+      }
+      return applyActionStripMutation(current, item.id, status, timestamp);
+    },
     timestamp,
   });
 
@@ -1939,6 +2051,22 @@ function processActionStripItem(
   syncSubscribedMicrophoneService(coordinatedBlocked);
   void saveField(coordinatedBlocked);
   return outcome;
+}
+
+function isPreparedGameplayItem(
+  kind: FieldState["activeTurnActionStrip"]["items"][number]["kind"],
+): boolean {
+  return (
+    kind === "play-planned-land" ||
+    kind === "cast-planned-spell" ||
+    kind === "activate-planned-ability" ||
+    kind === "sacrifice-planned-permanent" ||
+    kind === "move-planned-card"
+  );
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values)].sort((left, right) => left.localeCompare(right));
 }
 
 function applyActionStripMutation(

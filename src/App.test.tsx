@@ -1,4 +1,5 @@
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -6,7 +7,6 @@ import {
   waitFor,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { act } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { createDefaultField } from "./domain/field";
@@ -579,7 +579,7 @@ describe("Baord State Lite app shell", () => {
     await user.click(
       screen.getByRole("button", { name: /open pre-turn planner/i }),
     );
-    await user.type(screen.getByLabelText(/plan title/i), "Command Tower");
+    await user.type(screen.getByLabelText(/plan title/i), "Forest");
     await user.click(
       screen.getByRole("button", { name: /add planned action/i }),
     );
@@ -595,7 +595,7 @@ describe("Baord State Lite app shell", () => {
       "activeTurn",
     );
     await user.click(
-      screen.getAllByRole("button", { name: /^Play Command Tower/i })[0],
+      screen.getAllByRole("button", { name: /^Play Forest/i })[0],
     );
 
     expect(

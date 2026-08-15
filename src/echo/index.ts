@@ -49,6 +49,10 @@ export {
   removePlannedAction,
   reorderPlannedAction,
   resetPreTurnPlanner,
+  expireTurnIntent,
+  recordConfirmedLandPlay,
+  recordPlannedActionExecution,
+  setAvailableLandPlays,
   setPlannedActionStatus,
   setPlannerGroupCollapsed,
   sortPlannedActions,
@@ -393,6 +397,8 @@ export type {
 export type {
   PlannedAction,
   PlannedActionInput,
+  PlannedActionExecution,
+  PlannedTokenDefinition,
   PlannedActionUpdate,
   PlannedLandOptions,
   PlannedManaUse,
@@ -403,6 +409,11 @@ export type {
   PreTurnPlannerDiagnostics,
   PreTurnPlannerLifecycleStatus,
   PreTurnPlannerState,
+  PreparedActionMetadata,
+  PreparedActionRequirement,
+  PreparedActionValidity,
+  TurnIntentConfidence,
+  TurnIntentSource,
 } from "./preTurnPlannerTypes";
 export type {
   ActiveTurnActionKind,

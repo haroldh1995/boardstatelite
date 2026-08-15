@@ -88,6 +88,15 @@ export {
   resolveAthenaPendingTrigger,
 } from "./triggerResolution";
 export {
+  AthenaTurnIntentEngine,
+  athenaTurnIntentEngine,
+  canonicalTurnStateFingerprint,
+  createBasicLandIdentity,
+  executeAthenaPreparedAction,
+  matchAthenaPreparedActionForVoice,
+  revalidateAthenaTurnIntent,
+} from "./turnIntent";
+export {
   ATHENA_COMPATIBILITY_VERSION,
   ATHENA_CONTEXT_VERSION,
   ATHENA_FOUNDATION_VERSION,
@@ -124,6 +133,7 @@ export {
   ATHENA_DERIVED_STATE_VERSION,
 } from "./derivedStateTypes";
 export { ATHENA_TRIGGER_RESOLUTION_VERSION } from "./triggerResolutionTypes";
+export { ATHENA_TURN_INTENT_VERSION } from "./turnIntentTypes";
 export * from "../domain/zoneComposition";
 export * from "../domain/zoneCompositionTypes";
 export type {
@@ -310,3 +320,13 @@ export type {
   AthenaTriggerResolutionResult,
   AthenaTriggerResolutionStatus,
 } from "./triggerResolutionTypes";
+export type {
+  AthenaPreparedActionConfirmationChannel,
+  AthenaPreparedActionEligibility,
+  AthenaPreparedActionExecutionInput,
+  AthenaPreparedActionExecutionResult,
+  AthenaPreparedActionExecutionStatus,
+  AthenaPreparedVoiceMatchInput,
+  AthenaPreparedVoiceMatchResult,
+  AthenaTurnIntentDiagnostics,
+} from "./turnIntentTypes";

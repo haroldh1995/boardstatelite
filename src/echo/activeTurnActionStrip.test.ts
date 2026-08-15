@@ -6,6 +6,7 @@ import {
 } from "../domain/field";
 import { createLiteFieldSnapshot } from "../rulesAdapter";
 import { useFieldStore } from "../state/useFieldStore";
+import { testCard } from "../test/factories";
 import { AmbientGameplayEngine } from "./ambientEngine";
 import {
   addPlannedAction,
@@ -166,6 +167,11 @@ describe("Active Turn Action Strip", () => {
       id: "planned-spell",
       type: "spell-sequence",
       title: "Sol Ring",
+      cardSnapshot: testCard({
+        name: "Sol Ring",
+        typeLine: "Artifact",
+        oracleText: "{T}: Add {C}{C}.",
+      }),
     });
 
     field = useFieldStore.getState().field;
@@ -279,6 +285,52 @@ describe("Active Turn Action Strip", () => {
     if (!endTurn) throw new Error("Expected end turn item.");
     useFieldStore.getState().actionStripSelectItem(endTurn.id);
     expect(useFieldStore.getState().field.ambient.currentMode).toBe("postTurn");
+  });
+
+  it("deduplicates simultaneous verified voice and tap confirmation", () => {
+    const field = createDefaultField();
+    useFieldStore.setState({
+      field,
+      hydrated: true,
+      startupVisible: false,
+      modal: null,
+      lastResult: null,
+      undoStack: [],
+      redoStack: [],
+    });
+    useFieldStore.getState().plannerSetAvailableLandPlays(1);
+    const begin = useFieldStore
+      .getState()
+      .field.activeTurnActionStrip.items.find(
+        (item) => item.kind === "begin-turn",
+      );
+    if (!begin) throw new Error("Expected begin turn action.");
+    useFieldStore.getState().actionStripSelectItem(begin.id);
+    const prepared = useFieldStore
+      .getState()
+      .field.activeTurnActionStrip.items.find(
+        (item) =>
+          item.kind === "play-planned-land" && item.sourceActionId === null,
+      );
+    if (!prepared) throw new Error("Expected a generic land action.");
+
+    const voice = useFieldStore.getState().actionStripConfirmVoice({
+      intentKind: "play-land",
+      transcript: "Play Forest",
+      speakerVerified: true,
+    });
+    const tap = useFieldStore.getState().actionStripSelectItem(prepared.id);
+
+    expect(voice?.status).toBe("completed");
+    expect(tap).toBeNull();
+    expect(
+      useFieldStore
+        .getState()
+        .field.groups.filter((group) => group.label === "Forest"),
+    ).toHaveLength(1);
+    expect(
+      useFieldStore.getState().field.preTurnPlanner.availableLandPlays,
+    ).toMatchObject({ remaining: 0, confirmed: 1 });
   });
 
   it("persists through migration, snapshots, and imports", () => {

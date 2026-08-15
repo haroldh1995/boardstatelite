@@ -30,6 +30,9 @@ const TERMINAL_STATUSES = new Set<ActiveTurnActionStatus>([
   "completed",
   "skipped",
   "cancelled",
+  "invalidated",
+  "diverged",
+  "unsupported",
 ]);
 
 const ACTIVE_TURN_SYSTEM_ACTIONS: SystemActionDefinition[] = [
@@ -406,6 +409,27 @@ export function getActionStripDiagnostics(
       .length,
     blockedCount: strip.items.filter((item) => item.status === "blocked")
       .length,
+    executableCount: strip.items.filter(
+      (item) =>
+        (item.status === "pending" || item.status === "current") &&
+        (item.validity === "ready" ||
+          item.validity === "awaiting-confirmation"),
+    ).length,
+    inputRequiredCount: strip.items.filter((item) =>
+      [
+        "awaiting-target",
+        "awaiting-quantity",
+        "awaiting-mode",
+        "awaiting-selection",
+        "awaiting-order",
+      ].includes(item.validity),
+    ).length,
+    authorityRequiredCount: strip.items.filter(
+      (item) => item.validity === "authority-required",
+    ).length,
+    staleCount: strip.items.filter(
+      (item) => item.validity === "stale" || item.status === "stale",
+    ).length,
     lastPipelineEventId: strip.lastPipelineEventId,
     lastFailureReason: strip.lastFailureReason,
   };
@@ -418,6 +442,8 @@ export function plannerStatusFromActionStripStatus(
   if (status === "completed") return "completed";
   if (status === "skipped") return "skipped";
   if (status === "cancelled") return "cancelled";
+  if (status === "invalidated") return "invalidated";
+  if (status === "diverged") return "diverged";
   return null;
 }
 
@@ -447,6 +473,7 @@ function createCatalog(
           source: "turn-context",
         },
         timestamp,
+        planner.turnId,
       ),
     );
   }
@@ -454,27 +481,42 @@ function createCatalog(
   const includePlanner = mode !== "combat";
   if (includePlanner) {
     for (const planned of sortPlannedActions(planner.actions)) {
-      const item = createPlannerItem(planned, mode, timestamp);
+      const item = createPlannerItem(planned, mode, timestamp, planner.turnId);
       if (item) items.push(item);
     }
   } else {
     for (const planned of sortPlannedActions(planner.actions)) {
       if (planned.type !== "planned-attack") continue;
-      const item = createPlannerItem(planned, mode, timestamp);
+      const item = createPlannerItem(planned, mode, timestamp, planner.turnId);
       if (item) items.push(item);
+    }
+  }
+
+  if (includePlanner) {
+    const explicitLandCount = planner.actions.filter(
+      (action) => action.type === "land-play" && action.status === "planned",
+    ).length;
+    const genericLandSlots = Math.max(
+      0,
+      planner.availableLandPlays.remaining - explicitLandCount,
+    );
+    for (let index = 0; index < genericLandSlots; index += 1) {
+      items.push(createGenericLandItem(planner, mode, index, timestamp));
     }
   }
 
   if (mode === "activeTurn") {
     items.push(
       ...ACTIVE_TURN_SYSTEM_ACTIONS.map((item) =>
-        createSystemItem(item, timestamp),
+        createSystemItem(item, timestamp, planner.turnId),
       ),
     );
   }
   if (mode === "combat") {
     items.push(
-      ...COMBAT_SYSTEM_ACTIONS.map((item) => createSystemItem(item, timestamp)),
+      ...COMBAT_SYSTEM_ACTIONS.map((item) =>
+        createSystemItem(item, timestamp, planner.turnId),
+      ),
     );
   }
   return items;
@@ -484,13 +526,15 @@ function createPlannerItem(
   action: PlannedAction,
   mode: AmbientGameplayMode,
   timestamp: string,
+  turnIntentId: string,
 ): ActiveTurnActionStripItem | null {
   const kind = actionKindForPlannerAction(action.type);
   if (!kind) return null;
   const intent = plannedActionToAmbientIntent(action);
   const label = labelForPlannerAction(action);
+  const preparedActionId = action.prepared.preparedActionId;
   return {
-    id: makeId("turn-action"),
+    id: stableActionId(preparedActionId),
     key: `planner-${action.id}`,
     kind,
     label,
@@ -516,7 +560,7 @@ function createPlannerItem(
       },
     },
     order: 100 + action.order,
-    status: "pending",
+    status: statusForValidity(action.prepared.validity),
     requiredMode:
       mode === "preTurnPreparation"
         ? null
@@ -530,15 +574,31 @@ function createPlannerItem(
     cancelledAt: null,
     deferredAt: null,
     blockedReason: null,
+    preparedActionId,
+    turnIntentId,
+    validity: action.prepared.validity,
+    confidence: action.prepared.confidence,
+    plannedQuantity: action.quantity,
+    confirmationRequirements: [...action.execution.requirements],
+    canonicalStateFingerprint: action.prepared.canonicalStateFingerprint,
+    forecastReference: action.prepared.forecastReference,
+    expectedCanonicalEventId: `prepared-event:${preparedActionId}`,
+    expectedTriggerSummary: [...action.prepared.expectedTriggerSummary],
+    expectedBookkeeping: [...action.prepared.expectedBookkeeping],
+    confirmationReceiptId: action.prepared.confirmationReceiptId,
+    resultingCanonicalEventIds: [...action.prepared.canonicalEventIds],
+    semanticDescription: `Prepared action. ${label}.`,
   };
 }
 
 function createSystemItem(
   definition: SystemActionDefinition,
   timestamp: string,
+  turnIntentId = "system",
 ): ActiveTurnActionStripItem {
+  const preparedActionId = `prepared-system:${turnIntentId}:${definition.key}`;
   return {
-    id: makeId("turn-action"),
+    id: stableActionId(preparedActionId),
     key: definition.key,
     kind: definition.kind,
     label: definition.label,
@@ -569,6 +629,61 @@ function createSystemItem(
     cancelledAt: null,
     deferredAt: null,
     blockedReason: null,
+    preparedActionId,
+    turnIntentId,
+    validity: "ready",
+    confidence: "explicit",
+    plannedQuantity: 1,
+    confirmationRequirements: ["confirmation"],
+    canonicalStateFingerprint: null,
+    forecastReference: null,
+    expectedCanonicalEventId: `prepared-event:${preparedActionId}`,
+    expectedTriggerSummary: [],
+    expectedBookkeeping: [],
+    confirmationReceiptId: null,
+    resultingCanonicalEventIds: [],
+    semanticDescription: `Prepared action. ${definition.label}.`,
+  };
+}
+
+function createGenericLandItem(
+  planner: PreTurnPlannerState,
+  mode: AmbientGameplayMode,
+  index: number,
+  timestamp: string,
+): ActiveTurnActionStripItem {
+  const slot = planner.availableLandPlays.confirmed + index + 1;
+  const preparedActionId = `prepared:${planner.turnId}:land-slot:${slot}`;
+  const definition: SystemActionDefinition = {
+    key: `planner-land-slot:${slot}`,
+    kind: "play-planned-land",
+    label: "Play Land",
+    detail: `${planner.availableLandPlays.remaining} planned land play${planner.availableLandPlays.remaining === 1 ? "" : "s"} remaining.`,
+    intentKind: "play-land",
+    order: 80 + index,
+    requiredMode: "activeTurn",
+    source: "planner",
+  };
+  const item = createSystemItem(definition, timestamp);
+  return {
+    ...item,
+    id: stableActionId(preparedActionId),
+    preparedActionId,
+    turnIntentId: planner.turnId,
+    requiredMode: mode === "preTurnPreparation" ? null : "activeTurn",
+    intent: {
+      ...item.intent,
+      id: `prepared-intent:${preparedActionId}`,
+      requiresPreview: mode === "preTurnPreparation",
+      payload: {
+        ...(item.intent.payload ?? {}),
+        preparedActionId,
+        genericLandSlot: slot,
+        quantity: 1,
+      },
+    },
+    expectedCanonicalEventId: `prepared-event:${preparedActionId}`,
+    semanticDescription: "Prepared action. Play a land.",
   };
 }
 
@@ -580,6 +695,18 @@ function chooseItemStatus(
   if (plannerStatus === "completed") return "completed";
   if (plannerStatus === "skipped") return "skipped";
   if (plannerStatus === "cancelled") return "cancelled";
+  if (plannerStatus === "invalidated") return "invalidated";
+  if (plannerStatus === "diverged") return "diverged";
+  if (
+    draft === "invalidated" ||
+    draft === "diverged" ||
+    draft === "stale" ||
+    draft === "authority-required" ||
+    draft === "manual-action-required" ||
+    draft === "unsupported"
+  ) {
+    return draft;
+  }
   if (
     plannerStatus === "planned" &&
     existing &&
@@ -680,6 +807,39 @@ function normalizeActionStripItem(
     cancelledAt: normalizeNullableDate(candidate.cancelledAt),
     deferredAt: normalizeNullableDate(candidate.deferredAt),
     blockedReason: sanitizeNullableText(candidate.blockedReason),
+    preparedActionId: sanitizeText(
+      candidate.preparedActionId,
+      `legacy-prepared:${candidate.key ?? candidate.id ?? fallbackOrder}`,
+    ),
+    turnIntentId: sanitizeText(candidate.turnIntentId, "legacy-turn"),
+    validity: normalizePreparedValidity(candidate.validity),
+    confidence: normalizeIntentConfidence(candidate.confidence),
+    plannedQuantity: normalizePositiveInteger(candidate.plannedQuantity, 1),
+    confirmationRequirements: normalizeConfirmationRequirements(
+      candidate.confirmationRequirements,
+    ),
+    canonicalStateFingerprint: sanitizeNullableText(
+      candidate.canonicalStateFingerprint,
+    ),
+    forecastReference: sanitizeNullableText(candidate.forecastReference),
+    expectedCanonicalEventId: sanitizeText(
+      candidate.expectedCanonicalEventId,
+      `prepared-event:${candidate.preparedActionId ?? candidate.id ?? fallbackOrder}`,
+    ),
+    expectedTriggerSummary: normalizeStringArray(
+      candidate.expectedTriggerSummary,
+    ),
+    expectedBookkeeping: normalizeStringArray(candidate.expectedBookkeeping),
+    confirmationReceiptId: sanitizeNullableText(
+      candidate.confirmationReceiptId,
+    ),
+    resultingCanonicalEventIds: normalizeStringArray(
+      candidate.resultingCanonicalEventIds,
+    ),
+    semanticDescription: sanitizeText(
+      candidate.semanticDescription,
+      `Prepared action. ${label}.`,
+    ),
   };
 }
 
@@ -729,6 +889,9 @@ function actionKindForPlannerAction(
   if (type === "planned-attack") return "declare-planned-attack";
   if (type === "token-creation") return "activate-planned-ability";
   if (type === "counter-placement") return "activate-planned-ability";
+  if (type === "sacrifice") return "sacrifice-planned-permanent";
+  if (type === "activated-ability") return "activate-planned-ability";
+  if (type === "zone-movement") return "move-planned-card";
   if (type === "trigger-reminder") return "resolve-planned-trigger";
   if (type === "hold-up-interaction") return "hold-priority-reminder";
   if (type === "priority-reminder") return "pass-priority";
@@ -774,7 +937,14 @@ function normalizeItemStatus(value: unknown): ActiveTurnActionStatus | null {
     value === "skipped" ||
     value === "cancelled" ||
     value === "deferred" ||
-    value === "blocked"
+    value === "blocked" ||
+    value === "executing" ||
+    value === "invalidated" ||
+    value === "diverged" ||
+    value === "stale" ||
+    value === "authority-required" ||
+    value === "manual-action-required" ||
+    value === "unsupported"
     ? value
     : null;
 }
@@ -855,6 +1025,106 @@ function normalizeNullableDate(value: unknown): string | null {
   return typeof value === "string" ? value : null;
 }
 
+function statusForValidity(
+  validity: ActiveTurnActionStripItem["validity"],
+): ActiveTurnActionStatus {
+  if (validity === "invalidated") return "invalidated";
+  if (validity === "diverged") return "diverged";
+  if (validity === "stale") return "stale";
+  if (validity === "authority-required") return "authority-required";
+  if (validity === "manual-action-required") return "manual-action-required";
+  if (validity === "unsupported") return "unsupported";
+  return "pending";
+}
+
+function normalizePreparedValidity(
+  value: unknown,
+): ActiveTurnActionStripItem["validity"] {
+  return value === "prepared" ||
+    value === "ready" ||
+    value === "awaiting-confirmation" ||
+    value === "awaiting-target" ||
+    value === "awaiting-quantity" ||
+    value === "awaiting-mode" ||
+    value === "awaiting-selection" ||
+    value === "awaiting-order" ||
+    value === "authority-required" ||
+    value === "manual-action-required" ||
+    value === "unsupported" ||
+    value === "invalidated" ||
+    value === "diverged" ||
+    value === "stale"
+    ? value
+    : "prepared";
+}
+
+function normalizeIntentConfidence(
+  value: unknown,
+): ActiveTurnActionStripItem["confidence"] {
+  return value === "explicit" ||
+    value === "inferred-high-confidence" ||
+    value === "inferred-low-confidence"
+    ? value
+    : "explicit";
+}
+
+function normalizeConfirmationRequirements(
+  value: unknown,
+): ActiveTurnActionStripItem["confirmationRequirements"] {
+  const valid: ActiveTurnActionStripItem["confirmationRequirements"] = [
+    "confirmation",
+    "target",
+    "quantity",
+    "mode",
+    "selection",
+    "order",
+    "authority",
+    "manual-resolution",
+  ];
+  if (!Array.isArray(value)) return ["confirmation"];
+  const normalized = value.filter(
+    (entry): entry is (typeof valid)[number] =>
+      typeof entry === "string" &&
+      valid.includes(entry as (typeof valid)[number]),
+  );
+  return [
+    ...new Set(
+      normalized.length > 0
+        ? normalized
+        : ([
+            "confirmation",
+          ] as ActiveTurnActionStripItem["confirmationRequirements"]),
+    ),
+  ];
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return [
+    ...new Set(
+      value.filter((entry): entry is string => typeof entry === "string"),
+    ),
+  ]
+    .map((entry) => sanitizeText(entry, ""))
+    .filter(Boolean)
+    .slice(0, 40);
+}
+
+function normalizePositiveInteger(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value > 0
+    ? value
+    : fallback;
+}
+
+function stableActionId(value: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `turn-action:${(hash >>> 0).toString(16).padStart(8, "0")}`;
+}
+
 interface SystemActionDefinition {
   key: string;
   kind: ActiveTurnActionKind;
@@ -872,6 +1142,8 @@ const ACTION_KIND_LABELS: Record<ActiveTurnActionKind, string> = {
   "play-planned-land": "Play Planned Land",
   "cast-planned-spell": "Cast Planned Spell",
   "activate-planned-ability": "Activate Planned Ability",
+  "sacrifice-planned-permanent": "Sacrifice Planned Permanent",
+  "move-planned-card": "Move Planned Card",
   "move-to-combat": "Move to Combat",
   "declare-planned-attack": "Declare Planned Attack",
   "resolve-planned-trigger": "Resolve Planned Trigger",

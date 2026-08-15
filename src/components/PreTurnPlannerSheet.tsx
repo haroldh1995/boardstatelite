@@ -6,7 +6,9 @@ import {
   ChevronUp,
   CircleSlash,
   ClipboardList,
+  Minus,
   Pencil,
+  Plus,
   RotateCcw,
   Trash2,
 } from "lucide-react";
@@ -47,6 +49,8 @@ interface PlannerFormState {
   manaGreen: number;
   manaColorless: number;
   manaNotes: string;
+  quantity: number;
+  counterType: string;
 }
 
 export function PreTurnPlannerSheet() {
@@ -62,6 +66,9 @@ export function PreTurnPlannerSheet() {
   const clearAll = useFieldStore((state) => state.plannerClearAll);
   const resetPlanner = useFieldStore((state) => state.plannerReset);
   const setCollapsed = useFieldStore((state) => state.plannerSetGroupCollapsed);
+  const setAvailableLandPlays = useFieldStore(
+    (state) => state.plannerSetAvailableLandPlays,
+  );
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<PlannerFormState>(createEmptyForm());
 
@@ -86,7 +93,9 @@ export function PreTurnPlannerSheet() {
     planner.lifecycle.availability === "primary"
       ? "Pre-turn preparation"
       : planner.lifecycle.availability === "available"
-        ? "Available during opponents' turns"
+        ? field.ambient.currentMode === "activeTurn"
+          ? "Update the turn plan without restarting it"
+          : "Available during opponents' turns"
         : planner.lifecycle.availability === "read-only"
           ? "Read-only during active turn"
           : planner.lifecycle.availability === "minimized"
@@ -143,6 +152,41 @@ export function PreTurnPlannerSheet() {
         <span>{actionStrip.length} prepared for future action strip</span>
         <span>{planner.status}</span>
       </div>
+      <section
+        className="planner-land-survey"
+        aria-labelledby="land-plan-title"
+      >
+        <div>
+          <h3 id="land-plan-title">
+            How many lands do you plan to play next turn?
+          </h3>
+          <p>Available Land Plays</p>
+        </div>
+        <div className="planner-land-stepper">
+          <button
+            type="button"
+            aria-label="Decrease available land plays"
+            disabled={planner.availableLandPlays.remaining === 0}
+            onClick={() =>
+              setAvailableLandPlays(planner.availableLandPlays.remaining - 1)
+            }
+          >
+            <Minus />
+          </button>
+          <output aria-live="polite">
+            {planner.availableLandPlays.remaining}
+          </output>
+          <button
+            type="button"
+            aria-label="Increase available land plays"
+            onClick={() =>
+              setAvailableLandPlays(planner.availableLandPlays.remaining + 1)
+            }
+          >
+            <Plus />
+          </button>
+        </div>
+      </section>
       {readOnly && (
         <p className="planner-readonly">
           The planner is preserved for reference in this mode. Return to
@@ -239,6 +283,38 @@ export function PreTurnPlannerSheet() {
             placeholder="Hold priority, landfall, upkeep trigger"
           />
         </label>
+        {[
+          "token-creation",
+          "counter-placement",
+          "sacrifice",
+          "activated-ability",
+        ].includes(form.type) && (
+          <label>
+            Quantity
+            <input
+              type="number"
+              min={1}
+              value={form.quantity}
+              disabled={readOnly}
+              onChange={(event) =>
+                updateForm({ quantity: Number(event.target.value) })
+              }
+            />
+          </label>
+        )}
+        {form.type === "counter-placement" && (
+          <label>
+            Counter
+            <input
+              value={form.counterType}
+              disabled={readOnly}
+              onChange={(event) =>
+                updateForm({ counterType: event.target.value })
+              }
+              placeholder="+1/+1"
+            />
+          </label>
+        )}
         {form.type === "land-play" && (
           <fieldset className="planner-fieldset">
             <legend>Land planning</legend>
@@ -557,6 +633,8 @@ function createEmptyForm(): PlannerFormState {
     manaGreen: 0,
     manaColorless: 0,
     manaNotes: "",
+    quantity: 1,
+    counterType: "",
   };
 }
 
@@ -582,6 +660,8 @@ function actionToForm(action: PlannedAction): PlannerFormState {
     manaGreen: action.mana?.green ?? 0,
     manaColorless: action.mana?.colorless ?? 0,
     manaNotes: action.mana?.notes ?? "",
+    quantity: action.quantity,
+    counterType: action.execution.counterType ?? "",
   };
 }
 
@@ -622,7 +702,62 @@ function formToInput(form: PlannerFormState): PlannedActionInput {
     dependencyIds,
     notes: form.notes,
     reminders,
+    quantity: Math.max(1, Math.trunc(form.quantity || 1)),
     land,
     mana,
+    execution: executionForForm(form),
+  };
+}
+
+function executionForForm(
+  form: PlannerFormState,
+): PlannedActionInput["execution"] {
+  if (form.type === "land-play") {
+    return {
+      support: "local",
+      eventCategory: "land-entered",
+      quantity: 1,
+      destinationZone: "battlefield",
+      requirements: ["confirmation"],
+    };
+  }
+  if (form.type === "spell-sequence") {
+    return {
+      support: "local",
+      eventCategory: "permanent-entered",
+      quantity: 1,
+      destinationZone: "battlefield",
+      requirements: ["confirmation"],
+    };
+  }
+  if (form.type === "sacrifice") {
+    return {
+      support: form.relatedGroupId ? "local" : "manual",
+      eventCategory: "permanent-sacrificed",
+      quantity: Math.max(1, Math.trunc(form.quantity || 1)),
+      destinationZone: "graveyard",
+      targetGroupIds: form.relatedGroupId ? [form.relatedGroupId] : [],
+      requirements: form.relatedGroupId ? ["confirmation"] : ["selection"],
+    };
+  }
+  if (form.type === "counter-placement") {
+    return {
+      support:
+        form.relatedGroupId && form.counterType.trim() ? "local" : "manual",
+      eventCategory: "counter-placed",
+      quantity: Math.max(1, Math.trunc(form.quantity || 1)),
+      counterType: form.counterType,
+      targetGroupIds: form.relatedGroupId ? [form.relatedGroupId] : [],
+      requirements:
+        form.relatedGroupId && form.counterType.trim()
+          ? ["confirmation"]
+          : ["target"],
+    };
+  }
+  return {
+    support: "manual",
+    eventCategory: null,
+    quantity: Math.max(1, Math.trunc(form.quantity || 1)),
+    requirements: ["manual-resolution"],
   };
 }

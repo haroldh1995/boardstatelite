@@ -1,4 +1,6 @@
 import {
+  createCardGroup,
+  createGenericGroup,
   createTokenGroup,
   mergeCompatibleStacks,
   recalculateStats,
@@ -933,7 +935,81 @@ export function applyAthenaCanonicalConsequenceEvent(
   const changed = new Set<string>();
   const generated = new Set<string>();
 
-  if (event.eventCategory === "life-gained") {
+  if (
+    event.eventCategory === "land-entered" ||
+    event.eventCategory === "permanent-entered" ||
+    event.eventCategory === "creature-entered"
+  ) {
+    const destination = event.zoneDestination ?? "battlefield";
+    const existingIds = [...new Set(event.subjectGroupIds)];
+    if (existingIds.length > 0) {
+      if (existingIds.length !== 1) {
+        return fail("Prepared permanent entry supports one grouped subject.");
+      }
+      const existing = working.groups.find(
+        (group) => group.id === existingIds[0],
+      );
+      if (!existing || existing.zone === "battlefield") {
+        return fail("The prepared card is no longer in its expected zone.");
+      }
+      const quantity = Math.min(existing.quantity, event.quantity);
+      const split = splitGroupForQuantity(
+        working.groups,
+        existing.id,
+        quantity,
+      );
+      if (!split.targetId) return fail("The prepared card could not be moved.");
+      working.groups = split.groups.map((group) =>
+        group.id === split.targetId
+          ? applyEntryState(
+              withStackKey({ ...group, zone: destination }),
+              event,
+            )
+          : group,
+      );
+      changed.add(split.targetId);
+    } else {
+      let group = event.permanentDefinition
+        ? createCardGroup(
+            event.permanentDefinition,
+            event.quantity,
+            destination,
+          )
+        : createGenericGroup({
+            kind: genericKindForEntry(event),
+            label:
+              typeof event.metadata.label === "string"
+                ? event.metadata.label
+                : event.eventCategory === "land-entered"
+                  ? "Generic Land"
+                  : "Generic Permanent",
+            quantity: event.quantity,
+            zone: destination,
+            cardTypes: event.knownCharacteristics?.cardTypes,
+            subtypes: event.knownCharacteristics?.subtypes,
+            token: event.knownCharacteristics?.isToken,
+          });
+      group = applyEntryState(
+        withStackKey({
+          ...group,
+          id: `athena-group:${stableHash(`${resolutionId}:${event.eventId}:permanent`)}`,
+          order: event.sequence,
+        }),
+        event,
+      );
+      const beforeIds = new Set(working.groups.map((entry) => entry.id));
+      working.groups = mergeCompatibleStacks([...working.groups, group]);
+      const retained = working.groups.find(
+        (entry) => entry.stackKey === group.stackKey,
+      );
+      if (!retained)
+        return fail("The prepared permanent could not be created.");
+      changed.add(retained.id);
+      if (!beforeIds.has(retained.id)) generated.add(retained.id);
+    }
+  } else if (event.eventCategory === "spell-cast") {
+    // Casting is a canonical event even when Lite does not model the stack.
+  } else if (event.eventCategory === "life-gained") {
     if (working.player.life > Number.MAX_SAFE_INTEGER - event.quantity) {
       return fail("Life total overflow was prevented.");
     }
@@ -1074,6 +1150,30 @@ export function applyAthenaCanonicalConsequenceEvent(
           : group,
       );
       changed.add(split.targetId);
+    }
+  } else if (
+    event.eventCategory === "permanent-tapped" ||
+    event.eventCategory === "permanent-untapped"
+  ) {
+    if (event.subjectGroupIds.length === 0) {
+      return fail("Tap and untap consequences require a permanent.");
+    }
+    const targets = new Set(event.subjectGroupIds);
+    let found = 0;
+    working.groups = working.groups.map((group) => {
+      if (!targets.has(group.id) || group.zone !== "battlefield") return group;
+      found += 1;
+      changed.add(group.id);
+      return withStackKey({
+        ...group,
+        statuses: {
+          ...group.statuses,
+          tapped: event.eventCategory === "permanent-tapped",
+        },
+      });
+    });
+    if (found !== targets.size) {
+      return fail("A tap or untap subject is no longer available.");
     }
   } else {
     return fail(
@@ -1507,7 +1607,54 @@ function gameEventFromForecast(
       canonicalResultReference: event.canonicalResultReference,
       resolutionId,
     }),
+    zoneOrigin: event.zoneOrigin ?? undefined,
+    zoneDestination: event.zoneDestination ?? undefined,
   };
+}
+
+function applyEntryState(
+  group: FieldState["groups"][number],
+  event: AthenaForecastInput,
+): FieldState["groups"][number] {
+  const counterType =
+    typeof event.metadata.entryCounterType === "string"
+      ? event.metadata.entryCounterType
+      : null;
+  const counterQuantity =
+    typeof event.metadata.entryCounterQuantity === "number" &&
+    Number.isSafeInteger(event.metadata.entryCounterQuantity) &&
+    event.metadata.entryCounterQuantity > 0
+      ? event.metadata.entryCounterQuantity
+      : 0;
+  const counters = { ...group.counters };
+  if (counterType && counterQuantity > 0) {
+    counters[counterType] = (counters[counterType] ?? 0) + counterQuantity;
+  }
+  return withStackKey(
+    recalculateStats({
+      ...group,
+      counters,
+      statuses: {
+        ...group.statuses,
+        tapped: event.metadata.entersTapped === true,
+        transformed: event.metadata.entersTransformed === true,
+      },
+    }),
+  );
+}
+
+function genericKindForEntry(
+  event: AthenaForecastInput,
+): Parameters<typeof createGenericGroup>[0]["kind"] {
+  const types = event.knownCharacteristics?.cardTypes ?? [];
+  if (event.eventCategory === "land-entered" || types.includes("Land")) {
+    return "Land";
+  }
+  if (types.includes("Creature")) return "Creature";
+  if (types.includes("Equipment")) return "Equipment";
+  if (types.includes("Artifact")) return "Artifact";
+  if (types.includes("Enchantment")) return "Enchantment";
+  return "Noncreature permanent";
 }
 
 function transitionForEligibility(

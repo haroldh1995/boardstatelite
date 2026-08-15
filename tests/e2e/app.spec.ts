@@ -189,6 +189,48 @@ test("pre-turn planner creates editable plans without mutating the battlefield",
   ).toBeVisible();
 });
 
+test("prepared Forest confirms once and Available Land Plays stays editable", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await continuePastStartup(page);
+
+  await page.getByRole("button", { name: /^Tools$/ }).click();
+  await page.getByRole("button", { name: /Open Pre-Turn Planner/i }).click();
+  const landSurvey = page.getByRole("region", {
+    name: /How many lands do you plan to play next turn/i,
+  });
+  await landSurvey
+    .getByRole("button", { name: "Increase available land plays" })
+    .click();
+  await landSurvey
+    .getByRole("button", { name: "Increase available land plays" })
+    .click();
+  await page.getByLabel("Plan title").fill("Forest");
+  await page.getByLabel("Land to play").fill("Forest");
+  await page.getByRole("button", { name: "Add Planned Action" }).click();
+  await page.keyboard.press("Escape");
+
+  await page
+    .getByRole("button", { name: /^Begin Turn/ })
+    .first()
+    .click();
+  await page
+    .getByRole("button", { name: /^Play Forest/ })
+    .first()
+    .click();
+  await expect(page.getByLabel(/Forest, stack size 1/i)).toBeVisible();
+  await expect(page.locator(".action-strip-land-plays output")).toHaveText("1");
+
+  await page
+    .locator(".action-strip-land-plays")
+    .getByRole("button", { name: "Increase available land plays" })
+    .click();
+  await expect(page.locator(".action-strip-land-plays output")).toHaveText("2");
+  await expect(page.getByLabel(/Forest, stack size 1/i)).toHaveCount(1);
+});
+
 test("voice settings remain opt-in and do not expose unfinished controls", async ({
   page,
 }) => {
@@ -230,6 +272,27 @@ test("voice settings remain opt-in and do not expose unfinished controls", async
   await expect(page.getByText(/Play a Forest/i)).toBeVisible();
   await expect(
     page.getByRole("button", { name: /Record Current Sample/i }),
+  ).toBeVisible();
+});
+
+test("production PWA starts from its precache while offline", async ({
+  page,
+  context,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await continuePastStartup(page);
+  await page.evaluate(async () => {
+    await navigator.serviceWorker.ready;
+  });
+  await context.setOffline(true);
+  await page.reload({ waitUntil: "domcontentloaded" });
+
+  await expect(
+    page.getByRole("button", { name: /40 tap to set life total/i }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /activate field/i }),
   ).toBeVisible();
 });
 

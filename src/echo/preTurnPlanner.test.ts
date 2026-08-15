@@ -23,6 +23,7 @@ import {
   removePlannedAction,
   reorderPlannedAction,
   resetPreTurnPlanner,
+  setAvailableLandPlays,
   setPlannedActionStatus,
   setPlannerGroupCollapsed,
   syncPlannerWithAmbientMode,
@@ -174,7 +175,7 @@ describe("One-Minute Pre-Turn Planner", () => {
   it("maps ambient modes to planner lifecycle availability", () => {
     expect(getPreTurnPlannerAvailability("passive")).toBe("available");
     expect(getPreTurnPlannerAvailability("preTurnPreparation")).toBe("primary");
-    expect(getPreTurnPlannerAvailability("activeTurn")).toBe("read-only");
+    expect(getPreTurnPlannerAvailability("activeTurn")).toBe("available");
     expect(getPreTurnPlannerAvailability("combat")).toBe("minimized");
     expect(getPreTurnPlannerAvailability("resolution")).toBe("unavailable");
     expect(getPreTurnPlannerAvailability("recovery")).toBe("recovery");
@@ -183,11 +184,32 @@ describe("One-Minute Pre-Turn Planner", () => {
     const active = syncPlannerWithAmbientMode(planner, "activeTurn", timestamp);
     const recovery = syncPlannerWithAmbientMode(active, "recovery", timestamp);
 
-    expect(active.lifecycle.readOnly).toBe(true);
+    expect(active.lifecycle.readOnly).toBe(false);
     expect(recovery.lifecycle).toMatchObject({
       availability: "recovery",
       readOnly: true,
     });
+  });
+
+  it("updates Available Land Plays during active and minimized turn modes without game events", () => {
+    const field = createDefaultField();
+    const active = syncPlannerWithAmbientMode(
+      field.preTurnPlanner,
+      "activeTurn",
+      timestamp,
+    );
+    const activeUpdated = setAvailableLandPlays(active, 2, timestamp);
+    const combat = syncPlannerWithAmbientMode(
+      activeUpdated,
+      "combat",
+      timestamp,
+    );
+    const combatUpdated = setAvailableLandPlays(combat, 3, timestamp);
+
+    expect(activeUpdated.availableLandPlays.remaining).toBe(2);
+    expect(combatUpdated.availableLandPlays.remaining).toBe(3);
+    expect(field.groups).toHaveLength(1);
+    expect(field.groups[0].quantity).toBe(8);
   });
 
   it("prepares future action strip items and Ambient intents without executing them", () => {
@@ -213,7 +235,7 @@ describe("One-Minute Pre-Turn Planner", () => {
     expect(items).toHaveLength(1);
     expect(items[0].intent).toMatchObject({
       source: "turn-planner",
-      confidence: "medium",
+      confidence: "high",
       requiresPreview: true,
     });
     expect(createAmbientIntent(intentInput).source).toBe("turn-planner");

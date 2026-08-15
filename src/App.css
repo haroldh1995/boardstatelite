@@ -525,6 +525,38 @@ textarea:focus-visible {
   font-size: 0.76rem;
 }
 
+.action-strip-land-plays {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 30px 34px 30px;
+  align-items: center;
+  gap: 5px;
+  min-height: 34px;
+  color: #dfffe7;
+  font-size: 0.72rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.action-strip-land-plays button {
+  width: 30px;
+  min-height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.action-strip-land-plays svg {
+  width: 15px;
+  height: 15px;
+}
+
+.action-strip-land-plays output {
+  text-align: center;
+  color: #fff;
+  font-size: 1rem;
+}
+
 .action-strip-current {
   min-height: 60px;
   display: grid;
@@ -599,12 +631,18 @@ textarea:focus-visible {
 
 .action-strip-item-skipped,
 .action-strip-item-cancelled,
-.action-strip-item-deferred {
+.action-strip-item-deferred,
+.action-strip-item-invalidated,
+.action-strip-item-diverged,
+.action-strip-item-stale,
+.action-strip-item-manual-action-required,
+.action-strip-item-unsupported {
   border-color: rgba(191, 201, 211, 0.22);
   filter: saturate(0.78);
 }
 
-.action-strip-item-blocked {
+.action-strip-item-blocked,
+.action-strip-item-authority-required {
   border-color: rgba(255, 116, 116, 0.42);
 }
 
@@ -2278,6 +2316,61 @@ textarea {
   border-radius: 10px;
   padding: 9px;
   background: rgba(76, 52, 12, 0.22);
+}
+
+.planner-land-survey {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+  border-top: 1px solid rgba(143, 211, 255, 0.2);
+  border-bottom: 1px solid rgba(143, 211, 255, 0.2);
+}
+
+.planner-land-survey h3,
+.planner-land-survey p {
+  margin: 0;
+}
+
+.planner-land-survey h3 {
+  color: #f7fff9;
+  font-size: 0.9rem;
+}
+
+.planner-land-survey p {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+.planner-land-stepper {
+  display: grid;
+  grid-template-columns: 36px 42px 36px;
+  align-items: center;
+  gap: 5px;
+}
+
+.planner-land-stepper button {
+  width: 36px;
+  min-height: 36px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.planner-land-stepper svg {
+  width: 17px;
+  height: 17px;
+}
+
+.planner-land-stepper output {
+  text-align: center;
+  color: #fff;
+  font-size: 1.25rem;
+  font-weight: 900;
 }
 
 .planner-form {

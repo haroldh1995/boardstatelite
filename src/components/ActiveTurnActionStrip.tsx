@@ -6,6 +6,8 @@ import {
   ChevronDown,
   ChevronUp,
   Clock3,
+  Minus,
+  Plus,
   RotateCcw,
   SkipForward,
 } from "lucide-react";
@@ -31,6 +33,12 @@ export function ActiveTurnActionStrip() {
   const setExpanded = useFieldStore((state) => state.actionStripSetExpanded);
   const setCompletedCollapsed = useFieldStore(
     (state) => state.actionStripSetCompletedCollapsed,
+  );
+  const availableLandPlays = useFieldStore(
+    (state) => state.field.preTurnPlanner.availableLandPlays.remaining,
+  );
+  const setAvailableLandPlays = useFieldStore(
+    (state) => state.plannerSetAvailableLandPlays,
   );
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const sorted = useMemo(
@@ -76,6 +84,30 @@ export function ActiveTurnActionStrip() {
           {strip.expanded ? <ChevronUp /> : <ChevronDown />}
         </button>
       </div>
+      {(strip.visibility === "preview" || strip.visibility === "primary") && (
+        <div
+          className="action-strip-land-plays"
+          aria-label="Available Land Plays"
+        >
+          <span>Land plays</span>
+          <button
+            type="button"
+            aria-label="Decrease available land plays"
+            disabled={availableLandPlays === 0}
+            onClick={() => setAvailableLandPlays(availableLandPlays - 1)}
+          >
+            <Minus />
+          </button>
+          <output aria-live="polite">{availableLandPlays}</output>
+          <button
+            type="button"
+            aria-label="Increase available land plays"
+            onClick={() => setAvailableLandPlays(availableLandPlays + 1)}
+          >
+            <Plus />
+          </button>
+        </div>
+      )}
       {strip.lastFailureReason && (
         <p className="action-strip-warning" role="status">
           {strip.lastFailureReason}
@@ -248,7 +280,7 @@ function headerCopy(visibility: string): string {
   if (visibility === "suspended") return "Actions pause during resolution.";
   if (visibility === "recovery") return "Review or skip interrupted actions.";
   if (visibility === "archived") return "Completed actions are preserved.";
-  return "Confirm prepared actions without automatic execution.";
+  return "Confirm once; supported bookkeeping follows automatically.";
 }
 
 function canRunItem(
@@ -258,11 +290,30 @@ function canRunItem(
   if (visibility === "suspended" || visibility === "recovery") return false;
   if (visibility === "preview" && item.kind !== "begin-turn") return false;
   if (item.status === "blocked" || item.status === "deferred") return false;
+  if (
+    item.status === "executing" ||
+    item.status === "invalidated" ||
+    item.status === "diverged" ||
+    item.status === "stale" ||
+    item.status === "authority-required" ||
+    item.status === "manual-action-required" ||
+    item.status === "unsupported"
+  ) {
+    return false;
+  }
+  if (item.validity !== "ready" && item.validity !== "awaiting-confirmation") {
+    return false;
+  }
   return !isTerminal(item.status);
 }
 
 function isTerminal(status: ActiveTurnActionStatus): boolean {
   return (
-    status === "completed" || status === "skipped" || status === "cancelled"
+    status === "completed" ||
+    status === "skipped" ||
+    status === "cancelled" ||
+    status === "invalidated" ||
+    status === "diverged" ||
+    status === "unsupported"
   );
 }

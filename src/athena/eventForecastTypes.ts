@@ -1,4 +1,5 @@
 import type {
+  CardIdentity,
   Characteristics,
   GameEvent,
   RelevantTotalKey,
@@ -163,6 +164,7 @@ export interface AthenaForecastInput {
   zoneDestination: Zone | null;
   counterType: string | null;
   tokenDefinition: AthenaForecastTokenDefinitionReference | null;
+  permanentDefinition: CardIdentity | null;
   lifeDelta: number | null;
   commanderDamageDelta: number | null;
   relevantTotalImplications: Partial<Record<RelevantTotalKey, number>>;
@@ -187,6 +189,7 @@ export type AthenaForecastInputDraft = Partial<
     | "authorityPrecedence"
     | "knownCharacteristics"
     | "tokenDefinition"
+    | "permanentDefinition"
     | "relevantTotalImplications"
     | "metadata"
   >
@@ -198,6 +201,7 @@ export type AthenaForecastInputDraft = Partial<
     | AthenaForecastKnownCharacteristics
     | null;
   tokenDefinition?: Partial<AthenaForecastTokenDefinitionReference> | null;
+  permanentDefinition?: CardIdentity | null;
   relevantTotalImplications?: Partial<Record<RelevantTotalKey, number>>;
   metadata?: Record<string, string | number | boolean | null>;
 };
