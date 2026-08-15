@@ -696,7 +696,9 @@ function formToInput(form: PlannerFormState): PlannedActionInput {
       : null;
   return {
     type: form.type,
-    title: form.title,
+    title:
+      form.title.trim() ||
+      (form.type === "land-play" ? form.landPrimary.trim() : ""),
     relatedGroupId: form.relatedGroupId || null,
     relatedPlayer: form.relatedPlayer || null,
     dependencyIds,

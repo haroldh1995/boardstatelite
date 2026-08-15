@@ -64,6 +64,30 @@ describe("Active Turn Action Strip", () => {
     });
   });
 
+  it("labels a prepared land from its selected identity without a duplicate title", () => {
+    const field = createDefaultField();
+    const planner = addPlannedAction(field.preTurnPlanner, {
+      id: "planned-forest",
+      type: "land-play",
+      title: "",
+      land: { primary: "Forest" },
+    });
+    const strip = synchronizeActionStripWithPlanner(
+      field.activeTurnActionStrip,
+      {
+        planner,
+        ambientMode: "preTurnPreparation",
+        timestamp,
+        sessionId: field.session.id,
+      },
+    );
+
+    expect(
+      strip.items.find((item) => item.sourceActionId === "planned-forest")
+        ?.label,
+    ).toBe("Play Forest");
+  });
+
   it("creates active-turn and combat actions without using AI or automation", () => {
     const field = createDefaultField();
     const planner = addPlannedAction(field.preTurnPlanner, {

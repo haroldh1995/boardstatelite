@@ -903,7 +903,9 @@ function actionKindForPlannerAction(
 }
 
 function labelForPlannerAction(action: PlannedAction): string {
-  if (action.type === "land-play") return `Play ${action.title}`;
+  if (action.type === "land-play") {
+    return `Play ${action.land?.primary || action.title}`;
+  }
   if (action.type === "spell-sequence") return `Cast ${action.title}`;
   if (action.type === "planned-attack") return `Attack: ${action.title}`;
   if (action.type === "trigger-reminder") return `Resolve ${action.title}`;
