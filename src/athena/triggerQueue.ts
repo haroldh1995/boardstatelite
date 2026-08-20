@@ -343,6 +343,43 @@ export class AthenaPendingTriggerQueue {
       .map(copyTriggerInstance);
   }
 
+  applyUserOrder(ids: string[], timestamp: string): boolean {
+    const orderedIds = [...new Set(ids)];
+    if (orderedIds.length === 0) return false;
+    const entries = orderedIds.map((id) => this.entries.get(id) ?? null);
+    if (entries.some((entry) => !entry)) return false;
+    const groupIds = new Set(
+      entries.map((entry) => entry!.ordering.sameEventGroupId),
+    );
+    if (groupIds.size !== 1) return false;
+    const sameGroupEntries = [...this.entries.values()].filter(
+      (entry) =>
+        entry.ordering.sameEventGroupId ===
+          entries[0]!.ordering.sameEventGroupId &&
+        !TERMINAL_QUEUE_STATES.has(entry.queueState),
+    );
+    if (
+      sameGroupEntries.length !== orderedIds.length ||
+      sameGroupEntries.some((entry) => !orderedIds.includes(entry.id))
+    ) {
+      return false;
+    }
+    orderedIds.forEach((id, index) => {
+      const entry = this.entries.get(id)!;
+      this.entries.set(id, {
+        ...entry,
+        ordering: {
+          ...entry.ordering,
+          userOrderingRequired: false,
+          authoritativeOrder: index,
+        },
+        updatedAt: timestamp,
+      });
+    });
+    this.updatedAt = timestamp;
+    return true;
+  }
+
   getNextPending(): AthenaTriggerInstance | null {
     return (
       this.getEntries().find(

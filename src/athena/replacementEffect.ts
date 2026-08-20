@@ -250,7 +250,7 @@ export function processAthenaReplacementEffects(
       query.getReplacementEffectsModifyingEvent(originalEvent.eventCategory),
     );
     const excluded: AthenaExcludedReplacement[] = [];
-    const candidates: ReplacementCandidate[] = [];
+    let candidates: ReplacementCandidate[] = [];
     const invalidMappedRelationships: AthenaMappedEffectRelationship[] = [];
 
     for (const relationship of mappedRelationships) {
@@ -326,7 +326,7 @@ export function processAthenaReplacementEffects(
       });
     }
 
-    const definitions = uniqueDefinitions(
+    let definitions = uniqueDefinitions(
       candidates.map((candidate) => candidate.definition),
     );
     const invalidDefinitions = definitions.filter(
@@ -417,23 +417,23 @@ export function processAthenaReplacementEffects(
     }
 
     const optionalDefinitions = definitions.filter(
-      (definition) => definition.optional,
+      (definition) =>
+        definition.optional &&
+        options.optionalReplacementDecisions?.[definition.relationshipId] ===
+          undefined,
     );
     if (optionalDefinitions.length > 0) {
-      const choice: AthenaReplacementChoiceRequirement = {
-        id: `athena-replacement-choice:optional:${normalizeIdPart(originalEvent.eventId)}`,
-        kind: "optional-decision",
-        prompt: "Choose whether to apply the optional replacement effect.",
-        relationshipIds: optionalDefinitions.map(
-          (definition) => definition.relationshipId,
-        ),
-        sourceGroupIds: uniqueStrings(
-          optionalDefinitions.flatMap((definition) =>
-            definition.sourceGroupId ? [definition.sourceGroupId] : [],
-          ),
-        ),
-        requiredBeforeFinalEvent: true,
-      };
+      const choices: AthenaReplacementChoiceRequirement[] =
+        optionalDefinitions.map((definition) => ({
+          id: `athena-replacement-choice:optional:${normalizeIdPart(originalEvent.eventId)}:${normalizeIdPart(definition.relationshipId)}`,
+          kind: "optional-decision",
+          prompt: `Choose whether to apply ${definition.sourceLabel}.`,
+          relationshipIds: [definition.relationshipId],
+          sourceGroupIds: definition.sourceGroupId
+            ? [definition.sourceGroupId]
+            : [],
+          requiredBeforeFinalEvent: true,
+        }));
       return unresolvedResult({
         id: resultId,
         cacheKey,
@@ -443,13 +443,24 @@ export function processAthenaReplacementEffects(
         versions,
         definitions,
         excluded,
-        choices: [choice],
+        choices,
         warnings: [],
         durationMs: monotonicNowMs() - started,
         forecastReference: options.forecastReference ?? null,
         cacheHit: Boolean(options.cacheHit),
       });
     }
+
+    candidates = candidates.filter(
+      (candidate) =>
+        !candidate.definition.optional ||
+        options.optionalReplacementDecisions?.[
+          candidate.definition.relationshipId
+        ] === true,
+    );
+    definitions = uniqueDefinitions(
+      candidates.map((candidate) => candidate.definition),
+    );
 
     const applicationCount = definitions.reduce(
       (total, definition) => total + definition.sourceQuantity,
@@ -479,7 +490,10 @@ export function processAthenaReplacementEffects(
     }
     const applications = expandApplications(candidates, originalEvent.eventId);
 
-    const ordered = orderApplications(applications);
+    const ordered = orderApplications(
+      applications,
+      options.selectedReplacementOrder,
+    );
     if (!ordered.safe) {
       const choice: AthenaReplacementChoiceRequirement = {
         id: `athena-replacement-choice:order:${normalizeIdPart(originalEvent.eventId)}`,
@@ -1364,12 +1378,41 @@ function expandApplications(
   return uniqueApplications(applications);
 }
 
-function orderApplications(applications: ReplacementApplicationCandidate[]): {
+function orderApplications(
+  applications: ReplacementApplicationCandidate[],
+  selectedReplacementOrder: string[] | undefined,
+): {
   safe: boolean;
   applications: ReplacementApplicationCandidate[];
 } {
   if (applications.length <= 1) {
     return { safe: true, applications: [...applications] };
+  }
+  if (selectedReplacementOrder && selectedReplacementOrder.length > 0) {
+    const relationshipIds = uniqueStrings(
+      applications.map((application) => application.definition.relationshipId),
+    );
+    const normalizedOrder = [
+      ...new Set(selectedReplacementOrder.filter((id) => Boolean(id))),
+    ];
+    if (
+      normalizedOrder.length === relationshipIds.length &&
+      relationshipIds.every((id) => normalizedOrder.includes(id))
+    ) {
+      const rank = new Map(
+        normalizedOrder.map((relationshipId, index) => [relationshipId, index]),
+      );
+      return {
+        safe: true,
+        applications: [...applications].sort(
+          (a, b) =>
+            (rank.get(a.definition.relationshipId) ?? Number.MAX_SAFE_INTEGER) -
+              (rank.get(b.definition.relationshipId) ??
+                Number.MAX_SAFE_INTEGER) ||
+            a.applicationId.localeCompare(b.applicationId),
+        ),
+      };
+    }
   }
   const categories = uniqueStrings(
     applications.map(
@@ -1838,6 +1881,8 @@ function replacementCacheKey(
       authoritativeFinalEvent: options.authoritativeFinalEvent ?? null,
       previouslyAppliedApplicationIds:
         options.previouslyAppliedApplicationIds ?? [],
+      selectedReplacementOrder: options.selectedReplacementOrder ?? [],
+      optionalReplacementDecisions: options.optionalReplacementDecisions ?? {},
     }),
   );
 }

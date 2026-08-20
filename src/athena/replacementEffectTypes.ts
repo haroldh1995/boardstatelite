@@ -258,6 +258,8 @@ export interface AthenaReplacementProcessingOptions {
   previouslyAppliedApplicationIds?: string[];
   forecastReference?: string | null;
   cacheHit?: boolean;
+  selectedReplacementOrder?: string[];
+  optionalReplacementDecisions?: Record<string, boolean>;
 }
 
 export interface AthenaReplacementEngineOptions {

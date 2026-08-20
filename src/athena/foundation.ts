@@ -15,6 +15,10 @@ import { getActiveListeningWindow } from "../echo/contextualListening";
 import { monotonicNowMs } from "../platform/runtime";
 import { localParticipantId } from "../sharedSession";
 import {
+  createDefaultAthenaDecisionQueue,
+  normalizeAthenaDecisionQueue,
+} from "./decisionEngine";
+import {
   ATHENA_COMPATIBILITY_VERSION,
   ATHENA_CONTEXT_VERSION,
   ATHENA_FOUNDATION_VERSION,
@@ -122,6 +126,9 @@ export function createDefaultAthenaState(
   const lastContext = normalizeLastContext(input.lastContext);
   return {
     version: ATHENA_FOUNDATION_VERSION,
+    decisions: input.decisions
+      ? normalizeAthenaDecisionQueue(input.decisions)
+      : createDefaultAthenaDecisionQueue(),
     activePreview,
     recentPreviewIds: Array.isArray(input.recentPreviewIds)
       ? uniqueStrings(input.recentPreviewIds).slice(0, 20)
@@ -145,6 +152,8 @@ export function normalizeAthenaState(
     fallbackTimestamp?: string;
     settings?: AthenaSettings;
     allowActivePreview?: boolean;
+    sessionId?: string | null;
+    participantId?: string | null;
   } = {},
 ): AthenaState {
   const timestamp = options.fallbackTimestamp ?? DEFAULT_TIMESTAMP;
@@ -176,6 +185,11 @@ export function normalizeAthenaState(
       ? "Unsafe or invalid Athena preview metadata was discarded."
       : candidate.diagnostics?.lastInvalidationReason;
   return createDefaultAthenaState({
+    decisions: normalizeAthenaDecisionQueue(candidate.decisions, {
+      sessionId: options.sessionId,
+      participantId: options.participantId,
+      timestamp,
+    }),
     activePreview,
     recentPreviewIds,
     lastContext,

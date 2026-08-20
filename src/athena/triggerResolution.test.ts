@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createGenericGroup } from "../domain/cards";
 import { calculateTotals } from "../domain/field";
+import type { AthenaTriggerResolutionDefinition } from "../domain/triggerResolutionDefinitions";
 import type { FieldState, PermanentGroup } from "../domain/types";
 import {
   catharsCrusade,
@@ -27,6 +28,7 @@ import type {
 } from "./triggerQueueTypes";
 import {
   applyAthenaCanonicalConsequenceEvent,
+  athenaResolutionActionsForDecision,
   evaluateAthenaTriggerResolutionEligibility,
   processAthenaPendingTriggers,
   processAthenaConfirmedEventWithBookkeeping,
@@ -208,6 +210,19 @@ describe("ATHENA-08 trigger resolution eligibility", () => {
         evaluateAthenaTriggerResolutionEligibility(candidate, field).status,
       ).toBe(expected);
     }
+    const externalTarget = stateOf(trigger, "ready", [
+      { ...requirement, kind: "target" },
+    ]);
+    expect(
+      evaluateAthenaTriggerResolutionEligibility(externalTarget, field, {
+        selectedOptionIds: ["opponent-placeholder:target"],
+      }).status,
+    ).toBe("manual-resolution-required");
+    expect(
+      evaluateAthenaTriggerResolutionEligibility(externalTarget, field, {
+        selectedOptionIds: ["untracked:graveyard:creature"],
+      }).status,
+    ).toBe("manual-resolution-required");
     expect(
       evaluateAthenaTriggerResolutionEligibility(
         {
@@ -238,6 +253,46 @@ describe("ATHENA-08 trigger resolution eligibility", () => {
         field,
       ).status,
     ).toBe("invalid");
+  });
+
+  it("applies one structured trigger-order response to the shared pending queue", () => {
+    const field = fieldWith([tracked(soulWarden()), tracked(catharsCrusade())]);
+    const generated = generate(
+      field,
+      canonicalEvent(field, {
+        eventId: "ordered-entry",
+        eventCategory: "creature-entered",
+        quantity: 1,
+      }),
+    );
+    const snapshot = generated.queue.toSnapshot();
+    expect(snapshot.entries).toHaveLength(2);
+    const sameEventGroupId = snapshot.entries[0].ordering.sameEventGroupId;
+    const pending = new AthenaPendingTriggerQueue({
+      canonicalSessionId: snapshot.canonicalSessionId,
+      participantId: snapshot.participantId,
+      timestamp,
+      snapshot: {
+        ...snapshot,
+        entries: snapshot.entries.map((entry) => ({
+          ...entry,
+          ordering: {
+            ...entry.ordering,
+            sameEventGroupId,
+            userOrderingRequired: true,
+            authoritativeOrder: null,
+          },
+        })),
+      },
+    });
+    const selected = snapshot.entries.map((entry) => entry.id).reverse();
+    expect(pending.applyUserOrder(selected, timestamp)).toBe(true);
+    expect(pending.getEntries().map((entry) => entry.id)).toEqual(selected);
+    expect(
+      pending
+        .getEntries()
+        .every((entry) => !entry.ordering.userOrderingRequired),
+    ).toBe(true);
   });
 });
 
@@ -336,6 +391,59 @@ describe("ATHENA-08 automatic bookkeeping", () => {
     expect(declined.resultingField.player.life).toBe(40);
   });
 
+  it("declines only an optional branch and preserves later mandatory bookkeeping", () => {
+    const definition: AthenaTriggerResolutionDefinition = {
+      id: "optional-life-then-token",
+      version: 1,
+      labels: ["Optional life then token"],
+      observedEvents: ["creature-entered"],
+      mandatory: true,
+      locallySupported: true,
+      requiresAuthority: false,
+      requiresManualResolution: false,
+      optionalActionIds: ["optional-life"],
+      actions: [
+        {
+          id: "optional-life",
+          kind: "gain-life",
+          target: "player-controller",
+          quantity: { kind: "fixed-per-trigger", value: 3 },
+          eventCategory: "life-gained",
+        },
+        {
+          id: "mandatory-token",
+          kind: "create-token",
+          target: "player-controller",
+          quantity: { kind: "fixed-per-trigger", value: 1 },
+          token: {
+            name: "Soldier",
+            power: 1,
+            toughness: 1,
+            cardTypes: ["Creature"],
+            subtypes: ["Soldier"],
+            colors: ["white"],
+            tapped: false,
+            attacking: false,
+            copySourceWhenLandThresholdAtLeast: null,
+          },
+          eventCategory: "token-created",
+        },
+      ],
+      semanticLabel: "Optional life then token",
+    };
+
+    expect(
+      athenaResolutionActionsForDecision(definition, {
+        optionalAccepted: false,
+      }).map((action) => action.id),
+    ).toEqual(["mandatory-token"]);
+    expect(
+      athenaResolutionActionsForDecision(definition, {
+        optionalAccepted: true,
+      }).map((action) => action.id),
+    ).toEqual(["optional-life", "mandatory-token"]);
+  });
+
   it("resolves validated custom automation through the shared engine", () => {
     const field: FieldState = {
       ...fieldWith([]),
@@ -370,6 +478,105 @@ describe("ATHENA-08 automatic bookkeeping", () => {
     );
     expect(resolved.status).toBe("resolved");
     expect(resolved.resultingField.player.life).toBe(42);
+  });
+
+  it("resumes selected-target custom automation from one structured decision", () => {
+    const target = { ...genericCreature(), label: "Decision Target" };
+    const field: FieldState = {
+      ...fieldWith([target]),
+      customEffects: [
+        {
+          id: "custom-target-counter",
+          name: "Choose counter recipient",
+          enabled: true,
+          trigger: "creature-entered",
+          action: {
+            kind: "add-counters",
+            counter: "+1/+1",
+            target: "selected",
+            amount: { type: "fixed", value: 1 },
+          },
+        },
+      ],
+    };
+    const { queue } = generate(
+      field,
+      canonicalEvent(field, {
+        eventId: "custom-target-entry",
+        eventCategory: "creature-entered",
+        quantity: 1,
+      }),
+    );
+    const trigger = queue.getEntries()[0];
+    expect(
+      evaluateAthenaTriggerResolutionEligibility(trigger, field).status,
+    ).toBe("awaiting-target");
+    const resolved = resolveAthenaPendingTrigger(field, queue, trigger.id, {
+      timestamp,
+      decision: { targetGroupIds: [target.id] },
+    });
+    expect(resolved.status).toBe("resolved");
+    expect(
+      resolved.resultingField.groups.find((group) => group.id === target.id)
+        ?.counters["+1/+1"],
+    ).toBe(1);
+  });
+
+  it("commits a structured counter distribution as separate replacement-aware events", () => {
+    const targets = [
+      genericCreature(),
+      genericCreature(),
+      genericCreature(),
+    ].map((group, index) => ({ ...group, label: `Distribution ${index + 1}` }));
+    const field: FieldState = {
+      ...fieldWith(targets),
+      customEffects: [
+        {
+          id: "custom-distribution-counter",
+          name: "Distribute counters",
+          enabled: true,
+          trigger: "creature-entered",
+          action: {
+            kind: "add-counters",
+            counter: "+1/+1",
+            target: "selected",
+            amount: { type: "fixed", value: 6 },
+          },
+        },
+      ],
+    };
+    const { queue } = generate(
+      field,
+      canonicalEvent(field, {
+        eventId: "distribution-entry",
+        eventCategory: "creature-entered",
+        quantity: 1,
+      }),
+    );
+    const resolved = resolveAthenaPendingTrigger(
+      field,
+      queue,
+      queue.getEntries()[0].id,
+      {
+        timestamp,
+        decision: {
+          distribution: {
+            [targets[0].id]: 3,
+            [targets[1].id]: 2,
+            [targets[2].id]: 1,
+          },
+        },
+      },
+    );
+    expect(resolved.status).toBe("resolved");
+    expect(resolved.eventRecords).toHaveLength(3);
+    expect(
+      targets.map(
+        (target) =>
+          resolved.resultingField.groups.find((group) => group.id === target.id)
+            ?.counters["+1/+1"],
+      ),
+    ).toEqual([3, 2, 1]);
   });
 
   it("preserves a generated Soul Warden trigger after its source leaves", () => {

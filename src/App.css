@@ -9,6 +9,243 @@
     calc(104px + env(safe-area-inset-bottom));
 }
 
+.athena-decision-surface {
+  position: relative;
+  z-index: 12;
+  margin: 0 12px 10px;
+  padding: 10px;
+  border: 1px solid rgba(246, 199, 82, 0.72);
+  border-left: 4px solid #f6c752;
+  border-radius: 6px;
+  background: rgba(18, 22, 25, 0.96);
+  color: #f7f8f8;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.32);
+}
+
+.athena-decision-surface header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.athena-decision-surface header > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.athena-decision-surface header strong {
+  font-size: 0.93rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.athena-decision-kicker {
+  color: #f6c752;
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.athena-decision-message {
+  margin: 6px 0 0;
+  color: #d7dcde;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.athena-decision-progress {
+  display: block;
+  margin: 4px 0;
+  color: #f6c752;
+  font-size: 0.75rem;
+  font-weight: 750;
+}
+
+.athena-decision-error {
+  margin: 5px 0;
+  color: #ffaaa2;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.athena-decision-binary,
+.athena-decision-options,
+.athena-decision-quantity {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.athena-decision-surface button {
+  min-height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 5px;
+  background: #2a3033;
+  color: #fff;
+  font-weight: 750;
+}
+
+.athena-decision-surface button svg {
+  width: 17px;
+  height: 17px;
+  vertical-align: middle;
+}
+
+.athena-decision-binary button,
+.athena-decision-options button {
+  flex: 1 1 112px;
+  padding: 7px 10px;
+}
+
+.athena-decision-options button.selected,
+.athena-decision-options button[aria-pressed="true"] {
+  border-color: #f6c752;
+  background: #4a401f;
+}
+
+.athena-decision-quantity > button:not(.athena-decision-confirm) {
+  width: 40px;
+  padding: 6px;
+}
+
+.athena-decision-quantity label {
+  display: grid;
+  gap: 2px;
+  font-size: 0.7rem;
+  color: #cbd0d2;
+}
+
+.athena-decision-quantity input,
+.athena-decision-distribution input {
+  width: 68px;
+  min-height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 4px;
+  background: #111517;
+  color: #fff;
+  text-align: center;
+  font-size: 1rem;
+}
+
+.athena-decision-confirm {
+  padding: 7px 12px;
+  border-color: #75b98a !important;
+  background: #234a31 !important;
+}
+
+.athena-decision-confirm:disabled {
+  opacity: 0.45;
+}
+
+.athena-decision-distribution,
+.athena-decision-order,
+.athena-manual-result {
+  display: grid;
+  gap: 6px;
+}
+
+.athena-decision-distribution label,
+.athena-decision-order > div {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.athena-decision-distribution label span,
+.athena-decision-order > div span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.athena-decision-order > div button {
+  width: 36px;
+  min-height: 34px;
+  padding: 5px;
+}
+
+.athena-manual-result {
+  grid-template-columns: minmax(0, 1fr) 84px;
+  align-items: end;
+}
+
+.athena-manual-result p,
+.athena-manual-result .athena-decision-confirm {
+  grid-column: 1 / -1;
+}
+
+.athena-manual-result label {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  color: #cbd0d2;
+  font-size: 0.72rem;
+}
+
+.athena-manual-result input,
+.athena-manual-result select {
+  min-width: 0;
+  min-height: 38px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 4px;
+  background: #111517;
+  color: #fff;
+}
+
+.athena-decision-identify {
+  max-height: min(68svh, 620px);
+  overflow: auto;
+}
+
+.athena-decision-identify .search-content,
+.athena-decision-identify .card-preview-pane {
+  grid-template-columns: 1fr;
+}
+
+.athena-decision-identify .search-results {
+  max-height: 28svh;
+}
+
+.athena-decision-identify .card-preview-pane {
+  min-height: 0;
+}
+
+.athena-decision-identify .preview-card-image {
+  display: none;
+}
+
+.permanent-card.athena-eligible-target {
+  outline: 3px solid #f6c752;
+  outline-offset: 2px;
+  cursor: crosshair;
+}
+
+.permanent-card.athena-eligible-target::after {
+  content: "Target";
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  z-index: 5;
+  padding: 3px 6px;
+  border-radius: 3px;
+  background: #f6c752;
+  color: #17191a;
+  font-size: 0.66rem;
+  font-weight: 900;
+}
+
+@media (min-width: 768px) {
+  .athena-decision-surface {
+    max-width: 720px;
+    margin-right: auto;
+    margin-left: auto;
+  }
+}
+
 .reference-fixture {
   --section-gap: 6px;
 }

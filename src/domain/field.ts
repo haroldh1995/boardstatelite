@@ -514,6 +514,8 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
     fallbackTimestamp: updatedAt,
     settings: settings.athena,
     allowActivePreview: false,
+    sessionId: sessionWithHub.id,
+    participantId: multiplayer.registry.localParticipantId,
   });
   return {
     ...defaults,
@@ -837,6 +839,8 @@ export function normalizeField(field: FieldState): FieldState {
     fallbackTimestamp: field.updatedAt,
     settings: settings.athena,
     allowActivePreview: true,
+    sessionId: sessionWithHub.id,
+    participantId: multiplayer.registry.localParticipantId,
   });
   const zoneCompositions = normalizeZoneCompositionCollection(
     field.zoneCompositions,

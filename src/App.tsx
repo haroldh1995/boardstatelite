@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { Battlefield } from "./components/Battlefield";
 import { ActiveTurnActionStrip } from "./components/ActiveTurnActionStrip";
+import { AthenaDecisionSurface } from "./components/AthenaDecisionSurface";
 import { BottomDock } from "./components/BottomDock";
 import { LifeTracker } from "./components/LifeTracker";
 import { MicrophoneStatusIndicator } from "./components/MicrophoneStatusIndicator";
@@ -102,6 +103,7 @@ function App() {
           <MicrophoneStatusIndicator />
           <SmartSuggestionsTray />
           <ActiveTurnActionStrip />
+          <AthenaDecisionSurface />
           <Battlefield />
           <BottomDock />
           <ModalRoot />

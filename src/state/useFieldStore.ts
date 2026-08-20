@@ -128,18 +128,45 @@ import type {
 import { applyAthenaDerivedStateToField } from "../athena/derivedState";
 import {
   createAthenaPendingTriggerQueue,
-  type AthenaPendingTriggerQueue,
+  AthenaPendingTriggerQueue,
 } from "../athena/triggerQueue";
-import { processAthenaConfirmedEventWithBookkeeping } from "../athena/triggerResolution";
+import {
+  evaluateAthenaTriggerResolutionEligibility,
+  processAthenaConfirmedEventWithBookkeeping,
+  processAthenaPendingTriggers,
+  resolveAthenaPendingTrigger,
+} from "../athena/triggerResolution";
 import type { AthenaForecastInput } from "../athena/eventForecastTypes";
-import type { AthenaConfirmedConsequencePipelineResult } from "../athena/triggerResolutionTypes";
+import type {
+  AthenaConfirmedConsequencePipelineResult,
+  AthenaTriggerResolutionDecision,
+} from "../athena/triggerResolutionTypes";
+import {
+  answerAthenaDecision as resolveAthenaDecisionAnswer,
+  answerAthenaDecisionFromVoice as resolveAthenaDecisionVoiceAnswer,
+  answerToTriggerResolutionDecision,
+  createAthenaPreparedChoiceRequest,
+  createAthenaReplacementDecisionRequest,
+  createAthenaTriggerDecisionRequest,
+  enqueueAthenaDecision,
+  revalidateAthenaDecisions,
+} from "../athena/decisionEngine";
+import { createAthenaManualResultForecast } from "../athena/decisionManualResult";
+import type {
+  AthenaDecisionAnswer,
+  AthenaDecisionResponseResult,
+} from "../athena/decisionEngineTypes";
+import type { AthenaPendingTriggerQueueSnapshot } from "../athena/triggerQueueTypes";
 import {
   executeAthenaPreparedAction,
   matchAthenaPreparedActionForVoice,
   reconcileAthenaTurnIntentWithCanonicalAction,
   revalidateAthenaTurnIntent,
 } from "../athena/turnIntent";
-import { applyZoneCompositionCorrection } from "../domain/zoneComposition";
+import {
+  applyZoneCompositionCorrection,
+  reconcileUnknownZoneGroupIdentity,
+} from "../domain/zoneComposition";
 import type {
   ZoneCompositionCommandResult,
   ZoneCompositionCorrectionInput,
@@ -226,6 +253,21 @@ interface FieldStore {
   processConfirmedAthenaEvent: (
     event: AthenaForecastInput,
   ) => AthenaConfirmedConsequencePipelineResult;
+  answerAthenaDecision: (
+    decisionId: string,
+    answer: Partial<AthenaDecisionAnswer>,
+  ) => AthenaDecisionResponseResult | null;
+  answerAthenaDecisionVoice: (input: {
+    decisionId: string;
+    transcript: string;
+    speakerVerified: boolean;
+    responseId?: string;
+  }) => AthenaDecisionResponseResult | null;
+  identifyAthenaDecisionZoneCard: (
+    decisionId: string,
+    candidateId: string,
+    card: CardIdentity,
+  ) => AthenaDecisionResponseResult | null;
   plannerAddAction: (input: PlannedActionInput) => void;
   plannerUpdateAction: (actionId: string, update: PlannedActionUpdate) => void;
   plannerRemoveAction: (actionId: string) => void;
@@ -687,11 +729,46 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
       queue,
       timestamp: event.timestamp,
     });
-    if (result.validity !== "committed") return result;
+    if (result.validity !== "committed") {
+      const request = createAthenaReplacementDecisionRequest({
+        field: before,
+        event,
+        replacement: result.rootReplacement,
+        queue: result.queue,
+        timestamp: event.timestamp,
+      });
+      if (!request) return result;
+      const decisionField = {
+        ...before,
+        athena: {
+          ...before.athena,
+          decisions: enqueueAthenaDecision(
+            before.athena.decisions,
+            request,
+            event.timestamp,
+          ),
+        },
+      };
+      commitField(
+        "Athena decision required",
+        before,
+        decisionField,
+        [request.semanticPrompt],
+        set,
+        null,
+        false,
+      );
+      return { ...result, resultingField: decisionField };
+    }
+    const resultingField = withPendingAthenaDecision(
+      result.resultingField,
+      result.queue,
+      event.timestamp,
+    );
     commitField(
       "Athena automatic bookkeeping",
       before,
-      result.resultingField,
+      resultingField,
       [
         result.autoResolution?.semanticDescription ??
           "Confirmed event committed through Athena.",
@@ -700,7 +777,78 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
       null,
       false,
     );
-    return result;
+    return { ...result, resultingField };
+  },
+
+  answerAthenaDecision(decisionId, answer) {
+    return processAthenaDecisionResponse(get().field, decisionId, answer, set);
+  },
+
+  answerAthenaDecisionVoice(input) {
+    const field = get().field;
+    const timestamp = new Date().toISOString();
+    const response = resolveAthenaDecisionVoiceAnswer(
+      field.athena.decisions,
+      field,
+      { ...input, timestamp },
+    );
+    if (!response) return null;
+    return continueAthenaDecisionResponse(field, response, set, timestamp);
+  },
+
+  identifyAthenaDecisionZoneCard(decisionId, candidateId, card) {
+    const field = get().field;
+    const request = field.athena.decisions.requests.find(
+      (entry) => entry.id === decisionId,
+    );
+    const candidate = request?.candidates.find(
+      (entry) => entry.id === candidateId && entry.kind === "untracked-card",
+    );
+    const zone = candidate?.zone;
+    if (!request || (zone !== "graveyard" && zone !== "exile")) return null;
+    const unknown = field.groups.find(
+      (group) => group.zone === zone && !group.identity,
+    );
+    if (!unknown) return null;
+    const timestamp = new Date().toISOString();
+    const reconciled = reconcileUnknownZoneGroupIdentity(field, {
+      groupId: unknown.id,
+      card,
+      quantity: 1,
+      source: "scryfall-reconciliation",
+      timestamp,
+    });
+    if (!reconciled.ok) return null;
+    const identified = reconciled.field.groups.find(
+      (group) =>
+        group.zone === zone &&
+        group.identity?.cardId === card.cardId &&
+        (group.id === unknown.id ||
+          !field.groups.some((entry) => entry.id === group.id)),
+    );
+    if (!identified) return null;
+    const current = withDerivedField(normalizeField(reconciled.field));
+    const response = resolveAthenaDecisionAnswer(
+      current.athena.decisions,
+      decisionId,
+      {
+        selectedOptionIds: [identified.id],
+        targetGroupIds: [identified.id],
+        selectedGroupIds: [identified.id],
+        channel: "touch",
+        answeredAt: timestamp,
+      },
+      current,
+      timestamp,
+    );
+    return continueAthenaDecisionResponse(
+      current,
+      response,
+      set,
+      timestamp,
+      field,
+      reconciled.summary.join(" "),
+    );
   },
 
   plannerAddAction(input) {
@@ -1723,12 +1871,423 @@ function athenaTriggerQueueForField(
   return activeAthenaTriggerQueue!;
 }
 
+function processAthenaDecisionResponse(
+  field: FieldState,
+  decisionId: string,
+  answer: Partial<AthenaDecisionAnswer>,
+  set: (partial: Partial<FieldStore>) => void,
+): AthenaDecisionResponseResult | null {
+  const timestamp = new Date().toISOString();
+  const response = resolveAthenaDecisionAnswer(
+    field.athena.decisions,
+    decisionId,
+    { ...answer, channel: answer.channel ?? "touch", answeredAt: timestamp },
+    field,
+    timestamp,
+  );
+  return continueAthenaDecisionResponse(field, response, set, timestamp);
+}
+
+function continueAthenaDecisionResponse(
+  field: FieldState,
+  response: AthenaDecisionResponseResult,
+  set: (partial: Partial<FieldStore>) => void,
+  timestamp: string,
+  historyBefore: FieldState = field,
+  priorSummary = "",
+): AthenaDecisionResponseResult {
+  if (!response.accepted) {
+    if (response.queue !== field.athena.decisions) {
+      const next = {
+        ...field,
+        athena: { ...field.athena, decisions: response.queue },
+      };
+      set({ field: next });
+      void saveField(next);
+    }
+    return response;
+  }
+  let working: FieldState = {
+    ...field,
+    athena: { ...field.athena, decisions: response.queue },
+  };
+  const continuation = response.continuation;
+  let canonicalEvents: GameEvent[] = [];
+  let summary = [priorSummary, response.semanticDescription]
+    .filter(Boolean)
+    .join(" ");
+  if (continuation.kind === "trigger-resolution") {
+    const queue = athenaTriggerQueueForContinuation(
+      working,
+      continuation.queue,
+      timestamp,
+      continuation.triggerId,
+    );
+    activeAthenaTriggerQueue = queue;
+    if (response.request.type === "manual-result") {
+      const manualEvent = createAthenaManualResultForecast(
+        working,
+        response.request,
+        timestamp,
+      );
+      if (manualEvent) {
+        queue.markResolved(
+          continuation.triggerId,
+          timestamp,
+          response.request.answer?.responseId ?? response.request.id,
+        );
+        const pipeline = processAthenaConfirmedEventWithBookkeeping({
+          field: working,
+          event: manualEvent,
+          queue,
+          timestamp,
+        });
+        if (pipeline.validity === "committed") {
+          working = withPendingAthenaDecision(
+            pipeline.resultingField,
+            pipeline.queue,
+            timestamp,
+          );
+          canonicalEvents = [
+            ...(pipeline.rootCanonicalEvent
+              ? [pipeline.rootCanonicalEvent]
+              : []),
+            ...(pipeline.autoResolution?.generatedCanonicalEvents ?? []),
+          ];
+          summary =
+            "Manual result committed through the canonical Athena pipeline.";
+        } else {
+          const replacementRequest = createAthenaReplacementDecisionRequest({
+            field: working,
+            event: manualEvent,
+            replacement: pipeline.rootReplacement,
+            queue: pipeline.queue,
+            timestamp,
+          });
+          if (replacementRequest) {
+            working = {
+              ...working,
+              athena: {
+                ...working.athena,
+                decisions: enqueueAthenaDecision(
+                  working.athena.decisions,
+                  replacementRequest,
+                  timestamp,
+                ),
+              },
+            };
+          }
+          summary = pipeline.reason;
+        }
+      }
+      commitField(
+        "Athena manual result",
+        historyBefore,
+        working,
+        [summary],
+        set,
+        null,
+        false,
+        canonicalEvents,
+      );
+      return response;
+    }
+    const decision = answerToTriggerResolutionDecision(response.request);
+    const orderedTriggerIds = response.request.answer?.orderIds ?? [];
+    if (orderedTriggerIds.length > 0) {
+      queue.applyUserOrder(orderedTriggerIds, timestamp);
+    }
+    const resolved = resolveAthenaPendingTrigger(
+      working,
+      queue,
+      orderedTriggerIds[0] ?? continuation.triggerId,
+      { timestamp, decision },
+    );
+    working = resolved.resultingField;
+    canonicalEvents = resolved.eventRecords.flatMap((record) =>
+      record.canonicalEvent ? [record.canonicalEvent] : [],
+    );
+    summary = resolved.semanticDescription;
+    if (resolved.status === "resolved" || resolved.status === "declined") {
+      const cycle = processAthenaPendingTriggers({
+        field: working,
+        queue,
+        timestamp,
+      });
+      working = cycle.field;
+      canonicalEvents.push(...cycle.generatedCanonicalEvents);
+      summary = [summary, cycle.semanticDescription].filter(Boolean).join(" ");
+      working = withPendingAthenaDecision(working, cycle.queue, timestamp);
+    } else {
+      working = withPendingAthenaDecision(working, resolved.queue, timestamp, {
+        [continuation.triggerId]: decision,
+      });
+    }
+  } else if (continuation.kind === "replacement-processing") {
+    const queue = athenaTriggerQueueForContinuation(
+      working,
+      continuation.queue,
+      timestamp,
+    );
+    activeAthenaTriggerQueue = queue;
+    const selectedOrder =
+      response.request.type === "replacement-order"
+        ? response.request.answer?.orderIds.length
+          ? response.request.answer.orderIds
+          : response.request.answer?.selectedOptionIds
+        : continuation.selectedOrder;
+    const optionalDecision = {
+      ...continuation.optionalDecisions,
+      ...(response.request.type === "optional-replacement"
+        ? Object.fromEntries(
+            continuation.relationshipIds.map((relationshipId) => [
+              relationshipId,
+              response.request.answer?.accepted === true,
+            ]),
+          )
+        : {}),
+    };
+    const pipeline = processAthenaConfirmedEventWithBookkeeping({
+      field: working,
+      event: continuation.event,
+      queue,
+      timestamp,
+      replacement: {
+        selectedReplacementOrder: selectedOrder,
+        optionalReplacementDecisions: optionalDecision,
+      },
+    });
+    if (pipeline.validity === "committed") {
+      working = withPendingAthenaDecision(
+        pipeline.resultingField,
+        pipeline.queue,
+        timestamp,
+      );
+      canonicalEvents = [
+        ...(pipeline.rootCanonicalEvent ? [pipeline.rootCanonicalEvent] : []),
+        ...(pipeline.autoResolution?.generatedCanonicalEvents ?? []),
+      ];
+      summary =
+        pipeline.autoResolution?.semanticDescription ??
+        "Replacement choice applied and the event completed.";
+    } else {
+      const nextRequest = createAthenaReplacementDecisionRequest({
+        field: working,
+        event: continuation.event,
+        replacement: pipeline.rootReplacement,
+        queue: pipeline.queue,
+        optionalDecisions: optionalDecision,
+        selectedOrder,
+        timestamp,
+      });
+      if (nextRequest) {
+        working = {
+          ...working,
+          athena: {
+            ...working.athena,
+            decisions: enqueueAthenaDecision(
+              working.athena.decisions,
+              nextRequest,
+              timestamp,
+            ),
+          },
+        };
+      }
+      summary = pipeline.reason;
+    }
+  } else if (continuation.kind === "prepared-action") {
+    working = applyPreparedDecisionToField(
+      working,
+      response.request,
+      timestamp,
+    );
+    const action = working.preTurnPlanner.actions.find(
+      (entry) =>
+        entry.prepared.preparedActionId === continuation.preparedActionId,
+    );
+    const item = working.activeTurnActionStrip.items.find(
+      (entry) => entry.preparedActionId === continuation.preparedActionId,
+    );
+    if (action && item) {
+      const execution = executeAthenaPreparedAction({
+        field: working,
+        item,
+        queue: athenaTriggerQueueForField(working, timestamp),
+        channel: response.request.answer?.channel === "voice" ? "voice" : "tap",
+        timestamp,
+        speakerVerified:
+          response.request.answer?.channel === "voice" ? true : null,
+      });
+      if (execution.status === "committed") {
+        working = execution.field;
+        canonicalEvents = execution.canonicalEvents;
+        summary = execution.semanticDescription;
+      } else if (execution.status === "awaiting-input") {
+        const nextRequest = createAthenaPreparedChoiceRequest({
+          field: working,
+          action,
+          timestamp,
+        });
+        if (nextRequest) {
+          working = {
+            ...working,
+            athena: {
+              ...working.athena,
+              decisions: enqueueAthenaDecision(
+                working.athena.decisions,
+                nextRequest,
+                timestamp,
+              ),
+            },
+          };
+        }
+        summary = execution.reason;
+      }
+    }
+  }
+  commitField(
+    "Athena decision resolved",
+    historyBefore,
+    working,
+    [summary],
+    set,
+    null,
+    false,
+    canonicalEvents,
+  );
+  return response;
+}
+
+function withPendingAthenaDecision(
+  field: FieldState,
+  queueSnapshot: AthenaPendingTriggerQueueSnapshot,
+  timestamp: string,
+  decisions: Record<string, AthenaTriggerResolutionDecision> = {},
+): FieldState {
+  for (const trigger of queueSnapshot.entries) {
+    if (
+      [
+        "resolved",
+        "declined",
+        "cancelled",
+        "invalidated",
+        "stale",
+        "failed-safe",
+      ].includes(trigger.queueState)
+    ) {
+      continue;
+    }
+    const eligibility = evaluateAthenaTriggerResolutionEligibility(
+      trigger,
+      field,
+      decisions[trigger.id] ?? {},
+    );
+    const request = createAthenaTriggerDecisionRequest({
+      field,
+      trigger,
+      eligibility,
+      queue: queueSnapshot,
+      collectedDecision: decisions[trigger.id],
+      timestamp,
+    });
+    if (!request) continue;
+    return {
+      ...field,
+      athena: {
+        ...field.athena,
+        decisions: enqueueAthenaDecision(
+          field.athena.decisions,
+          request,
+          timestamp,
+        ),
+      },
+    };
+  }
+  return field;
+}
+
+function athenaTriggerQueueForContinuation(
+  field: FieldState,
+  snapshot: AthenaPendingTriggerQueueSnapshot,
+  timestamp: string,
+  requiredTriggerId?: string,
+): AthenaPendingTriggerQueue {
+  const participantId = field.multiplayer.registry.localParticipantId;
+  const activeSnapshot = activeAthenaTriggerQueue?.toSnapshot();
+  if (
+    activeAthenaTriggerQueue &&
+    activeSnapshot?.canonicalSessionId === field.session.id &&
+    activeSnapshot.participantId === participantId &&
+    (requiredTriggerId
+      ? Boolean(activeAthenaTriggerQueue.get(requiredTriggerId))
+      : activeSnapshot.updatedAt >= snapshot.updatedAt)
+  ) {
+    return activeAthenaTriggerQueue;
+  }
+  activeAthenaTriggerQueue = new AthenaPendingTriggerQueue({
+    canonicalSessionId: field.session.id,
+    participantId,
+    timestamp,
+    snapshot,
+  });
+  return activeAthenaTriggerQueue;
+}
+
+function applyPreparedDecisionToField(
+  field: FieldState,
+  request: import("../athena/decisionEngineTypes").AthenaDecisionRequest,
+  timestamp: string,
+): FieldState {
+  const answer = request.answer;
+  if (!answer || !request.preparedActionId) return field;
+  const completedRequirements = new Set<string>();
+  if (answer.targetGroupIds.length > 0) {
+    completedRequirements.add("target");
+    completedRequirements.add("selection");
+  }
+  if (answer.quantity !== null) completedRequirements.add("quantity");
+  if (answer.mode) completedRequirements.add("mode");
+  if (answer.orderIds.length > 0) completedRequirements.add("order");
+  return {
+    ...field,
+    preTurnPlanner: {
+      ...field.preTurnPlanner,
+      updatedAt: timestamp,
+      intentVersion: field.preTurnPlanner.intentVersion + 1,
+      actions: field.preTurnPlanner.actions.map((action) => {
+        if (action.prepared.preparedActionId !== request.preparedActionId)
+          return action;
+        return {
+          ...action,
+          updatedAt: timestamp,
+          quantity: answer.quantity ?? action.quantity,
+          execution: {
+            ...action.execution,
+            quantity: answer.quantity ?? action.execution.quantity,
+            targetGroupIds:
+              answer.targetGroupIds.length > 0
+                ? [...answer.targetGroupIds]
+                : action.execution.targetGroupIds,
+            mode: answer.mode ?? action.execution.mode,
+            requirements: action.execution.requirements.filter(
+              (requirement) => !completedRequirements.has(requirement),
+            ),
+          },
+        };
+      }),
+    },
+  };
+}
+
 function withDerivedField(field: FieldState): FieldState {
   const derived = applyAthenaDerivedStateToField(field, {
     timestamp: field.updatedAt,
     reason: "canonical-field-change",
   });
-  return revalidateAthenaTurnIntent(derived.field, field.updatedAt);
+  return revalidateAthenaDecisions(
+    revalidateAthenaTurnIntent(derived.field, field.updatedAt),
+    field.updatedAt,
+  );
 }
 
 function commitPlannerField(
@@ -1963,6 +2522,39 @@ function processActionStripItem(
           speakerVerified,
           recognizedText,
         });
+        if (preparedExecution.status === "awaiting-input") {
+          const plannedAction = current.preTurnPlanner.actions.find(
+            (action) => action.id === item.sourceActionId,
+          );
+          const request = plannedAction
+            ? createAthenaPreparedChoiceRequest({
+                field: current,
+                action: plannedAction,
+                timestamp,
+              })
+            : null;
+          if (!request) throw new Error(preparedExecution.reason);
+          return {
+            field: {
+              ...current,
+              athena: {
+                ...current.athena,
+                decisions: enqueueAthenaDecision(
+                  current.athena.decisions,
+                  request,
+                  timestamp,
+                ),
+              },
+            },
+            title: "Choice Needed",
+            summary: [request.semanticPrompt],
+            details: [],
+            events: [],
+            changedGroupIds: [],
+            loopDetected: false,
+            accessibilityAnnouncements: [request.semanticPrompt],
+          } satisfies ResolutionResult;
+        }
         if (preparedExecution.status !== "committed") {
           throw new Error(preparedExecution.reason);
         }

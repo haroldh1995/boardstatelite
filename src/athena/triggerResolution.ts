@@ -33,6 +33,7 @@ import type {
   AthenaForecastInput,
 } from "./eventForecastTypes";
 import { processAthenaReplacementEffects } from "./replacementEffect";
+import type { AthenaReplacementProcessingOptions } from "./replacementEffectTypes";
 import {
   AthenaPendingTriggerQueue,
   generateAthenaTriggerInstances,
@@ -119,6 +120,7 @@ export function evaluateAthenaTriggerResolutionEligibility(
     selectedTargetGroupIds: uniqueStrings([
       ...(decision.targetGroupIds ?? []),
       ...(decision.selectedGroupIds ?? []),
+      ...Object.keys(decision.distribution ?? {}),
     ]),
     resolutionAuthority:
       trigger.authoritySource === "boardstate-authoritative-result"
@@ -227,6 +229,14 @@ export function evaluateAthenaTriggerResolutionEligibility(
     );
   }
   if (trigger.optional && decision.optionalAccepted === false) {
+    if ((definition.optionalActionIds?.length ?? 0) > 0) {
+      return result(
+        options.requireConfirmation
+          ? "ready-for-confirmation"
+          : "auto-resolvable",
+        "The optional branch was declined; remaining consequences can continue.",
+      );
+    }
     return result(
       "ready-for-confirmation",
       "The optional trigger is ready to be declined.",
@@ -236,9 +246,28 @@ export function evaluateAthenaTriggerResolutionEligibility(
   const unresolvedKinds = trigger.requirements
     .filter((requirement) => requirement.status === "unresolved")
     .map((requirement) => requirement.kind);
+  const selectedExternalTarget = decision.selectedOptionIds?.find(
+    (id) =>
+      id.startsWith("opponent-placeholder:") || id.startsWith("untracked:"),
+  );
   if (
     unresolvedKinds.some((kind) => kind === "target" || kind === "player") &&
-    (decision.targetGroupIds?.length ?? 0) === 0
+    selectedExternalTarget &&
+    (decision.targetGroupIds?.length ?? 0) === 0 &&
+    (decision.selectedGroupIds?.length ?? 0) === 0
+  ) {
+    return result(
+      "manual-resolution-required",
+      selectedExternalTarget.startsWith("untracked:")
+        ? "Identify the untracked card before resolution."
+        : "Resolve the opponent target physically and report the supported result.",
+    );
+  }
+  if (
+    unresolvedKinds.some((kind) => kind === "target" || kind === "player") &&
+    (decision.targetGroupIds?.length ?? 0) === 0 &&
+    (decision.selectedGroupIds?.length ?? 0) === 0 &&
+    Object.keys(decision.distribution ?? {}).length === 0
   ) {
     return result("awaiting-target", "Choose a target.", ["target"]);
   }
@@ -356,9 +385,11 @@ export function resolveAthenaPendingTrigger(
     decision,
     { requireConfirmation: options.requireConfirmation },
   );
+  const resolvedDefinition = definitionForTrigger(trigger, field);
   if (
     trigger.optional &&
     decision.optionalAccepted === false &&
+    (resolvedDefinition?.definition.optionalActionIds?.length ?? 0) === 0 &&
     eligibility.status === "ready-for-confirmation"
   ) {
     const transactionQueue = queueTransaction(queue);
@@ -390,7 +421,6 @@ export function resolveAthenaPendingTrigger(
     });
   }
 
-  const resolvedDefinition = definitionForTrigger(trigger, field);
   if (!resolvedDefinition) {
     return terminalResolutionResult({
       field,
@@ -423,9 +453,13 @@ export function resolveAthenaPendingTrigger(
   const records: AthenaTriggerResolutionEventRecord[] = [];
   const childTriggerIds: string[] = [];
   try {
+    const workItems = resolutionWorkItems(
+      resolvedDefinition.definition,
+      decision,
+    );
     for (
       let actionIndex = 0;
-      actionIndex < resolvedDefinition.definition.actions.length;
+      actionIndex < workItems.length;
       actionIndex += 1
     ) {
       if (options.cancellation?.cancelled) {
@@ -435,12 +469,12 @@ export function resolveAthenaPendingTrigger(
       }
       const environment = createForecastEnvironment(working);
       const proposed = proposedEventForAction({
-        action: resolvedDefinition.definition.actions[actionIndex],
+        action: workItems[actionIndex].action,
         actionIndex,
         trigger,
         field: working,
         environment,
-        decision,
+        decision: workItems[actionIndex].decision,
         resolutionId,
         timestamp,
       });
@@ -565,6 +599,56 @@ export function resolveAthenaPendingTrigger(
   } finally {
     void started;
   }
+}
+
+function resolutionWorkItems(
+  definition: AthenaTriggerResolutionDefinition,
+  decision: AthenaTriggerResolutionDecision,
+): Array<{
+  action: AthenaResolutionAction;
+  decision: AthenaTriggerResolutionDecision;
+}> {
+  return athenaResolutionActionsForDecision(definition, decision).flatMap(
+    (action) => {
+      if (
+        action.kind !== "add-counter" ||
+        action.target !== "selected" ||
+        !decision.distribution ||
+        Object.keys(decision.distribution).length === 0
+      ) {
+        return [{ action, decision: copyDecision(decision) }];
+      }
+      return Object.entries(decision.distribution)
+        .filter(
+          ([, quantity]) => Number.isSafeInteger(quantity) && quantity > 0,
+        )
+        .map(([groupId, quantity]) => ({
+          action: {
+            ...action,
+            quantity: { kind: "fixed-per-trigger" as const, value: quantity },
+          },
+          decision: {
+            ...copyDecision(decision),
+            targetGroupIds: [groupId],
+            selectedGroupIds: [groupId],
+            distribution: {},
+          },
+        }));
+    },
+  );
+}
+
+export function athenaResolutionActionsForDecision(
+  definition: AthenaTriggerResolutionDefinition,
+  decision: AthenaTriggerResolutionDecision,
+): AthenaResolutionAction[] {
+  const skippedActionIds =
+    decision.optionalAccepted === false
+      ? new Set(definition.optionalActionIds ?? [])
+      : null;
+  return definition.actions
+    .filter((action) => !skippedActionIds?.has(action.id))
+    .map(copyAction);
 }
 
 export class AthenaTriggerResolutionCoordinator {
@@ -781,13 +865,18 @@ export function processAthenaConfirmedEventWithBookkeeping(input: {
   decisions?: Record<string, AthenaTriggerResolutionDecision>;
   budget?: Partial<AthenaAutoResolutionBudget>;
   cancellation?: AthenaTriggerResolutionOptions["cancellation"];
+  replacement?: AthenaReplacementProcessingOptions;
 }): AthenaConfirmedConsequencePipelineResult {
   const timestamp = input.timestamp ?? input.event.timestamp;
   const environment = createForecastEnvironment(input.field);
   const replacement = processAthenaReplacementEffects(
     environment,
     input.event,
-    { timestamp, cancellation: input.cancellation },
+    {
+      ...input.replacement,
+      timestamp,
+      cancellation: input.cancellation ?? input.replacement?.cancellation,
+    },
   );
   if (replacement.validity === "bypassed") {
     return {
@@ -1425,9 +1514,7 @@ function customDefinitionForTrigger(
     mandatory: true,
     locallySupported: true,
     requiresAuthority: false,
-    requiresManualResolution:
-      effect.action.kind === "add-counters" &&
-      effect.action.target === "selected",
+    requiresManualResolution: false,
     actions: [action],
     semanticLabel: effect.name,
   };
@@ -1919,6 +2006,14 @@ function copyDecision(
     selectedGroupIds: decision.selectedGroupIds
       ? [...decision.selectedGroupIds]
       : undefined,
+    selectedOptionIds: decision.selectedOptionIds
+      ? [...decision.selectedOptionIds]
+      : undefined,
+    modes: decision.modes ? [...decision.modes] : undefined,
+    distribution: decision.distribution
+      ? { ...decision.distribution }
+      : undefined,
+    orderIds: decision.orderIds ? [...decision.orderIds] : undefined,
   };
 }
 

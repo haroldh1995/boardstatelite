@@ -68,6 +68,7 @@ export interface AthenaTriggerResolutionDefinition {
   locallySupported: boolean;
   requiresAuthority: boolean;
   requiresManualResolution: boolean;
+  optionalActionIds?: string[];
   actions: AthenaResolutionAction[];
   semanticLabel: string;
 }

@@ -9,8 +9,11 @@ import {
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
+import { createGenericGroup } from "./domain/cards";
 import { createDefaultField } from "./domain/field";
 import { MicrophoneStatusIndicator } from "./components/MicrophoneStatusIndicator";
+import { AthenaDecisionSurface } from "./components/AthenaDecisionSurface";
+import { Battlefield } from "./components/Battlefield";
 import { useFieldStore } from "./state/useFieldStore";
 import {
   animPakal,
@@ -25,6 +28,12 @@ import {
   createForecastEnvironment,
 } from "./athena/eventForecast";
 import { getZoneCompositionSnapshot } from "./domain/zoneComposition";
+import {
+  athenaDecisionStateFingerprint,
+  buildAthenaDecisionCandidates,
+  createAthenaDecisionRequest,
+  enqueueAthenaDecision,
+} from "./athena/decisionEngine";
 
 describe("Baord State Lite app shell", () => {
   beforeEach(() => {
@@ -167,6 +176,221 @@ describe("Baord State Lite app shell", () => {
         .getState()
         .field.groups.some((group) => group.label === "Gnome"),
     ).toBe(false);
+  });
+
+  it("pauses only for an optional trigger decision and resumes bookkeeping immediately", () => {
+    const field = fieldWith([
+      tracked(
+        testCard({
+          name: "Soul's Attendant",
+          typeLine: "Creature - Human Cleric",
+          oracleText: "Whenever another creature enters, you may gain 1 life.",
+          power: "1",
+          toughness: "1",
+        }),
+      ),
+    ]);
+    useFieldStore.setState({ field, undoStack: [], redoStack: [] });
+    const environment = createForecastEnvironment(field);
+    const event = createAthenaForecastInput(
+      {
+        eventId: "optional-trigger-entry",
+        eventCategory: "creature-entered",
+        eventSource: "canonical-event",
+        authoritySource: "confirmed-canonical-session-result",
+        timestamp: "2026-08-20T12:00:00.000Z",
+        quantity: 1,
+        knownCharacteristics: {
+          cardTypes: ["Creature"],
+          isCreature: true,
+          isToken: true,
+        },
+        metadata: { confirmed: true },
+      },
+      environment,
+    );
+
+    expect(
+      useFieldStore.getState().processConfirmedAthenaEvent(event).validity,
+    ).toBe("committed");
+    const decision = useFieldStore
+      .getState()
+      .field.athena.decisions.requests.find(
+        (entry) => entry.type === "optional-effect",
+      );
+    expect(decision?.status).toBe("active");
+    expect(useFieldStore.getState().field.player.life).toBe(40);
+
+    useFieldStore.getState().answerAthenaDecision(decision!.id, {
+      accepted: true,
+      responseId: "optional-yes",
+    });
+    expect(useFieldStore.getState().field.player.life).toBe(41);
+    expect(
+      useFieldStore
+        .getState()
+        .field.athena.decisions.requests.find(
+          (entry) => entry.id === decision!.id,
+        )?.status,
+    ).toBe("answered");
+
+    useFieldStore.getState().undo();
+    expect(useFieldStore.getState().field.player.life).toBe(40);
+    useFieldStore.getState().redo();
+    expect(useFieldStore.getState().field.player.life).toBe(41);
+  });
+
+  it("lets an eligible battlefield card answer a contextual target directly", async () => {
+    const user = userEvent.setup();
+    let field = fieldWith([
+      tracked(animPakal()),
+      tracked(
+        testCard({
+          name: "Target Creature",
+          typeLine: "Creature - Human",
+          oracleText: "",
+          power: "2",
+          toughness: "2",
+        }),
+      ),
+    ]);
+    const candidates = buildAthenaDecisionCandidates(field, {
+      controller: "you",
+      zones: ["battlefield"],
+      cardTypes: ["Creature"],
+    });
+    const decision = createAthenaDecisionRequest({
+      sessionId: field.session.id,
+      participantId: field.multiplayer.registry.localParticipantId,
+      type: "target-selection",
+      prompt: "Choose one target creature you control.",
+      candidates,
+      targetConstraints: {
+        controller: "you",
+        zones: ["battlefield"],
+        cardTypes: ["Creature"],
+      },
+      stateFingerprint: athenaDecisionStateFingerprint(field),
+      timestamp: field.updatedAt,
+    });
+    field = {
+      ...field,
+      athena: {
+        ...field.athena,
+        decisions: enqueueAthenaDecision(
+          field.athena.decisions,
+          decision,
+          field.updatedAt,
+        ),
+      },
+    };
+    useFieldStore.setState({
+      field,
+      hydrated: true,
+      startupVisible: false,
+      modal: null,
+      undoStack: [],
+      redoStack: [],
+    });
+    render(
+      <>
+        <AthenaDecisionSurface />
+        <Battlefield />
+      </>,
+    );
+
+    expect(
+      await screen.findByText("Choose one target creature you control."),
+    ).toBeInTheDocument();
+    const target = screen.getByRole("listitem", {
+      name: /Anim Pakal.*Eligible target/i,
+    });
+    await user.click(target);
+
+    expect(
+      useFieldStore
+        .getState()
+        .field.athena.decisions.requests.find(
+          (entry) => entry.id === decision.id,
+        )?.answer?.targetGroupIds,
+    ).toEqual([field.groups[0].id]);
+  });
+
+  it("identifies an untracked zone candidate without fabricating another zone entry", () => {
+    const unknown = {
+      ...createGenericGroup({
+        kind: "Custom",
+        label: "Unknown card",
+        cardTypes: [],
+      }),
+      zone: "graveyard" as const,
+    };
+    let field = fieldWith([unknown]);
+    const candidates = buildAthenaDecisionCandidates(
+      field,
+      {
+        controller: "you",
+        zones: ["graveyard"],
+        cardTypes: ["Creature"],
+        allowUntrackedZoneCard: true,
+      },
+      { zones: ["graveyard"] },
+    );
+    const decision = createAthenaDecisionRequest({
+      sessionId: field.session.id,
+      participantId: field.multiplayer.registry.localParticipantId,
+      type: "zone-card-selection",
+      prompt: "Choose a creature card from your graveyard.",
+      candidates,
+      targetConstraints: {
+        controller: "you",
+        zones: ["graveyard"],
+        cardTypes: ["Creature"],
+        allowUntrackedZoneCard: true,
+      },
+      stateFingerprint: athenaDecisionStateFingerprint(field),
+      timestamp: field.updatedAt,
+    });
+    field = {
+      ...field,
+      athena: {
+        ...field.athena,
+        decisions: enqueueAthenaDecision(
+          field.athena.decisions,
+          decision,
+          field.updatedAt,
+        ),
+      },
+    };
+    useFieldStore.setState({
+      field,
+      undoStack: [],
+      redoStack: [],
+    });
+    const untracked = candidates.find(
+      (candidate) => candidate.kind === "untracked-card",
+    );
+
+    expect(untracked).toBeDefined();
+    useFieldStore
+      .getState()
+      .identifyAthenaDecisionZoneCard(decision.id, untracked!.id, animPakal());
+
+    const current = useFieldStore.getState().field;
+    expect(
+      current.groups.filter((group) => group.zone === "graveyard"),
+    ).toHaveLength(1);
+    expect(current.groups[0].identity?.name).toBe(
+      "Anim Pakal, Thousandth Moon",
+    );
+    expect(
+      current.athena.decisions.requests.find(
+        (entry) => entry.id === decision.id,
+      )?.status,
+    ).toBe("answered");
+
+    useFieldStore.getState().undo();
+    expect(useFieldStore.getState().field.groups[0].identity).toBeNull();
   });
 
   it("corrects exile composition quickly and keeps outside dismissal non-mutating", async () => {

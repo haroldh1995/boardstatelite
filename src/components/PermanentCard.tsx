@@ -1,5 +1,6 @@
 import { EyeOff, Grip, RotateCcw, Shield, ShieldOff } from "lucide-react";
 import { useRef, useState } from "react";
+import { activeAthenaDecision } from "../athena/decisionEngine";
 import type { PermanentGroup, SupportStatus } from "../domain/types";
 import { useFieldStore } from "../state/useFieldStore";
 
@@ -20,6 +21,12 @@ export function PermanentCard({
 }: PermanentCardProps) {
   const openModal = useFieldStore((state) => state.openModal);
   const removeGroup = useFieldStore((state) => state.removeGroup);
+  const activeDecision = useFieldStore((state) =>
+    activeAthenaDecision(state.field.athena.decisions),
+  );
+  const answerAthenaDecision = useFieldStore(
+    (state) => state.answerAthenaDecision,
+  );
   const [gesture, setGesture] = useState<"idle" | "waiting" | "hold">("idle");
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef<number | null>(null);
@@ -37,8 +44,21 @@ export function PermanentCard({
   const image = group.identity?.imageUrl || group.identity?.imageSmall;
   const isStack = group.quantity > 1;
   const trackingDisabled = group.trackingEnabled === false;
+  const targetCandidate = activeDecision?.candidates.find(
+    (candidate) => candidate.eligible && candidate.groupId === group.id,
+  );
+  const directTargeting =
+    Boolean(targetCandidate) &&
+    activeDecision?.constraints.maximumSelections === 1 &&
+    [
+      "target-selection",
+      "object-selection",
+      "card-selection",
+      "zone-card-selection",
+    ].includes(activeDecision.type);
 
   function pointerDown() {
+    if (directTargeting) return;
     setGesture("hold");
     holdTimerRef.current = window.setTimeout(() => {
       openModal({ kind: "managePermanent", groupId: group.id });
@@ -47,6 +67,16 @@ export function PermanentCard({
   }
 
   function pointerUp() {
+    if (directTargeting && activeDecision && targetCandidate) {
+      answerAthenaDecision(activeDecision.id, {
+        responseId: `touch:${activeDecision.id}:${group.id}`,
+        selectedOptionIds: [targetCandidate.id],
+        targetGroupIds: [group.id],
+        selectedGroupIds: [group.id],
+        channel: "touch",
+      });
+      return;
+    }
     if (holdTimerRef.current) window.clearTimeout(holdTimerRef.current);
     if (gesture !== "hold") return;
     tapCountRef.current += 1;
@@ -88,9 +118,10 @@ export function PermanentCard({
         group.statuses.depowered ? "is-depowered" : "",
         trackingDisabled ? "is-not-tracked" : "",
         gesture === "waiting" ? "gesture-waiting" : "",
+        directTargeting ? "athena-eligible-target" : "",
       ].join(" ")}
       role="listitem"
-      draggable
+      draggable={!directTargeting}
       onDragStart={() => onDragStart(group.id)}
       onDragOver={(event) => event.preventDefault()}
       onDrop={() => onDropOn(group.id)}
@@ -105,9 +136,14 @@ export function PermanentCard({
         trackingDisabled
           ? ". Not Tracked. This permanent remains on the battlefield but its abilities will be ignored by automatic resolution"
           : ""
-      }`}
+      }${directTargeting ? ". Eligible target" : ""}`}
       tabIndex={0}
       onKeyDown={(event) => {
+        if (event.key === "Enter" && directTargeting) {
+          event.preventDefault();
+          pointerUp();
+          return;
+        }
         if (event.key === "Enter")
           openModal({ kind: "managePermanent", groupId: group.id });
         if (event.key === "Delete") removeGroup(group.id, 1);

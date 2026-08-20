@@ -81,6 +81,7 @@ export {
   AthenaTriggerResolutionCoordinator,
   DEFAULT_ATHENA_AUTO_RESOLUTION_BUDGET,
   applyAthenaCanonicalConsequenceEvent,
+  athenaResolutionActionsForDecision,
   athenaTriggerResolutionCoordinator,
   evaluateAthenaTriggerResolutionEligibility,
   processAthenaConfirmedEventWithBookkeeping,
@@ -96,6 +97,33 @@ export {
   matchAthenaPreparedActionForVoice,
   revalidateAthenaTurnIntent,
 } from "./turnIntent";
+export {
+  activeAthenaDecision,
+  ATHENA_DECISION_MAX_CANDIDATES,
+  answerAthenaDecision,
+  answerAthenaDecisionFromVoice,
+  answerToTriggerResolutionDecision,
+  athenaDecisionStateFingerprint,
+  athenaOptionalPreferenceAnswer,
+  buildAthenaDecisionCandidates,
+  cancelAthenaDecision,
+  clearAthenaDecisionPreference,
+  cardTypeDecisionCandidates,
+  colorDecisionCandidates,
+  counterTypeDecisionCandidates,
+  createAthenaDecisionRequest,
+  createAthenaPreparedChoiceRequest,
+  createAthenaReplacementDecisionRequest,
+  createAthenaTriggerDecisionRequest,
+  createDefaultAthenaDecisionQueue,
+  creatureTypeDecisionCandidates,
+  enqueueAthenaDecision,
+  normalizeAthenaDecisionQueue,
+  revalidateAthenaDecisions,
+  setAthenaOptionalDecisionPreference,
+  validateAthenaDecisionAnswer,
+} from "./decisionEngine";
+export { createAthenaManualResultForecast } from "./decisionManualResult";
 export {
   ATHENA_COMPATIBILITY_VERSION,
   ATHENA_CONTEXT_VERSION,
@@ -134,6 +162,10 @@ export {
 } from "./derivedStateTypes";
 export { ATHENA_TRIGGER_RESOLUTION_VERSION } from "./triggerResolutionTypes";
 export { ATHENA_TURN_INTENT_VERSION } from "./turnIntentTypes";
+export {
+  ATHENA_DECISION_ENGINE_VERSION,
+  ATHENA_DECISION_QUEUE_SCHEMA_VERSION,
+} from "./decisionEngineTypes";
 export * from "../domain/zoneComposition";
 export * from "../domain/zoneCompositionTypes";
 export type {
@@ -330,3 +362,21 @@ export type {
   AthenaPreparedVoiceMatchResult,
   AthenaTurnIntentDiagnostics,
 } from "./turnIntentTypes";
+export type {
+  AthenaDecisionAnswer,
+  AthenaDecisionCandidate,
+  AthenaDecisionCandidateKind,
+  AthenaDecisionConstraints,
+  AthenaDecisionContinuation,
+  AthenaDecisionDiagnostics,
+  AthenaDecisionPreference,
+  AthenaDecisionQueueState,
+  AthenaDecisionRequest,
+  AthenaDecisionResponseResult,
+  AthenaDecisionStatus,
+  AthenaDecisionType,
+  AthenaDecisionValidationResult,
+  AthenaDecisionVoiceInput,
+  AthenaManualDecisionResult,
+  AthenaTargetConstraints,
+} from "./decisionEngineTypes";

@@ -44,6 +44,14 @@ export interface AthenaTriggerResolutionDecision {
   mode?: string;
   selectedGroupIds?: string[];
   orderingConfirmed?: boolean;
+  selectedOptionIds?: string[];
+  modes?: string[];
+  distribution?: Record<string, number>;
+  color?: string;
+  cardType?: string;
+  creatureType?: string;
+  counterType?: string;
+  orderIds?: string[];
 }
 
 export interface AthenaTriggerResolutionEligibility {

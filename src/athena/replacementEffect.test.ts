@@ -521,6 +521,96 @@ describe("Athena replacement effect and event modification engine", () => {
     expect(result.requiredChoices).toContainEqual(
       expect.objectContaining({ kind: "replacement-order" }),
     );
+
+    const relationshipIds = result.requiredChoices[0].relationshipIds;
+    const chosen = processAthenaReplacementEffects(env, input, {
+      customDefinitions: [
+        customDefinition("Double", {
+          category: "quantity-multiplier",
+          factor: 2,
+        }),
+        customDefinition("Add One", {
+          category: "quantity-additive",
+          amount: 1,
+        }),
+      ],
+      selectedReplacementOrder: relationshipIds,
+    });
+    expect(chosen.validity).toBe("resolved");
+    expect(chosen.steps.map((step) => step.relationshipId)).toEqual(
+      relationshipIds,
+    );
+    expect(chosen.finalEvent?.quantity).toBe(8);
+    const reversed = processAthenaReplacementEffects(env, input, {
+      customDefinitions: [
+        customDefinition("Double", {
+          category: "quantity-multiplier",
+          factor: 2,
+        }),
+        customDefinition("Add One", {
+          category: "quantity-additive",
+          amount: 1,
+        }),
+      ],
+      selectedReplacementOrder: [...relationshipIds].reverse(),
+    });
+    expect(reversed.finalEvent?.quantity).toBe(7);
+  });
+
+  it("resumes optional replacements only after a structured decision", () => {
+    const env = environment(fieldWith([]));
+    const input = tokenEvent(env, 2);
+    const definition = customDefinition(
+      "Optional Double",
+      { category: "quantity-multiplier", factor: 2 },
+      { optional: true },
+    );
+    const waiting = processAthenaReplacementEffects(env, input, {
+      customDefinitions: [definition],
+    });
+    const relationshipId = waiting.requiredChoices[0].relationshipIds[0];
+    const accepted = processAthenaReplacementEffects(env, input, {
+      customDefinitions: [definition],
+      optionalReplacementDecisions: { [relationshipId]: true },
+    });
+    const declined = processAthenaReplacementEffects(env, input, {
+      customDefinitions: [definition],
+      optionalReplacementDecisions: { [relationshipId]: false },
+    });
+    expect(accepted.finalEvent?.quantity).toBe(4);
+    expect(declined.finalEvent?.quantity).toBe(2);
+  });
+
+  it("requests multiple optional replacements one at a time without guessing", () => {
+    const env = environment(fieldWith([]));
+    const input = tokenEvent(env, 2);
+    const double = customDefinition(
+      "Optional Double",
+      { category: "quantity-multiplier", factor: 2 },
+      { optional: true },
+    );
+    const triple = customDefinition(
+      "Optional Triple",
+      { category: "quantity-multiplier", factor: 3 },
+      { optional: true },
+    );
+    const waiting = processAthenaReplacementEffects(env, input, {
+      customDefinitions: [double, triple],
+    });
+    expect(waiting.requiredChoices).toHaveLength(2);
+    const first = waiting.requiredChoices[0].relationshipIds[0];
+    const second = waiting.requiredChoices[1].relationshipIds[0];
+    const stillWaiting = processAthenaReplacementEffects(env, input, {
+      customDefinitions: [double, triple],
+      optionalReplacementDecisions: { [first]: true },
+    });
+    expect(stillWaiting.requiredChoices).toHaveLength(1);
+    expect(stillWaiting.requiredChoices[0].relationshipIds).toEqual([second]);
+    const resolved = processAthenaReplacementEffects(env, input, {
+      customDefinitions: [double, triple],
+      optionalReplacementDecisions: { [first]: true, [second]: false },
+    });
+    expect(resolved.finalEvent?.quantity).toBe(4);
   });
 
   it("rejects invalid custom definitions without partial processing", () => {
