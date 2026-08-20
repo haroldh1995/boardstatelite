@@ -1098,6 +1098,43 @@ export function applyAthenaCanonicalConsequenceEvent(
     }
   } else if (event.eventCategory === "spell-cast") {
     // Casting is a canonical event even when Lite does not model the stack.
+  } else if (event.eventCategory === "cards-drawn") {
+    let libraryQuantity = event.quantity;
+    working.groups = working.groups
+      .map((entry) => {
+        if (
+          libraryQuantity <= 0 ||
+          entry.zone !== "library" ||
+          !entry.isGeneric ||
+          entry.identity
+        ) {
+          return entry;
+        }
+        const removed = Math.min(entry.quantity, libraryQuantity);
+        libraryQuantity -= removed;
+        changed.add(entry.id);
+        return withStackKey({ ...entry, quantity: entry.quantity - removed });
+      })
+      .filter((entry) => entry.quantity > 0);
+    let group = createGenericGroup({
+      kind: "Custom",
+      label: "Unknown drawn cards",
+      quantity: event.quantity,
+      zone: "hand",
+    });
+    group = withStackKey({
+      ...group,
+      id: `athena-group:${stableHash(`${resolutionId}:${event.eventId}:draw`)}`,
+      order: event.sequence,
+    });
+    const beforeIds = new Set(working.groups.map((entry) => entry.id));
+    working.groups = mergeCompatibleStacks([...working.groups, group]);
+    const retained = working.groups.find(
+      (entry) => entry.stackKey === group.stackKey,
+    );
+    if (!retained) return fail("The confirmed draw could not be recorded.");
+    changed.add(retained.id);
+    if (!beforeIds.has(retained.id)) generated.add(retained.id);
   } else if (event.eventCategory === "life-gained") {
     if (working.player.life > Number.MAX_SAFE_INTEGER - event.quantity) {
       return fail("Life total overflow was prevented.");

@@ -2262,6 +2262,8 @@ function eventCategoryForIntentKind(
       return "land-entered";
     case "cast-spell":
       return "spell-cast";
+    case "draw-cards":
+      return "cards-drawn";
     case "create-token":
       return "token-created";
     case "add-counters":

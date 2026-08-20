@@ -516,6 +516,7 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
     allowActivePreview: false,
     sessionId: sessionWithHub.id,
     participantId: multiplayer.registry.localParticipantId,
+    turnId: preTurnPlanner.turnId,
   });
   return {
     ...defaults,
@@ -841,6 +842,7 @@ export function normalizeField(field: FieldState): FieldState {
     allowActivePreview: true,
     sessionId: sessionWithHub.id,
     participantId: multiplayer.registry.localParticipantId,
+    turnId: preTurnPlanner.turnId,
   });
   const zoneCompositions = normalizeZoneCompositionCollection(
     field.zoneCompositions,

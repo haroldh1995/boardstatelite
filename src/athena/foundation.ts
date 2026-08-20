@@ -19,6 +19,10 @@ import {
   normalizeAthenaDecisionQueue,
 } from "./decisionEngine";
 import {
+  createDefaultAthenaLiveTurnState,
+  normalizeAthenaLiveTurnState,
+} from "./liveTurnOrchestrator";
+import {
   ATHENA_COMPATIBILITY_VERSION,
   ATHENA_CONTEXT_VERSION,
   ATHENA_FOUNDATION_VERSION,
@@ -129,6 +133,9 @@ export function createDefaultAthenaState(
     decisions: input.decisions
       ? normalizeAthenaDecisionQueue(input.decisions)
       : createDefaultAthenaDecisionQueue(),
+    liveTurn: input.liveTurn
+      ? normalizeAthenaLiveTurnState(input.liveTurn)
+      : createDefaultAthenaLiveTurnState(),
     activePreview,
     recentPreviewIds: Array.isArray(input.recentPreviewIds)
       ? uniqueStrings(input.recentPreviewIds).slice(0, 20)
@@ -154,6 +161,7 @@ export function normalizeAthenaState(
     allowActivePreview?: boolean;
     sessionId?: string | null;
     participantId?: string | null;
+    turnId?: string | null;
   } = {},
 ): AthenaState {
   const timestamp = options.fallbackTimestamp ?? DEFAULT_TIMESTAMP;
@@ -189,6 +197,12 @@ export function normalizeAthenaState(
       sessionId: options.sessionId,
       participantId: options.participantId,
       timestamp,
+    }),
+    liveTurn: normalizeAthenaLiveTurnState(candidate.liveTurn, {
+      timestamp,
+      sessionId: options.sessionId,
+      participantId: options.participantId,
+      turnId: options.turnId,
     }),
     activePreview,
     recentPreviewIds,
@@ -1159,6 +1173,7 @@ function eventTypesForOracle(text: string): GameEventType[] {
   if (text.includes("attack")) events.push("permanent-tapped");
   if (text.includes("token")) events.push("token-created");
   if (text.includes("counter")) events.push("counter-placed");
+  if (text.includes("draw")) events.push("cards-drawn");
   if (text.includes("life")) events.push("life-gained", "life-lost");
   return uniqueStrings(events);
 }

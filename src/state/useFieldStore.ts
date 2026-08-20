@@ -164,6 +164,11 @@ import {
   revalidateAthenaTurnIntent,
 } from "../athena/turnIntent";
 import {
+  coordinateAthenaLiveTurnField,
+  recordAthenaLiveTurnPipeline,
+  requestAthenaLiveTurnEnd,
+} from "../athena/liveTurnOrchestrator";
+import {
   applyZoneCompositionCorrection,
   reconcileUnknownZoneGroupIdentity,
 } from "../domain/zoneComposition";
@@ -760,10 +765,22 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
       );
       return { ...result, resultingField: decisionField };
     }
-    const resultingField = withPendingAthenaDecision(
+    const resultingFieldWithDecision = withPendingAthenaDecision(
       result.resultingField,
       result.queue,
       event.timestamp,
+    );
+    const resultingField = recordAthenaLiveTurnPipeline(
+      resultingFieldWithDecision,
+      {
+        queue: result.queue,
+        canonicalEvents: [
+          ...(result.rootCanonicalEvent ? [result.rootCanonicalEvent] : []),
+          ...(result.autoResolution?.generatedCanonicalEvents ?? []),
+        ],
+        unexpected: true,
+        timestamp: event.timestamp,
+      },
     );
     commitField(
       "Athena automatic bookkeeping",
@@ -1913,6 +1930,7 @@ function continueAthenaDecisionResponse(
   };
   const continuation = response.continuation;
   let canonicalEvents: GameEvent[] = [];
+  let latestQueue: AthenaPendingTriggerQueueSnapshot | null = null;
   let summary = [priorSummary, response.semanticDescription]
     .filter(Boolean)
     .join(" ");
@@ -1942,6 +1960,7 @@ function continueAthenaDecisionResponse(
           queue,
           timestamp,
         });
+        latestQueue = pipeline.queue;
         if (pipeline.validity === "committed") {
           working = withPendingAthenaDecision(
             pipeline.resultingField,
@@ -1980,6 +1999,12 @@ function continueAthenaDecisionResponse(
           summary = pipeline.reason;
         }
       }
+      working = coordinateAthenaLiveTurnField(working, {
+        signal: "decision-answered",
+        queue: latestQueue,
+        canonicalEvents,
+        timestamp,
+      });
       commitField(
         "Athena manual result",
         historyBefore,
@@ -2003,6 +2028,7 @@ function continueAthenaDecisionResponse(
       orderedTriggerIds[0] ?? continuation.triggerId,
       { timestamp, decision },
     );
+    latestQueue = resolved.queue;
     working = resolved.resultingField;
     canonicalEvents = resolved.eventRecords.flatMap((record) =>
       record.canonicalEvent ? [record.canonicalEvent] : [],
@@ -2014,6 +2040,7 @@ function continueAthenaDecisionResponse(
         queue,
         timestamp,
       });
+      latestQueue = cycle.queue;
       working = cycle.field;
       canonicalEvents.push(...cycle.generatedCanonicalEvents);
       summary = [summary, cycle.semanticDescription].filter(Boolean).join(" ");
@@ -2057,6 +2084,7 @@ function continueAthenaDecisionResponse(
         optionalReplacementDecisions: optionalDecision,
       },
     });
+    latestQueue = pipeline.queue;
     if (pipeline.validity === "committed") {
       working = withPendingAthenaDecision(
         pipeline.resultingField,
@@ -2121,6 +2149,7 @@ function continueAthenaDecisionResponse(
       if (execution.status === "committed") {
         working = execution.field;
         canonicalEvents = execution.canonicalEvents;
+        latestQueue = execution.pipeline?.queue ?? latestQueue;
         summary = execution.semanticDescription;
       } else if (execution.status === "awaiting-input") {
         const nextRequest = createAthenaPreparedChoiceRequest({
@@ -2145,6 +2174,12 @@ function continueAthenaDecisionResponse(
       }
     }
   }
+  working = coordinateAthenaLiveTurnField(working, {
+    signal: "decision-answered",
+    queue: latestQueue,
+    canonicalEvents,
+    timestamp,
+  });
   commitField(
     "Athena decision resolved",
     historyBefore,
@@ -2284,10 +2319,12 @@ function withDerivedField(field: FieldState): FieldState {
     timestamp: field.updatedAt,
     reason: "canonical-field-change",
   });
-  return revalidateAthenaDecisions(
-    revalidateAthenaTurnIntent(derived.field, field.updatedAt),
-    field.updatedAt,
-  );
+  const planned = revalidateAthenaTurnIntent(derived.field, field.updatedAt);
+  const decided = revalidateAthenaDecisions(planned, field.updatedAt);
+  return coordinateAthenaLiveTurnField(decided, {
+    signal: "reconcile",
+    timestamp: field.updatedAt,
+  });
 }
 
 function commitPlannerField(
@@ -2558,8 +2595,19 @@ function processActionStripItem(
         if (preparedExecution.status !== "committed") {
           throw new Error(preparedExecution.reason);
         }
+        const orchestratedField = preparedExecution.pipeline
+          ? recordAthenaLiveTurnPipeline(preparedExecution.field, {
+              queue: preparedExecution.pipeline.queue,
+              canonicalEvents: preparedExecution.canonicalEvents,
+              actionId: item.id,
+              preparedActionId: item.preparedActionId,
+              actionKind: item.kind,
+              confirmationReceiptId: preparedExecution.confirmationReceiptId,
+              timestamp,
+            })
+          : preparedExecution.field;
         return {
-          field: preparedExecution.field,
+          field: orchestratedField,
           title: "Prepared Action Completed",
           summary: [preparedExecution.semanticDescription],
           details: [],
@@ -2649,6 +2697,7 @@ function isPreparedGameplayItem(
   kind: FieldState["activeTurnActionStrip"]["items"][number]["kind"],
 ): boolean {
   return (
+    kind === "draw" ||
     kind === "play-planned-land" ||
     kind === "cast-planned-spell" ||
     kind === "activate-planned-ability" ||
@@ -2672,6 +2721,28 @@ function applyActionStripMutation(
     (entry) => entry.id === itemId,
   );
   if (!item) return synced;
+
+  if (kindRequestsTurnEnd(item.kind) && status === "completed") {
+    const end = requestAthenaLiveTurnEnd(synced, timestamp);
+    if (!end.allowed) {
+      return coordinateAthenaLiveTurnField(
+        normalizeField({
+          ...synced,
+          athena: { ...synced.athena, liveTurn: end.state },
+          activeTurnActionStrip: markActionStripPipelineResult(
+            synced.activeTurnActionStrip,
+            {
+              itemId,
+              status: "blocked",
+              timestamp,
+              failureReason: end.semanticDescription,
+            },
+          ),
+        }),
+        { signal: "end-turn-requested", timestamp },
+      );
+    }
+  }
 
   const nextAmbient = transitionForActionItem(synced, item.kind, timestamp);
   const plannerStatus = plannerStatusFromActionStripStatus(status);
@@ -2700,7 +2771,7 @@ function applyActionStripMutation(
     },
   );
 
-  return normalizeField({
+  const nextField = normalizeField({
     ...synced,
     ambient: nextAmbient,
     preTurnPlanner: syncPlannerWithAmbientMode(
@@ -2731,6 +2802,30 @@ function applyActionStripMutation(
       },
     ),
   });
+  return coordinateAthenaLiveTurnField(nextField, {
+    signal:
+      item.kind === "begin-turn"
+        ? "turn-started"
+        : item.kind === "move-to-combat"
+          ? "combat-started"
+          : item.kind === "end-combat"
+            ? "combat-completed"
+            : item.kind === "end-turn"
+              ? "turn-completed"
+              : status === "completed"
+                ? "action-completed"
+                : "reconcile",
+    actionId: item.id,
+    preparedActionId: item.preparedActionId,
+    actionKind: item.kind,
+    timestamp,
+  });
+}
+
+function kindRequestsTurnEnd(
+  kind: FieldState["activeTurnActionStrip"]["items"][number]["kind"],
+): boolean {
+  return kind === "end-turn";
 }
 
 function transitionForActionItem(

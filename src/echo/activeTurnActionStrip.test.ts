@@ -357,6 +357,61 @@ describe("Active Turn Action Strip", () => {
     ).toMatchObject({ remaining: 0, confirmed: 1 });
   });
 
+  it("commits the live Draw action once and restores it through undo", () => {
+    const field = createDefaultField();
+    useFieldStore.setState({
+      field,
+      hydrated: true,
+      startupVisible: false,
+      modal: null,
+      lastResult: null,
+      undoStack: [],
+      redoStack: [],
+    });
+    useFieldStore.getState().plannerAddAction({
+      id: "after-draw",
+      type: "note",
+      title: "After draw",
+    });
+    const begin = useFieldStore
+      .getState()
+      .field.activeTurnActionStrip.items.find(
+        (item) => item.kind === "begin-turn",
+      );
+    if (!begin) throw new Error("Expected begin turn action.");
+    useFieldStore.getState().actionStripSelectItem(begin.id);
+    const draw = useFieldStore
+      .getState()
+      .field.activeTurnActionStrip.items.find((item) => item.kind === "draw");
+    if (!draw) throw new Error("Expected draw action.");
+
+    const result = useFieldStore.getState().actionStripSelectItem(draw.id);
+    const after = useFieldStore.getState().field;
+    expect(result?.event?.result.generatedGameEventIds).toHaveLength(1);
+    expect(
+      after.groups
+        .filter((group) => group.zone === "hand")
+        .reduce((sum, group) => sum + group.quantity, 0),
+    ).toBe(1);
+    expect(after.athena.liveTurn.processedCanonicalEventIds).toContain(
+      result?.event?.result.generatedGameEventIds[0],
+    );
+
+    useFieldStore.getState().undo();
+    expect(
+      useFieldStore
+        .getState()
+        .field.groups.filter((group) => group.zone === "hand"),
+    ).toHaveLength(0);
+    useFieldStore.getState().redo();
+    expect(
+      useFieldStore
+        .getState()
+        .field.groups.filter((group) => group.zone === "hand")
+        .reduce((sum, group) => sum + group.quantity, 0),
+    ).toBe(1);
+  });
+
   it("persists through migration, snapshots, and imports", () => {
     let field = createDefaultField();
     useFieldStore.setState({

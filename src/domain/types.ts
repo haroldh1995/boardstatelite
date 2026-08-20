@@ -416,6 +416,7 @@ export type GameEventType =
   | "damage-dealt"
   | "land-entered"
   | "spell-cast"
+  | "cards-drawn"
   | "permanent-died"
   | "permanent-sacrificed"
   | "permanent-exiled"

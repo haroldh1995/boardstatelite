@@ -47,6 +47,7 @@ export const ATHENA_EVENT_CATEGORIES: readonly AthenaEventCategory[] = [
   "permanent-tapped",
   "permanent-untapped",
   "spell-cast",
+  "cards-drawn",
   "attack-declared",
   "combat-completed",
   "token-removed",

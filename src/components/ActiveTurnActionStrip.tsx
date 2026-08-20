@@ -24,6 +24,7 @@ import { useFieldStore } from "../state/useFieldStore";
 
 export function ActiveTurnActionStrip() {
   const strip = useFieldStore((state) => state.field.activeTurnActionStrip);
+  const liveTurn = useFieldStore((state) => state.field.athena.liveTurn);
   const runItem = useFieldStore((state) => state.actionStripSelectItem);
   const setStatus = useFieldStore((state) => state.actionStripSetItemStatus);
   const reorder = useFieldStore((state) => state.actionStripReorderItem);
@@ -72,7 +73,7 @@ export function ActiveTurnActionStrip() {
       <div className="action-strip-header">
         <div>
           <strong>{headerTitle(strip.visibility)}</strong>
-          <span>{headerCopy(strip.visibility)}</span>
+          <span>{headerCopy(strip.visibility, liveTurn.lifecycle)}</span>
         </div>
         <button
           type="button"
@@ -84,6 +85,9 @@ export function ActiveTurnActionStrip() {
           {strip.expanded ? <ChevronUp /> : <ChevronDown />}
         </button>
       </div>
+      <p className="sr-only" aria-live="polite" aria-atomic="true">
+        {liveTurn.semanticSummary}
+      </p>
       {(strip.visibility === "preview" || strip.visibility === "primary") && (
         <div
           className="action-strip-land-plays"
@@ -274,12 +278,16 @@ function headerTitle(visibility: string): string {
   return "Active Turn";
 }
 
-function headerCopy(visibility: string): string {
+function headerCopy(visibility: string, lifecycle: string): string {
   if (visibility === "preview") return "Preview your next turn sequence.";
   if (visibility === "combat") return "Confirm combat steps one at a time.";
   if (visibility === "suspended") return "Actions pause during resolution.";
   if (visibility === "recovery") return "Review or skip interrupted actions.";
   if (visibility === "archived") return "Completed actions are preserved.";
+  if (lifecycle === "second-main") return "Second main actions are ready.";
+  if (lifecycle === "awaiting-decision")
+    return "Answer the current choice to continue.";
+  if (lifecycle === "ready-to-end") return "Bookkeeping is clear.";
   return "Confirm once; supported bookkeeping follows automatically.";
 }
 

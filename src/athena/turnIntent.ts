@@ -788,6 +788,41 @@ function confirmedEventForItem(
   timestamp: string,
   recognizedText: string | null,
 ): AthenaForecastInput | null {
+  if (!action && item.kind === "draw") {
+    const environment = createForecastEnvironment(field);
+    return createAthenaForecastInput(
+      {
+        eventId: item.expectedCanonicalEventId,
+        eventCategory: "cards-drawn",
+        eventSource: channel === "voice" ? "echo-reported" : "manual-report",
+        authoritySource:
+          channel === "voice"
+            ? "project-echo-voice-report"
+            : "confirmed-user-report",
+        timestamp,
+        sequence: stableSequence(item.preparedActionId),
+        batchId: item.preparedActionId,
+        quantity: drawQuantity(recognizedText),
+        zoneOrigin: "library",
+        zoneDestination: "hand",
+        actionStripReference: item.id,
+        metadata: {
+          confirmed: true,
+          canonicalEvent: true,
+          hypothetical: false,
+          preparedActionId: item.preparedActionId,
+          label: "Draw",
+          confirmationChannel: channel,
+        },
+        confidence: {
+          level: "high",
+          score: 1,
+          speakerVerified: channel === "voice" ? true : null,
+        },
+      },
+      environment,
+    );
+  }
   if (!action && item.kind === "play-planned-land") {
     const environment = createForecastEnvironment(field);
     const spokenBasic = recognizedText
@@ -1417,7 +1452,6 @@ function semanticExecutionDescription(
 function isTurnTransition(item: ActiveTurnActionStripItem): boolean {
   return (
     item.kind === "begin-turn" ||
-    item.kind === "draw" ||
     item.kind === "move-to-combat" ||
     item.kind === "declare-planned-attack" ||
     item.kind === "end-combat" ||
@@ -1427,6 +1461,30 @@ function isTurnTransition(item: ActiveTurnActionStripItem): boolean {
     item.kind === "hold-priority-reminder" ||
     item.kind === "resolve-planned-trigger"
   );
+}
+
+function drawQuantity(recognizedText: string | null): number {
+  if (!recognizedText) return 1;
+  const normalized = normalizeName(recognizedText);
+  const numeric = normalized.match(/\b(\d{1,3})\b/);
+  if (numeric) return Math.max(1, Math.min(999, Number(numeric[1])));
+  const words: Record<string, number> = {
+    a: 1,
+    one: 1,
+    two: 2,
+    three: 3,
+    four: 4,
+    five: 5,
+    six: 6,
+    seven: 7,
+    eight: 8,
+    nine: 9,
+    ten: 10,
+  };
+  for (const [word, quantity] of Object.entries(words)) {
+    if (new RegExp(`\\b${word}\\b`).test(normalized)) return quantity;
+  }
+  return 1;
 }
 
 function confirmationReceiptId(
