@@ -2744,7 +2744,10 @@ function applyActionStripMutation(
     }
   }
 
-  const nextAmbient = transitionForActionItem(synced, item.kind, timestamp);
+  const nextAmbient =
+    status === "completed"
+      ? transitionForActionItem(synced, item.kind, timestamp)
+      : synced.ambient;
   const plannerStatus = plannerStatusFromActionStripStatus(status);
   const nextPlanner =
     item.sourceActionId && plannerStatus

@@ -257,6 +257,40 @@ describe("Active Turn Action Strip", () => {
     ).toBe("completed");
   });
 
+  it("does not advance the turn when a transition action is cancelled", () => {
+    const field = createDefaultField();
+    useFieldStore.setState({
+      field,
+      hydrated: true,
+      startupVisible: false,
+      modal: null,
+      lastResult: null,
+      undoStack: [],
+      redoStack: [],
+    });
+    useFieldStore.getState().plannerAddAction({
+      id: "planned-land",
+      type: "land-play",
+      title: "Forest",
+      land: { primary: "Forest" },
+    });
+    const before = useFieldStore.getState().field;
+    const begin = before.activeTurnActionStrip.items.find(
+      (item) => item.kind === "begin-turn",
+    );
+    if (!begin) throw new Error("Expected begin turn item.");
+
+    useFieldStore.getState().actionStripSetItemStatus(begin.id, "cancelled");
+
+    const after = useFieldStore.getState().field;
+    expect(after.ambient.currentMode).toBe(before.ambient.currentMode);
+    expect(after.ambient.currentMode).not.toBe("activeTurn");
+    expect(
+      after.activeTurnActionStrip.items.find((item) => item.id === begin.id)
+        ?.status,
+    ).toBe("cancelled");
+  });
+
   it("uses Action Strip mode actions for active turn, combat, and post-turn transitions", () => {
     const field = createDefaultField();
     useFieldStore.setState({
