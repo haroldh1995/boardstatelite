@@ -267,6 +267,11 @@ test("prepared Forest confirms once and Available Land Plays stays editable", as
     .getByRole("button", { name: /^Begin Turn/ })
     .first()
     .click();
+  await expect(
+    page
+      .getByRole("region", { name: /Active turn action strip/i })
+      .getByText("Next action. Play Forest."),
+  ).toBeVisible();
   await page
     .getByRole("button", { name: /^Play Forest/ })
     .first()

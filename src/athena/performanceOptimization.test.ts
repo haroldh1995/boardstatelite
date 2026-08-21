@@ -100,6 +100,30 @@ describe("ATHENA-14 performance and friction optimization", () => {
     });
   });
 
+  it("surfaces an exact prepared action ahead of a generic turn shortcut", () => {
+    const genericLand = {
+      ...actionItem("generic-land", "play-planned-land", 1, "current"),
+      source: "turn-context" as const,
+      sourceActionId: null,
+      label: "Play Land",
+    };
+    const forest = {
+      ...actionItem("forest", "play-planned-land", 20, "pending"),
+      label: "Play Forest",
+    };
+
+    const ranked = rankAthenaActionStripItems([genericLand, forest], {
+      lifecycle: "ready-for-next-action",
+      phase: "precombat-main",
+      currentActionId: null,
+    });
+
+    expect(ranked[0]).toMatchObject({
+      item: { id: "forest", label: "Play Forest" },
+      reason: "explicit prepared action",
+    });
+  });
+
   it("prioritizes reconciliation objects that affect active work", () => {
     const field = createHeavyLateGamePerformanceFixture();
     const groups = field.groups.filter((group) => group.zone === "battlefield");

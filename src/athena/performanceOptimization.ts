@@ -172,6 +172,12 @@ export function rankAthenaActionStripItems(
       if (item.status === "current") score += 2_000;
       if (item.validity === "ready") score += 500;
       if (item.validity === "awaiting-confirmation") score += 450;
+      if (item.source === "planner" && item.sourceActionId) {
+        score += 3_000;
+        if (reason !== "stable current action") {
+          reason = "explicit prepared action";
+        }
+      }
       if (
         context.phase === "combat" &&
         ["move-to-combat", "declare-planned-attack", "end-combat"].includes(
