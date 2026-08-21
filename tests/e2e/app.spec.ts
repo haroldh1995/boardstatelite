@@ -98,6 +98,41 @@ test("graveyard and exile composition can be corrected without click-through", a
   await expect(page.getByLabel("Artifact cards")).toHaveValue("1");
 });
 
+test("Catch Me Up repairs current state without replaying gameplay", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await continuePastStartup(page);
+
+  await page.getByRole("button", { name: /^Tools$/ }).click();
+  await page.getByRole("button", { name: "Catch Me Up" }).click();
+  await expect(
+    page.getByText(
+      "Correct current battlefield state without generating gameplay triggers.",
+    ),
+  ).toBeVisible();
+  await page.getByLabel("Life current value").fill("28");
+  await page
+    .getByRole("region", { name: "Current Values" })
+    .getByLabel("Lands current value", { exact: true })
+    .fill("9");
+  await page.getByRole("button", { name: "Save Current State" }).click();
+
+  await expect(
+    page.getByRole("button", { name: /28 tap to set life total/i }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Lands: 9" })).toBeVisible();
+  await expect(page.locator(".modal-overlay")).toHaveCount(0);
+
+  await page.reload();
+  await continuePastStartup(page);
+  await expect(
+    page.getByRole("button", { name: /28 tap to set life total/i }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Lands: 9" })).toBeVisible();
+});
+
 test("not-tracked card state can be stopped and resumed from the permanent menu", async ({
   page,
 }) => {

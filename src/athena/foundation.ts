@@ -23,6 +23,10 @@ import {
   normalizeAthenaLiveTurnState,
 } from "./liveTurnOrchestrator";
 import {
+  createDefaultAthenaReconciliationState,
+  normalizeAthenaReconciliationState,
+} from "./reconciliation";
+import {
   ATHENA_COMPATIBILITY_VERSION,
   ATHENA_CONTEXT_VERSION,
   ATHENA_FOUNDATION_VERSION,
@@ -136,6 +140,9 @@ export function createDefaultAthenaState(
     liveTurn: input.liveTurn
       ? normalizeAthenaLiveTurnState(input.liveTurn)
       : createDefaultAthenaLiveTurnState(),
+    reconciliation: input.reconciliation
+      ? normalizeAthenaReconciliationState(input.reconciliation)
+      : createDefaultAthenaReconciliationState(),
     activePreview,
     recentPreviewIds: Array.isArray(input.recentPreviewIds)
       ? uniqueStrings(input.recentPreviewIds).slice(0, 20)
@@ -204,6 +211,10 @@ export function normalizeAthenaState(
       participantId: options.participantId,
       turnId: options.turnId,
     }),
+    reconciliation: normalizeAthenaReconciliationState(
+      candidate.reconciliation,
+      timestamp,
+    ),
     activePreview,
     recentPreviewIds,
     lastContext,

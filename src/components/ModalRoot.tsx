@@ -1,7 +1,7 @@
 import { Minus, Plus, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { COUNTER_OPTIONS } from "../domain/cards";
-import { relevantTotalLabel } from "../domain/field";
+import { COUNTER_OPTIONS, makeId } from "../domain/cards";
+import { calculateTotals, relevantTotalLabel } from "../domain/field";
 import type {
   CounterApplicationMode,
   ModalState,
@@ -18,6 +18,7 @@ import type {
   CategoricalZone,
   ZoneCategoryKey,
 } from "../domain/zoneCompositionTypes";
+import type { AthenaReconciliationRepair } from "../athena/reconciliationTypes";
 import type { EchoPersonalGameplayLearningSensitivity } from "../echo/personalGameplayTypes";
 import { useFieldStore } from "../state/useFieldStore";
 import { PreTurnPlannerSheet } from "./PreTurnPlannerSheet";
@@ -105,7 +106,16 @@ function ModalContent({ modal }: { modal: ModalState }) {
     case "startup":
       return <StartupWarning />;
     case "add":
-      return <AddSheet />;
+      return (
+        <AddSheet
+          correctionOnly={Boolean(
+            (modal.payload as { correctionOnly?: boolean })?.correctionOnly,
+          )}
+          initialTab={
+            (modal.payload as { tab?: "card" | "generic" })?.tab ?? "card"
+          }
+        />
+      );
     case "preview":
       return <PreviewSheet groupId={modal.groupId} />;
     case "life":
@@ -137,6 +147,8 @@ function ModalContent({ modal }: { modal: ModalState }) {
       return <SettingsSheet />;
     case "planner":
       return <PreTurnPlannerSheet />;
+    case "catchUp":
+      return <CatchUpSheet />;
     case "exactTotal":
       return (
         <ExactTotalSheet
@@ -233,11 +245,20 @@ function StartupWarning() {
   );
 }
 
-function AddSheet() {
+function AddSheet({
+  correctionOnly = false,
+  initialTab = "card",
+}: {
+  correctionOnly?: boolean;
+  initialTab?: "card" | "generic";
+}) {
   const addCard = useFieldStore((state) => state.addCard);
   const addGeneric = useFieldStore((state) => state.addGeneric);
+  const applyReconciliation = useFieldStore(
+    (state) => state.applyReconciliation,
+  );
   const closeModal = useFieldStore((state) => state.closeModal);
-  const [tab, setTab] = useState<"card" | "generic">("card");
+  const [tab, setTab] = useState<"card" | "generic">(initialTab);
   const [genericKind, setGenericKind] =
     useState<Parameters<typeof addGeneric>[0]["kind"]>("Creature");
   const [quantity, setQuantity] = useState(1);
@@ -247,7 +268,15 @@ function AddSheet() {
 
   return (
     <div>
-      <h2 id="modal-title">Add to Field</h2>
+      <h2 id="modal-title">
+        {correctionOnly ? "Add Already Present" : "Add to Field"}
+      </h2>
+      {correctionOnly && (
+        <p>
+          Adds the current representation only. No cast, entry, replacement, or
+          trigger event is created.
+        </p>
+      )}
       <div className="segmented">
         <button
           type="button"
@@ -266,10 +295,33 @@ function AddSheet() {
       </div>
       {tab === "card" ? (
         <ScryfallSearch
-          label="Search card to track"
-          actionLabel="Add Tracked Card"
+          label={
+            correctionOnly
+              ? "Identify card already present"
+              : "Search card to track"
+          }
+          actionLabel={
+            correctionOnly ? "Add Already Present" : "Add Tracked Card"
+          }
           onConfirm={(card) => {
-            addCard(card);
+            if (correctionOnly) {
+              applyReconciliation({
+                source: "manual-correction",
+                level: "quick-correction",
+                provenance: "catch-up-card-identification",
+                repairs: [
+                  {
+                    id: makeId("repair"),
+                    kind: "add-card-already-present",
+                    identity: card,
+                    quantity: 1,
+                    zone: "battlefield",
+                  },
+                ],
+              });
+            } else {
+              addCard(card);
+            }
             closeModal();
           }}
         />
@@ -278,7 +330,7 @@ function AddSheet() {
           className="form-grid"
           onSubmit={(event) => {
             event.preventDefault();
-            addGeneric({
+            const generic = {
               kind: genericKind,
               label: label.trim() || undefined,
               quantity,
@@ -287,7 +339,38 @@ function AddSheet() {
                 ? toughness
                 : null,
               token: genericKind === "Token",
-            });
+            } satisfies Parameters<typeof addGeneric>[0];
+            if (correctionOnly) {
+              const cardTypes =
+                genericKind === "Token"
+                  ? ["Creature"]
+                  : genericKind === "Equipment"
+                    ? ["Artifact"]
+                    : genericKind === "Noncreature permanent"
+                      ? []
+                      : [genericKind];
+              applyReconciliation({
+                source: "manual-correction",
+                level: "quick-correction",
+                provenance: "catch-up-generic-identification",
+                repairs: [
+                  {
+                    id: makeId("repair"),
+                    kind: "add-generic-already-present",
+                    label: generic.label ?? `Generic ${genericKind}`,
+                    quantity,
+                    cardTypes,
+                    subtypes: genericKind === "Equipment" ? ["Equipment"] : [],
+                    token: genericKind === "Token",
+                    power: generic.power,
+                    toughness: generic.toughness,
+                    zone: "battlefield",
+                  },
+                ],
+              });
+            } else {
+              addGeneric(generic);
+            }
             closeModal();
           }}
         >
@@ -347,7 +430,7 @@ function AddSheet() {
             />
           </label>
           <button type="submit" className="primary-action">
-            Add Placeholder
+            {correctionOnly ? "Add Already Present" : "Add Placeholder"}
           </button>
         </form>
       )}
@@ -1027,6 +1110,356 @@ function DetailsSheet() {
   );
 }
 
+function CatchUpSheet() {
+  const field = useFieldStore((state) => state.field);
+  const applyReconciliation = useFieldStore(
+    (state) => state.applyReconciliation,
+  );
+  const closeModal = useFieldStore((state) => state.closeModal);
+  const openModal = useFieldStore((state) => state.openModal);
+  const totals = calculateTotals(field.groups);
+  const graveyard = getZoneCompositionSnapshot(field, "graveyard");
+  const exile = getZoneCompositionSnapshot(field, "exile");
+  const graveyardOptions = getZoneCategoryOptions(field, "graveyard");
+  const exileOptions = getZoneCategoryOptions(field, "exile");
+  const battlefieldGroups = field.groups
+    .filter((group) => group.zone === "battlefield")
+    .sort((left, right) => left.order - right.order);
+  const [values, setValues] = useState(() => ({
+    life: field.player.life,
+    commanderDamage: field.player.counters.commanderDamage,
+    lands: totals.lands,
+    hand: totals.cardsInHand,
+    graveyard: graveyard.physicalTotal,
+    exile: exile.physicalTotal,
+  }));
+  const [groupQuantities, setGroupQuantities] = useState<
+    Record<string, number>
+  >(() =>
+    Object.fromEntries(
+      battlefieldGroups.map((group) => [group.id, group.quantity]),
+    ),
+  );
+  const [groupCounters, setGroupCounters] = useState<Record<string, number>>(
+    () =>
+      Object.fromEntries(
+        battlefieldGroups.map((group) => [
+          group.id,
+          group.counters["+1/+1"] ?? 0,
+        ]),
+      ),
+  );
+  const [zoneCategories, setZoneCategories] = useState<
+    Record<CategoricalZone, Partial<Record<ZoneCategoryKey, number>>>
+  >(() => ({
+    graveyard: { ...graveyard.categoryTotals },
+    exile: { ...exile.categoryTotals },
+  }));
+  const [expandedZone, setExpandedZone] = useState<CategoricalZone | null>(
+    null,
+  );
+  const [error, setError] = useState("");
+
+  const save = () => {
+    const repairs: AthenaReconciliationRepair[] = [];
+    const add = (repair: AthenaReconciliationRepair) => repairs.push(repair);
+    if (values.life !== field.player.life) {
+      add({ id: makeId("repair"), kind: "set-life", value: values.life });
+    }
+    if (values.commanderDamage !== field.player.counters.commanderDamage) {
+      add({
+        id: makeId("repair"),
+        kind: "set-player-counter",
+        counter: "commanderDamage",
+        value: values.commanderDamage,
+      });
+    }
+    if (values.lands !== totals.lands) {
+      add({
+        id: makeId("repair"),
+        kind: "set-relevant-total",
+        key: "lands",
+        value: values.lands,
+      });
+    }
+    if (values.hand !== totals.cardsInHand) {
+      add({
+        id: makeId("repair"),
+        kind: "set-relevant-total",
+        key: "cardsInHand",
+        value: values.hand,
+      });
+    }
+    for (const group of battlefieldGroups) {
+      const quantity = groupQuantities[group.id] ?? group.quantity;
+      if (quantity !== group.quantity) {
+        add({
+          id: makeId("repair"),
+          kind: "set-group-quantity",
+          groupId: group.id,
+          value: quantity,
+        });
+      }
+      const beforeCounters = group.counters["+1/+1"] ?? 0;
+      const counters = groupCounters[group.id] ?? beforeCounters;
+      if (counters !== beforeCounters && quantity > 0) {
+        add({
+          id: makeId("repair"),
+          kind: "set-counter",
+          groupId: group.id,
+          counter: "+1/+1",
+          value: counters,
+        });
+      }
+    }
+    for (const zone of ["graveyard", "exile"] as const) {
+      const snapshot = zone === "graveyard" ? graveyard : exile;
+      const physicalTotal = values[zone];
+      const categoryTotals = Object.fromEntries(
+        Object.entries(zoneCategories[zone]).filter(
+          ([key, value]) =>
+            value !== undefined &&
+            value !== snapshot.categoryTotals[key as ZoneCategoryKey],
+        ),
+      ) as Partial<Record<ZoneCategoryKey, number>>;
+      if (
+        physicalTotal !== snapshot.physicalTotal ||
+        Object.keys(categoryTotals).length > 0
+      ) {
+        add({
+          id: makeId("repair"),
+          kind: "set-zone-composition",
+          zone,
+          ...(physicalTotal !== snapshot.physicalTotal
+            ? { physicalTotal }
+            : {}),
+          ...(Object.keys(categoryTotals).length > 0 ? { categoryTotals } : {}),
+        });
+      }
+    }
+    if (repairs.length === 0) {
+      closeModal();
+      return;
+    }
+    const result = applyReconciliation({
+      repairs,
+      source: "catch-me-up",
+      level: "catch-me-up",
+      confidence: "exact",
+      atomic: true,
+      provenance: "catch-me-up-sheet",
+    });
+    if (!result.ok) {
+      setError(result.failureReason ?? "Current state could not be corrected.");
+      return;
+    }
+    closeModal();
+  };
+
+  return (
+    <div className="catch-up-sheet">
+      <h2 id="modal-title">Catch Me Up</h2>
+      <p>
+        Correct current battlefield state without generating gameplay triggers.
+      </p>
+      <section className="catch-up-section" aria-labelledby="catch-up-totals">
+        <h3 id="catch-up-totals">Current Values</h3>
+        <NumericCorrectionRow
+          label="Life"
+          value={values.life}
+          allowNegative
+          onChange={(life) => setValues((current) => ({ ...current, life }))}
+        />
+        <NumericCorrectionRow
+          label="Commander damage"
+          value={values.commanderDamage}
+          onChange={(commanderDamage) =>
+            setValues((current) => ({ ...current, commanderDamage }))
+          }
+        />
+        <NumericCorrectionRow
+          label="Lands"
+          value={values.lands}
+          onChange={(lands) => setValues((current) => ({ ...current, lands }))}
+        />
+        <NumericCorrectionRow
+          label="Cards in hand"
+          value={values.hand}
+          onChange={(hand) => setValues((current) => ({ ...current, hand }))}
+        />
+      </section>
+      {battlefieldGroups.length > 0 && (
+        <section
+          className="catch-up-section"
+          aria-labelledby="catch-up-battlefield"
+        >
+          <h3 id="catch-up-battlefield">Tracked Battlefield</h3>
+          {battlefieldGroups.map((group) => (
+            <div className="catch-up-object" key={group.id}>
+              <NumericCorrectionRow
+                label={group.label}
+                value={groupQuantities[group.id] ?? group.quantity}
+                onChange={(value) =>
+                  setGroupQuantities((current) => ({
+                    ...current,
+                    [group.id]: value,
+                  }))
+                }
+              />
+              {(group.characteristics.cardTypes.includes("Creature") ||
+                (group.counters["+1/+1"] ?? 0) > 0) && (
+                <NumericCorrectionRow
+                  label={`${group.label} +1/+1 counters`}
+                  value={groupCounters[group.id] ?? 0}
+                  onChange={(value) =>
+                    setGroupCounters((current) => ({
+                      ...current,
+                      [group.id]: value,
+                    }))
+                  }
+                />
+              )}
+            </div>
+          ))}
+        </section>
+      )}
+      {(["graveyard", "exile"] as const).map((zone) => {
+        const options = zone === "graveyard" ? graveyardOptions : exileOptions;
+        const snapshot = zone === "graveyard" ? graveyard : exile;
+        const fallbackPriority: ZoneCategoryKey[] = [
+          "creature",
+          "artifact",
+          "instant",
+          "sorcery",
+          "land",
+          "colorless",
+        ];
+        const fallback = fallbackPriority.filter((key) =>
+          options.additional.includes(key),
+        );
+        const prioritized = options.prioritized.length
+          ? options.prioritized
+          : fallback;
+        const shown =
+          expandedZone === zone
+            ? [...new Set([...prioritized, ...options.additional])]
+            : prioritized;
+        return (
+          <section className="catch-up-section" key={zone}>
+            <h3>{zone === "graveyard" ? "Graveyard" : "Exile"}</h3>
+            <NumericCorrectionRow
+              label="Physical cards"
+              value={values[zone]}
+              onChange={(value) =>
+                setValues((current) => ({ ...current, [zone]: value }))
+              }
+            />
+            <p className="catch-up-accounting">
+              {snapshot.unaccountedPhysicalCards} unaccounted cards. Unknown is
+              not Colorless.
+            </p>
+            {shown.map((key) => (
+              <NumericCorrectionRow
+                key={key}
+                label={zoneCategoryLabel(key)}
+                value={zoneCategories[zone][key] ?? 0}
+                onChange={(value) =>
+                  setZoneCategories((current) => ({
+                    ...current,
+                    [zone]: { ...current[zone], [key]: value },
+                  }))
+                }
+              />
+            ))}
+            {options.additional.some((key) => !prioritized.includes(key)) && (
+              <button
+                type="button"
+                className="quiet-action"
+                onClick={() =>
+                  setExpandedZone((current) => (current === zone ? null : zone))
+                }
+              >
+                {expandedZone === zone
+                  ? "Show Relevant Only"
+                  : "More Categories"}
+              </button>
+            )}
+          </section>
+        );
+      })}
+      <button
+        type="button"
+        onClick={() =>
+          openModal({ kind: "add", payload: { correctionOnly: true } })
+        }
+      >
+        Add Card Already Present
+      </button>
+      {error && (
+        <p className="form-error" role="alert" aria-live="assertive">
+          {error}
+        </p>
+      )}
+      <div className="modal-actions">
+        <button type="button" onClick={closeModal}>
+          Cancel
+        </button>
+        <button type="button" className="primary-action" onClick={save}>
+          Save Current State
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function NumericCorrectionRow({
+  label,
+  value,
+  onChange,
+  allowNegative = false,
+}: {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+  allowNegative?: boolean;
+}) {
+  const minimum = allowNegative ? undefined : 0;
+  const update = (next: number) =>
+    onChange(
+      Math.trunc(minimum === undefined ? next : Math.max(minimum, next)),
+    );
+  return (
+    <div className="zone-category-row catch-up-row">
+      <span>
+        <strong>{label}</strong>
+      </span>
+      <div className="zone-category-stepper">
+        <button
+          type="button"
+          onClick={() => update(value - 1)}
+          aria-label={`Decrease ${label}`}
+        >
+          <Minus />
+        </button>
+        <input
+          aria-label={`${label} current value`}
+          type="number"
+          min={minimum}
+          value={value}
+          onChange={(event) => update(Number(event.target.value) || 0)}
+        />
+        <button
+          type="button"
+          onClick={() => update(value + 1)}
+          aria-label={`Increase ${label}`}
+        >
+          <Plus />
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function SettingsSheet() {
   const field = useFieldStore((state) => state.field);
   const openModal = useFieldStore((state) => state.openModal);
@@ -1059,6 +1492,13 @@ function SettingsSheet() {
       <div className="sheet-columns">
         <section>
           <h3>Field</h3>
+          <button
+            type="button"
+            className="primary-action"
+            onClick={() => openModal({ kind: "catchUp" })}
+          >
+            Catch Me Up
+          </button>
           <button
             type="button"
             className="primary-action"

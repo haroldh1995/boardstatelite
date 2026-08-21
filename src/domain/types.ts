@@ -70,6 +70,7 @@ export type ModalKind =
   | "details"
   | "settings"
   | "planner"
+  | "catchUp"
   | "exactTotal"
   | "zoneComposition"
   | "triggerOrder"

@@ -24,6 +24,7 @@ export type EchoMagicCommandStatus =
   | "disabled";
 
 export type EchoMagicCommandAction =
+  | "correct"
   | "play"
   | "cast"
   | "attack"

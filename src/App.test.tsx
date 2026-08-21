@@ -10,7 +10,11 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { createGenericGroup } from "./domain/cards";
-import { createDefaultField } from "./domain/field";
+import {
+  calculateTotals,
+  createDefaultField,
+  normalizeField,
+} from "./domain/field";
 import { MicrophoneStatusIndicator } from "./components/MicrophoneStatusIndicator";
 import { AthenaDecisionSurface } from "./components/AthenaDecisionSurface";
 import { Battlefield } from "./components/Battlefield";
@@ -476,6 +480,68 @@ describe("Baord State Lite app shell", () => {
     expect(
       screen.getByRole("button", { name: /40 tap to set life total/i }),
     ).toBeInTheDocument();
+  }, 20_000);
+
+  it("repairs multiple current values through Catch Me Up without gameplay events", async () => {
+    const user = userEvent.setup();
+    const lands = createGenericGroup({ kind: "Land", quantity: 8 });
+    const treasure = createGenericGroup({
+      kind: "Token",
+      label: "Treasure",
+      quantity: 4,
+      cardTypes: ["Artifact"],
+      subtypes: ["Treasure"],
+      token: true,
+    });
+    const base = createDefaultField();
+    useFieldStore.setState({
+      field: normalizeField({
+        ...base,
+        player: { ...base.player, life: 31 },
+        groups: [lands, treasure],
+      }),
+    });
+    render(<App />);
+
+    await user.click(
+      await screen.findByRole("button", { name: /continue to field/i }),
+    );
+    await user.click(screen.getByRole("button", { name: /^tools$/i }));
+    await user.click(screen.getByRole("button", { name: /catch me up/i }));
+
+    expect(
+      screen.getByText(
+        /correct current battlefield state without generating gameplay triggers/i,
+      ),
+    ).toBeInTheDocument();
+    const lifeInput = screen.getByLabelText("Life current value");
+    await user.clear(lifeInput);
+    await user.type(lifeInput, "28");
+    const landInput = screen.getByLabelText("Lands current value");
+    await user.clear(landInput);
+    await user.type(landInput, "9");
+    const treasureInput = screen.getByLabelText("Treasure current value");
+    await user.clear(treasureInput);
+    await user.type(treasureInput, "6");
+    await user.click(
+      screen.getByRole("button", { name: /save current state/i }),
+    );
+
+    const current = useFieldStore.getState();
+    expect(current.field.player.life).toBe(28);
+    expect(calculateTotals(current.field.groups)).toMatchObject({
+      lands: 9,
+      treasureTokens: 6,
+    });
+    expect(current.lastResult).toBeNull();
+    expect(current.undoStack.at(-1)).toMatchObject({
+      label: "Reconciliation: Catch Me Up",
+    });
+    expect(current.field.athena.reconciliation.recent.at(-1)).toMatchObject({
+      gameplayEventsGenerated: 0,
+      triggersGenerated: 0,
+      replacementEffectsApplied: false,
+    });
   }, 20_000);
 
   it("opens the player counter editor from every top counter and applies manual corrections", async () => {

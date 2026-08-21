@@ -172,6 +172,18 @@ import {
   applyZoneCompositionCorrection,
   reconcileUnknownZoneGroupIdentity,
 } from "../domain/zoneComposition";
+import {
+  applyAthenaReconciliation,
+  createAthenaReconciliationRequest,
+  markAthenaReconciliationLifecycle,
+  structuredCorrectionIntentToRequest,
+} from "../athena/reconciliation";
+import type {
+  AthenaReconciliationRepair,
+  AthenaReconciliationResult,
+  AthenaStructuredCorrectionIntent,
+} from "../athena/reconciliationTypes";
+import { parseEchoReconciliationCommand } from "../echo/reconciliationCommand";
 import type {
   ZoneCompositionCommandResult,
   ZoneCompositionCorrectionInput,
@@ -251,6 +263,26 @@ interface FieldStore {
   correctZoneComposition: (
     input: ZoneCompositionCorrectionInput,
   ) => ZoneCompositionCommandResult<FieldState>;
+  applyReconciliation: (input: {
+    repairs: AthenaReconciliationRepair[];
+    source?: Parameters<typeof createAthenaReconciliationRequest>[0]["source"];
+    level?: Parameters<typeof createAthenaReconciliationRequest>[0]["level"];
+    confidence?: Parameters<
+      typeof createAthenaReconciliationRequest
+    >[0]["confidence"];
+    atomic?: boolean;
+    timestamp?: string;
+    provenance?: string;
+  }) => AthenaReconciliationResult;
+  processEchoReconciliation: (input: {
+    transcript: string;
+    speakerVerified: boolean;
+    catchUpMode?: boolean;
+  }) => {
+    intent: AthenaStructuredCorrectionIntent;
+    result: AthenaReconciliationResult | null;
+  };
+  dismissCatchUpSuggestion: () => void;
   processAmbientIntent: (
     intent: AmbientIntent | AmbientIntentInput,
     mutation: AmbientFieldMutation,
@@ -686,6 +718,87 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
       false,
     );
     return { ...result, field: get().field };
+  },
+
+  applyReconciliation(input) {
+    const before = get().field;
+    const request = createAthenaReconciliationRequest({
+      field: before,
+      ...input,
+      timestamp: input.timestamp ?? new Date().toISOString(),
+    });
+    const result = applyAthenaReconciliation(before, request);
+    if (result.discrepancies.length === 0) {
+      set({ field: result.field, lastResult: null });
+      void saveField(result.field);
+      return result;
+    }
+    const reconciled = withReconciliationInvalidationDiagnostics(
+      before,
+      withDerivedField(normalizeField(result.field)),
+    );
+    commitField(
+      result.record.level === "catch-me-up"
+        ? "Reconciliation: Catch Me Up"
+        : "Correction",
+      before,
+      reconciled,
+      result.discrepancies.length > 1
+        ? [
+            result.semanticDescription,
+            ...result.discrepancies.map((entry) => entry.semanticDescription),
+          ]
+        : [result.semanticDescription],
+      set,
+      null,
+      false,
+      [],
+    );
+    const field = get().field;
+    return {
+      ...result,
+      field,
+      state: field.athena.reconciliation,
+    };
+  },
+
+  processEchoReconciliation(input) {
+    const field = get().field;
+    const intent = parseEchoReconciliationCommand({
+      ...input,
+      field,
+      timestamp: new Date().toISOString(),
+    });
+    const request = structuredCorrectionIntentToRequest({ field, intent });
+    if (!request) return { intent, result: null };
+    const result = get().applyReconciliation({
+      repairs: request.repairs,
+      source: request.source,
+      level: request.level,
+      confidence: request.confidence,
+      atomic: request.atomic,
+      timestamp: request.createdAt,
+      provenance: request.provenance,
+    });
+    return { intent, result };
+  },
+
+  dismissCatchUpSuggestion() {
+    const field = get().field;
+    if (!field.athena.reconciliation.catchUpSuggested) return;
+    const next = {
+      ...field,
+      athena: {
+        ...field.athena,
+        reconciliation: {
+          ...field.athena.reconciliation,
+          catchUpSuggested: false,
+          updatedAt: new Date().toISOString(),
+        },
+      },
+    };
+    set({ field: next });
+    void saveField(next);
   },
 
   processAmbientIntent(intent, mutation) {
@@ -1599,6 +1712,20 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
     syncMicrophoneServiceFromField(get().field);
     await echoMicrophoneService.handleLifecycleEvent(event);
     persistMicrophoneStateFromService(set);
+    if (
+      event.type === "app-backgrounded" ||
+      event.type === "app-foregrounded"
+    ) {
+      const current = get().field;
+      const timestamp = event.timestamp ?? new Date().toISOString();
+      const next = markAthenaReconciliationLifecycle(
+        current,
+        event.type,
+        timestamp,
+      );
+      set({ field: next });
+      void saveField(next);
+    }
   },
 
   reorderGroups(groupId, direction) {
@@ -2325,6 +2452,64 @@ function withDerivedField(field: FieldState): FieldState {
     signal: "reconcile",
     timestamp: field.updatedAt,
   });
+}
+
+function withReconciliationInvalidationDiagnostics(
+  before: FieldState,
+  after: FieldState,
+): FieldState {
+  const invalidPreparedActionIds = new Set(
+    after.preTurnPlanner.actions
+      .filter((action) =>
+        ["invalidated", "stale"].includes(action.prepared.validity),
+      )
+      .map((action) => action.id),
+  );
+  const priorInvalidPreparedActionIds = new Set(
+    before.preTurnPlanner.actions
+      .filter((action) =>
+        ["invalidated", "stale"].includes(action.prepared.validity),
+      )
+      .map((action) => action.id),
+  );
+  const invalidDecisionIds = new Set(
+    after.athena.decisions.requests
+      .filter((request) => ["invalidated", "stale"].includes(request.status))
+      .map((request) => request.id),
+  );
+  const priorInvalidDecisionIds = new Set(
+    before.athena.decisions.requests
+      .filter((request) => ["invalidated", "stale"].includes(request.status))
+      .map((request) => request.id),
+  );
+  const preparedActionsInvalidated = [...invalidPreparedActionIds].filter(
+    (id) => !priorInvalidPreparedActionIds.has(id),
+  ).length;
+  const decisionsInvalidated = [...invalidDecisionIds].filter(
+    (id) => !priorInvalidDecisionIds.has(id),
+  ).length;
+  if (preparedActionsInvalidated === 0 && decisionsInvalidated === 0) {
+    return after;
+  }
+  const reconciliation = after.athena.reconciliation;
+  return {
+    ...after,
+    athena: {
+      ...after.athena,
+      reconciliation: {
+        ...reconciliation,
+        diagnostics: {
+          ...reconciliation.diagnostics,
+          preparedActionsInvalidated:
+            reconciliation.diagnostics.preparedActionsInvalidated +
+            preparedActionsInvalidated,
+          decisionsInvalidated:
+            reconciliation.diagnostics.decisionsInvalidated +
+            decisionsInvalidated,
+        },
+      },
+    },
+  };
 }
 
 function commitPlannerField(

@@ -23,8 +23,20 @@ function App() {
   );
   const hydrated = useFieldStore((state) => state.hydrated);
   const fieldName = useFieldStore((state) => state.field.name);
-  const announcements = useFieldStore(
-    (state) => state.lastResult?.accessibilityAnnouncements?.join(" ") ?? "",
+  const announcements = useFieldStore((state) =>
+    [
+      state.lastResult?.accessibilityAnnouncements?.join(" ") ?? "",
+      state.field.athena.reconciliation.recent.at(-1)?.semanticSummary ?? "",
+    ]
+      .filter(Boolean)
+      .join(" "),
+  );
+  const catchUpSuggested = useFieldStore(
+    (state) => state.field.athena.reconciliation.catchUpSuggested,
+  );
+  const openModal = useFieldStore((state) => state.openModal);
+  const dismissCatchUpSuggestion = useFieldStore(
+    (state) => state.dismissCatchUpSuggestion,
   );
   const referenceMode = isReferenceFixtureMode();
   const { needRefresh, updateServiceWorker } = useRegisterSW({
@@ -101,6 +113,28 @@ function App() {
           <LifeTracker />
           <TotalsStrip />
           <MicrophoneStatusIndicator />
+          {catchUpSuggested && (
+            <aside
+              className="recovery-toast"
+              role="status"
+              aria-label="Lite may be behind the physical game. Catch Me Up corrects current state without generating gameplay events."
+            >
+              <button
+                type="button"
+                className="primary-action"
+                onClick={() => openModal({ kind: "catchUp" })}
+              >
+                Catch Me Up
+              </button>
+              <button
+                type="button"
+                className="quiet-action"
+                onClick={dismissCatchUpSuggestion}
+              >
+                Dismiss
+              </button>
+            </aside>
+          )}
           <SmartSuggestionsTray />
           <ActiveTurnActionStrip />
           <AthenaDecisionSurface />

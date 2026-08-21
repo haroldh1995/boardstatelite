@@ -181,6 +181,34 @@ export {
   ATHENA_LIVE_TURN_ORCHESTRATOR_VERSION,
   ATHENA_LIVE_TURN_SCHEMA_VERSION,
 } from "./liveTurnOrchestratorTypes";
+export {
+  applyAthenaReconciliation,
+  canSafelyProcessMissedRealGameAction,
+  createAthenaReconciliationRequest,
+  createDefaultAthenaReconciliationState,
+  markAthenaReconciliationLifecycle,
+  normalizeAthenaReconciliationState,
+  structuredCorrectionIntentToRequest,
+} from "./reconciliation";
+export {
+  ATHENA_RECONCILIATION_SCHEMA_VERSION,
+  ATHENA_RECONCILIATION_VERSION,
+} from "./reconciliationTypes";
+export type {
+  AthenaCorrectionVoiceDisposition,
+  AthenaReconciliationConfidence,
+  AthenaReconciliationDiagnostics,
+  AthenaReconciliationDiscrepancy,
+  AthenaReconciliationLevel,
+  AthenaReconciliationRecord,
+  AthenaReconciliationRepair,
+  AthenaReconciliationRequest,
+  AthenaReconciliationResult,
+  AthenaReconciliationSource,
+  AthenaReconciliationState,
+  AthenaReconciliationStatus,
+  AthenaStructuredCorrectionIntent,
+} from "./reconciliationTypes";
 export * from "../domain/zoneComposition";
 export * from "../domain/zoneCompositionTypes";
 export type {

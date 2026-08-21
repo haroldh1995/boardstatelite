@@ -137,6 +137,12 @@ const NUMBER_WORDS = new Map<string, number>([
 ]);
 
 const COMMAND_DEFINITIONS: CommandDefinition[] = [
+  definition("correct", "manual-correction", [
+    "catch me up",
+    "correction",
+    "actually",
+    "should be",
+  ]),
   definition("end-turn", "end-turn", [
     "end my turn",
     "end turn",

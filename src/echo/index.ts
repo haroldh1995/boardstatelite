@@ -125,6 +125,7 @@ export {
   parseMagicCommand,
   recognizeMagicCommand,
 } from "./magicCommandGrammar";
+export { parseEchoReconciliationCommand } from "./reconciliationCommand";
 export {
   EchoAdaptiveListeningTailManager,
   cancelAdaptiveListeningSession,

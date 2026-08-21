@@ -19,6 +19,7 @@ import type { EchoListeningWindowKind } from "../echo/contextualListeningTypes";
 import type { SessionAuthority } from "../sharedSession/types";
 import type { AthenaDecisionQueueState } from "./decisionEngineTypes";
 import type { AthenaLiveTurnOrchestratorState } from "./liveTurnOrchestratorTypes";
+import type { AthenaReconciliationState } from "./reconciliationTypes";
 
 export const ATHENA_FOUNDATION_VERSION = 1;
 export const ATHENA_CONTEXT_VERSION = 1;
@@ -365,6 +366,7 @@ export interface AthenaState {
   version: typeof ATHENA_FOUNDATION_VERSION;
   decisions: AthenaDecisionQueueState;
   liveTurn: AthenaLiveTurnOrchestratorState;
+  reconciliation: AthenaReconciliationState;
   activePreview: AthenaPreviewState | null;
   recentPreviewIds: string[];
   lastContext: {
