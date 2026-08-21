@@ -30,7 +30,11 @@ import {
   createForecastEnvironment,
   forecastAthenaEvent,
 } from "./eventForecast";
-import type { AthenaForecastInput } from "./eventForecastTypes";
+import type {
+  AthenaForecastEnvironment,
+  AthenaForecastInput,
+} from "./eventForecastTypes";
+import { athenaPerformanceMonitor } from "./performanceOptimization";
 import { processAthenaConfirmedEventWithBookkeeping } from "./triggerResolution";
 import {
   ATHENA_TURN_INTENT_VERSION,
@@ -64,7 +68,11 @@ export class AthenaTurnIntentEngine {
   private totalConfirmationDurationMs = 0;
 
   revalidate(field: FieldState, timestamp = field.updatedAt): FieldState {
+    const started = monotonicNowMs();
     const fingerprint = canonicalTurnStateFingerprint(field);
+    let sharedForecastEnvironment: AthenaForecastEnvironment | null = null;
+    const forecastEnvironment = () =>
+      (sharedForecastEnvironment ??= createForecastEnvironment(field));
     if (field.preTurnPlanner.canonicalSessionVersion === null) {
       this.diagnostics.turnIntentsCreated += 1;
       this.diagnostics.preparedActionsCreated +=
@@ -95,14 +103,25 @@ export class AthenaTurnIntentEngine {
               action,
               "The turn intent belongs to another session or participant.",
             )
-          : evaluatePlannedAction(field, action, timestamp, fingerprint);
+          : evaluatePlannedAction(
+              field,
+              action,
+              timestamp,
+              fingerprint,
+              forecastEnvironment,
+            );
       if (
         eligibility.validity === "invalidated" ||
         eligibility.validity === "stale"
       ) {
         invalidated += 1;
       }
-      if (eligibility.forecast) forecasts += 1;
+      if (
+        eligibility.forecast ||
+        eligibility.reasonCodes.includes("forecast-reused")
+      ) {
+        forecasts += 1;
+      }
       return applyEligibilityToAction(
         field,
         action,
@@ -134,11 +153,21 @@ export class AthenaTurnIntentEngine {
     this.diagnostics.planRevalidationCount += 1;
     this.diagnostics.preparedActionsInvalidated += invalidated;
     this.diagnostics.forecastReuseCount += forecasts;
-    return {
+    const result = {
       ...field,
       preTurnPlanner: planner,
       activeTurnActionStrip: strip,
     };
+    athenaPerformanceMonitor.recordDuration(
+      "forecast-generation",
+      monotonicNowMs() - started,
+      {
+        workUnits: actions.length,
+        recordedAt: timestamp,
+        enabled: field.settings.athena.developerDiagnosticsEnabled,
+      },
+    );
+    return result;
   }
 
   eligibility(
@@ -241,6 +270,14 @@ export class AthenaTurnIntentEngine {
       }
       if (input.channel === "voice") this.diagnostics.voiceConfirmations += 1;
       if (input.channel === "tap") this.diagnostics.tapConfirmations += 1;
+      athenaPerformanceMonitor.recordDuration(
+        "prepared-action-execution",
+        duration,
+        {
+          recordedAt: timestamp,
+          enabled: input.field.settings.athena.developerDiagnosticsEnabled,
+        },
+      );
       return result;
     };
 
@@ -628,6 +665,8 @@ function evaluatePlannedAction(
   action: PlannedAction,
   timestamp: string,
   fingerprint: string,
+  forecastEnvironment: () => AthenaForecastEnvironment = () =>
+    createForecastEnvironment(field),
 ): AthenaPreparedActionEligibility {
   if (action.type === "land-play") {
     const plannedLands = field.preTurnPlanner.actions
@@ -719,7 +758,28 @@ function evaluatePlannedAction(
       "Use the generic land action or identify the planned land.",
     );
   }
-  const draft = forecastEventForAction(field, action, timestamp, fingerprint);
+  if (
+    action.prepared.canonicalStateFingerprint === fingerprint &&
+    action.prepared.forecastReference &&
+    (action.prepared.validity === "ready" ||
+      action.prepared.validity === "awaiting-confirmation")
+  ) {
+    return itemEligibilityFromAction(
+      action,
+      action.prepared.validity,
+      true,
+      ["confirmed-action-required", "forecast-current", "forecast-reused"],
+      "The prepared action and its forecast remain current.",
+    );
+  }
+  const environment = forecastEnvironment();
+  const draft = forecastEventForAction(
+    field,
+    action,
+    timestamp,
+    fingerprint,
+    environment,
+  );
   if (!draft) {
     return itemEligibilityFromAction(
       action,
@@ -729,7 +789,6 @@ function evaluatePlannedAction(
       "The prepared action does not have a complete structured event.",
     );
   }
-  const environment = createForecastEnvironment(field);
   const forecast = forecastAthenaEvent(environment, draft, {
     timestamp,
     maxDepth: 2,
@@ -768,6 +827,7 @@ function forecastEventForAction(
   action: PlannedAction,
   timestamp: string,
   fingerprint: string,
+  environment: AthenaForecastEnvironment,
 ): AthenaForecastInput | null {
   return eventForAction(field, action, {
     eventId: `planned-event:${action.prepared.preparedActionId}:${fingerprint}`,
@@ -777,6 +837,7 @@ function forecastEventForAction(
     hypothetical: true,
     actionStripReference: null,
     speakerVerified: null,
+    environment,
   });
 }
 
@@ -904,9 +965,10 @@ function eventForAction(
     hypothetical: boolean;
     actionStripReference: string | null;
     speakerVerified: boolean | null;
+    environment?: AthenaForecastEnvironment;
   },
 ): AthenaForecastInput | null {
-  const environment = createForecastEnvironment(field);
+  const environment = options.environment ?? createForecastEnvironment(field);
   const card = knownCardForAction(field, action);
   const sourceGroup = sourceGroupForAction(field, action);
   const targetGroupIds = targetGroupsForAction(field, action, sourceGroup);
@@ -1268,10 +1330,15 @@ function applyEligibilityToAction(
   timestamp: string,
 ): PlannedAction {
   const forecast = eligibility.forecast;
+  const reusedForecast =
+    eligibility.reasonCodes.includes("forecast-reused") &&
+    action.prepared.canonicalStateFingerprint === fingerprint;
   const replacementReferences =
-    forecast?.replacementRelationships.map((entry) => entry.id) ?? [];
+    forecast?.replacementRelationships.map((entry) => entry.id) ??
+    (reusedForecast ? action.prepared.expectedReplacementReferences : []);
   const triggerSummary =
-    forecast?.triggerRelationships.map((entry) => entry.description) ?? [];
+    forecast?.triggerRelationships.map((entry) => entry.description) ??
+    (reusedForecast ? action.prepared.expectedTriggerSummary : []);
   const bookkeeping = [
     ...(forecast?.directConsequences.map((entry) => entry.description) ?? []),
     ...(forecast?.potentialGeneratedEvents.map((entry) => entry.description) ??
@@ -1291,10 +1358,16 @@ function applyEligibilityToAction(
     ...action.prepared,
     validity: status === "diverged" ? "diverged" : eligibility.validity,
     canonicalStateFingerprint: fingerprint,
-    forecastReference: forecast?.id ?? null,
+    forecastReference:
+      forecast?.id ??
+      (reusedForecast ? action.prepared.forecastReference : null),
     expectedReplacementReferences: uniqueStrings(replacementReferences),
     expectedTriggerSummary: uniqueStrings(triggerSummary),
-    expectedBookkeeping: uniqueStrings(bookkeeping),
+    expectedBookkeeping: uniqueStrings(
+      reusedForecast && bookkeeping.length === 0
+        ? action.prepared.expectedBookkeeping
+        : bookkeeping,
+    ),
     reasonCodes: uniqueStrings(eligibility.reasonCodes),
     authorityRequired: eligibility.validity === "authority-required",
     manualActionRequired: eligibility.validity === "manual-action-required",

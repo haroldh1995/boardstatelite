@@ -133,6 +133,22 @@ test("Catch Me Up repairs current state without replaying gameplay", async ({
   await expect(page.getByRole("button", { name: "Lands: 9" })).toBeVisible();
 });
 
+test("Catch Me Up progressively reveals a large tracked battlefield", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/?fixture=reference", { waitUntil: "load" });
+
+  await page.getByRole("button", { name: "Open settings" }).click();
+  await page.getByRole("button", { name: "Catch Me Up" }).click();
+  await expect(page.locator(".catch-up-object")).toHaveCount(20);
+  await page.getByRole("button", { name: "Show 2 More" }).click();
+  await expect(page.locator(".catch-up-object")).toHaveCount(22);
+  await expect(
+    page.getByRole("button", { name: "Show Relevant First" }),
+  ).toBeVisible();
+});
+
 test("not-tracked card state can be stopped and resumed from the permanent menu", async ({
   page,
 }) => {

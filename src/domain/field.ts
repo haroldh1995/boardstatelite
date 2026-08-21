@@ -616,10 +616,9 @@ export function getVisibleTotals(field: FieldState): RelevantTotal[] {
 export function calculateTotals(
   groups: PermanentGroup[],
 ): Record<RelevantTotalKey, number> {
-  const totals = Object.keys(TOTAL_LABELS).reduce(
-    (acc, key) => ({ ...acc, [key]: 0 }),
-    {} as Record<RelevantTotalKey, number>,
-  );
+  const totals = Object.fromEntries(
+    Object.keys(TOTAL_LABELS).map((key) => [key, 0]),
+  ) as Record<RelevantTotalKey, number>;
 
   for (const group of groups) {
     const quantity = group.quantity;

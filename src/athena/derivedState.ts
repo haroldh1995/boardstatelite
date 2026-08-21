@@ -22,7 +22,7 @@ import type {
 } from "../domain/zoneCompositionTypes";
 import { monotonicNowMs } from "../platform/runtime";
 import { serializeStable } from "../utils/stableSerialization";
-import { buildAthenaDependencyGraph } from "./dependencyGraph";
+import { buildAthenaDependencyGraphFromContext } from "./dependencyGraph";
 import { buildAthenaEffectRelationshipMapFromContext } from "./effectRelationshipMapper";
 import {
   createAthenaAwarenessContext,
@@ -59,6 +59,7 @@ import type {
   AthenaAuthoritySource,
   AthenaSupportFindingStatus,
 } from "./types";
+import { athenaPerformanceMonitor } from "./performanceOptimization";
 
 interface BuildEnvironment {
   field: FieldState;
@@ -163,8 +164,19 @@ export function buildAthenaDerivedBattlefieldState(
   field: FieldState,
   options: AthenaDerivedStateBuildOptions = {},
 ): AthenaDerivedBattlefieldState {
+  return buildDerivedBattlefieldState(
+    field,
+    options,
+    canonicalDerivedFingerprint(field),
+  );
+}
+
+function buildDerivedBattlefieldState(
+  field: FieldState,
+  options: AthenaDerivedStateBuildOptions,
+  canonicalFingerprint: string,
+): AthenaDerivedBattlefieldState {
   const started = monotonicNowMs();
-  const canonicalFingerprint = canonicalDerivedFingerprint(field);
   const definitions = cloneDefinitions(
     options.definitions ?? ATHENA_STATIC_EFFECT_DEFINITIONS,
   );
@@ -177,7 +189,8 @@ export function buildAthenaDerivedBattlefieldState(
     timestamp,
     authoritySource,
   });
-  const graph = buildAthenaDependencyGraph(field, {
+  const graph = buildAthenaDependencyGraphFromContext(context, {
+    field,
     timestamp,
     authoritySource,
     reason: "full-rebuild",
@@ -627,7 +640,9 @@ export class AthenaDerivedStateEngine {
     field: FieldState,
     options: AthenaDerivedStateBuildOptions = {},
   ): AthenaDerivedBattlefieldState {
-    const key = `${canonicalDerivedFingerprint(field)}:${serializeStable({
+    const started = monotonicNowMs();
+    const canonicalFingerprint = canonicalDerivedFingerprint(field);
+    const key = `${canonicalFingerprint}:${serializeStable({
       definitions: options.definitions ?? ATHENA_STATIC_EFFECT_DEFINITIONS,
       totals: options.relevantTotalOverrides ?? {},
       authority: options.authoritativeValues ?? [],
@@ -635,6 +650,15 @@ export class AthenaDerivedStateEngine {
     const cached = this.cache.get(key);
     if (cached && !options.cancellation?.cancelled) {
       this.cacheHits += 1;
+      athenaPerformanceMonitor.recordDuration(
+        "static-recalculation",
+        monotonicNowMs() - started,
+        {
+          workUnits: field.groups.length,
+          recordedAt: options.timestamp ?? field.updatedAt,
+          enabled: field.settings.athena.developerDiagnosticsEnabled,
+        },
+      );
       return cloneStateWithCacheDiagnostics(
         cached,
         this.cacheHits,
@@ -643,7 +667,11 @@ export class AthenaDerivedStateEngine {
     }
     this.cacheMisses += 1;
     this.builds += 1;
-    const state = buildAthenaDerivedBattlefieldState(field, options);
+    const state = buildDerivedBattlefieldState(
+      field,
+      options,
+      canonicalFingerprint,
+    );
     if (state.validity === "stale") this.staleRejections += 1;
     if (state.validity !== "stale" && state.validity !== "cancelled") {
       this.cache.set(key, state);
@@ -653,6 +681,20 @@ export class AthenaDerivedStateEngine {
         this.cache.delete(oldestKey);
       }
     }
+    athenaPerformanceMonitor.recordDuration(
+      "static-recalculation",
+      monotonicNowMs() - started,
+      {
+        workUnits: field.groups.length,
+        recordedAt: options.timestamp ?? field.updatedAt,
+        enabled: field.settings.athena.developerDiagnosticsEnabled,
+      },
+    );
+    athenaPerformanceMonitor.setGauge(
+      "derived-cache-size",
+      this.cache.size,
+      field.settings.athena.developerDiagnosticsEnabled,
+    );
     return cloneStateWithCacheDiagnostics(
       state,
       this.cacheHits,

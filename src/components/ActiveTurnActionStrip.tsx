@@ -49,7 +49,10 @@ export function ActiveTurnActionStrip() {
   const visibleItems = strip.completedCollapsed
     ? sorted.filter((item) => !isTerminal(item.status))
     : sorted;
-  const current = sorted.find((item) => item.status === "current") ?? null;
+  const current =
+    sorted.find((item) => item.id === liveTurn.currentActionId) ??
+    sorted.find((item) => item.status === "current") ??
+    null;
 
   if (strip.visibility === "hidden" || strip.items.length === 0) return null;
 

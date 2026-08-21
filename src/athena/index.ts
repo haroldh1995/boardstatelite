@@ -194,6 +194,25 @@ export {
   ATHENA_RECONCILIATION_SCHEMA_VERSION,
   ATHENA_RECONCILIATION_VERSION,
 } from "./reconciliationTypes";
+export {
+  ATHENA14_PERFORMANCE_BUDGETS_MS,
+  AthenaPerformanceMonitor,
+  athenaPerformanceMonitor,
+  rankAthenaActionStripItems,
+  rankAthenaReconciliationGroups,
+} from "./performanceOptimization";
+export { ATHENA_PERFORMANCE_OPTIMIZATION_VERSION } from "./performanceOptimizationTypes";
+export type {
+  AthenaActionRelevanceContext,
+  AthenaInteractionKind,
+  AthenaInteractionSample,
+  AthenaInteractionWorkflow,
+  AthenaPerformanceDiagnostics,
+  AthenaPerformanceMetric,
+  AthenaPerformanceSample,
+  AthenaRankedAction,
+  AthenaReconciliationGroupRankingInput,
+} from "./performanceOptimizationTypes";
 export type {
   AthenaCorrectionVoiceDisposition,
   AthenaReconciliationConfidence,

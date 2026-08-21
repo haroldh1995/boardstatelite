@@ -183,6 +183,7 @@ import type {
   AthenaReconciliationResult,
   AthenaStructuredCorrectionIntent,
 } from "../athena/reconciliationTypes";
+import { athenaPerformanceMonitor } from "../athena/performanceOptimization";
 import { parseEchoReconciliationCommand } from "../echo/reconciliationCommand";
 import type {
   ZoneCompositionCommandResult,
@@ -416,6 +417,23 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
   },
 
   openModal(modal) {
+    const field = get().field;
+    if (modal.kind === "catchUp") {
+      athenaPerformanceMonitor.recordInteraction(
+        "reconciliation",
+        "modal-open",
+        { enabled: field.settings.athena.developerDiagnosticsEnabled },
+      );
+    }
+    if (modal.kind === "planner") {
+      athenaPerformanceMonitor.recordInteraction(
+        "planner",
+        field.preTurnPlanner.actions.length > 0
+          ? "planner-reopen"
+          : "modal-open",
+        { enabled: field.settings.athena.developerDiagnosticsEnabled },
+      );
+    }
     set({ modal });
   },
 
@@ -722,6 +740,19 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
 
   applyReconciliation(input) {
     const before = get().field;
+    athenaPerformanceMonitor.recordInteraction(
+      "reconciliation",
+      "confirmation",
+      { enabled: before.settings.athena.developerDiagnosticsEnabled },
+    );
+    athenaPerformanceMonitor.recordInteraction(
+      "reconciliation",
+      "correction-step",
+      {
+        count: input.repairs.length,
+        enabled: before.settings.athena.developerDiagnosticsEnabled,
+      },
+    );
     const request = createAthenaReconciliationRequest({
       field: before,
       ...input,
@@ -911,11 +942,20 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
   },
 
   answerAthenaDecision(decisionId, answer) {
-    return processAthenaDecisionResponse(get().field, decisionId, answer, set);
+    const field = get().field;
+    athenaPerformanceMonitor.recordInteraction("contextual-decision", "tap", {
+      enabled: field.settings.athena.developerDiagnosticsEnabled,
+    });
+    return processAthenaDecisionResponse(field, decisionId, answer, set);
   },
 
   answerAthenaDecisionVoice(input) {
     const field = get().field;
+    athenaPerformanceMonitor.recordInteraction(
+      "contextual-decision",
+      "voice-command",
+      { enabled: field.settings.athena.developerDiagnosticsEnabled },
+    );
     const timestamp = new Date().toISOString();
     const response = resolveAthenaDecisionVoiceAnswer(
       field.athena.decisions,
@@ -2442,6 +2482,9 @@ function applyPreparedDecisionToField(
 }
 
 function withDerivedField(field: FieldState): FieldState {
+  athenaPerformanceMonitor.setEnabled(
+    field.settings.athena.developerDiagnosticsEnabled,
+  );
   const derived = applyAthenaDerivedStateToField(field, {
     timestamp: field.updatedAt,
     reason: "canonical-field-change",
@@ -2706,6 +2749,16 @@ function processActionStripItem(
     (entry) => entry.id === itemId,
   );
   if (!item) return null;
+  if (status === "completed") {
+    athenaPerformanceMonitor.recordInteraction(
+      channel === "voice" ? "voice-prepared-action" : "prepared-action",
+      channel === "voice" ? "voice-command" : "tap",
+      {
+        recordedAt: timestamp,
+        enabled: baseField.settings.athena.developerDiagnosticsEnabled,
+      },
+    );
+  }
   if (
     status === "completed" &&
     (item.status === "completed" || item.confirmationReceiptId)
@@ -2756,6 +2809,14 @@ function processActionStripItem(
               })
             : null;
           if (!request) throw new Error(preparedExecution.reason);
+          athenaPerformanceMonitor.recordInteraction(
+            "contextual-decision",
+            "decision-interruption",
+            {
+              recordedAt: timestamp,
+              enabled: current.settings.athena.developerDiagnosticsEnabled,
+            },
+          );
           return {
             field: {
               ...current,

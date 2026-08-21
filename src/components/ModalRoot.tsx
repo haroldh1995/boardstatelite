@@ -1,5 +1,5 @@
 import { Minus, Plus, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { COUNTER_OPTIONS, makeId } from "../domain/cards";
 import { calculateTotals, relevantTotalLabel } from "../domain/field";
 import type {
@@ -19,6 +19,7 @@ import type {
   ZoneCategoryKey,
 } from "../domain/zoneCompositionTypes";
 import type { AthenaReconciliationRepair } from "../athena/reconciliationTypes";
+import { rankAthenaReconciliationGroups } from "../athena/performanceOptimization";
 import type { EchoPersonalGameplayLearningSensitivity } from "../echo/personalGameplayTypes";
 import { useFieldStore } from "../state/useFieldStore";
 import { PreTurnPlannerSheet } from "./PreTurnPlannerSheet";
@@ -1117,14 +1118,52 @@ function CatchUpSheet() {
   );
   const closeModal = useFieldStore((state) => state.closeModal);
   const openModal = useFieldStore((state) => state.openModal);
-  const totals = calculateTotals(field.groups);
-  const graveyard = getZoneCompositionSnapshot(field, "graveyard");
-  const exile = getZoneCompositionSnapshot(field, "exile");
-  const graveyardOptions = getZoneCategoryOptions(field, "graveyard");
-  const exileOptions = getZoneCategoryOptions(field, "exile");
-  const battlefieldGroups = field.groups
-    .filter((group) => group.zone === "battlefield")
-    .sort((left, right) => left.order - right.order);
+  const totals = useMemo(() => calculateTotals(field.groups), [field.groups]);
+  const graveyard = useMemo(
+    () => getZoneCompositionSnapshot(field, "graveyard"),
+    [field],
+  );
+  const exile = useMemo(
+    () => getZoneCompositionSnapshot(field, "exile"),
+    [field],
+  );
+  const graveyardOptions = useMemo(
+    () => getZoneCategoryOptions(field, "graveyard"),
+    [field],
+  );
+  const exileOptions = useMemo(
+    () => getZoneCategoryOptions(field, "exile"),
+    [field],
+  );
+  const battlefieldGroups = useMemo(() => {
+    const preparedGroupIds = new Set(
+      field.preTurnPlanner.actions.flatMap((action) => [
+        ...(action.relatedGroupId ? [action.relatedGroupId] : []),
+        ...action.execution.targetGroupIds,
+      ]),
+    );
+    const decisionCandidateGroupIds = new Set(
+      field.athena.decisions.requests.flatMap((request) =>
+        request.candidates.flatMap((candidate) =>
+          candidate.groupId ? [candidate.groupId] : [],
+        ),
+      ),
+    );
+    const currentAction = field.activeTurnActionStrip.items.find(
+      (item) => item.id === field.athena.liveTurn.currentActionId,
+    );
+    const currentGroupId = currentAction?.sourceActionId
+      ? (field.preTurnPlanner.actions.find(
+          (action) => action.id === currentAction.sourceActionId,
+        )?.relatedGroupId ?? null)
+      : null;
+    return rankAthenaReconciliationGroups({
+      groups: field.groups.filter((group) => group.zone === "battlefield"),
+      preparedGroupIds,
+      decisionCandidateGroupIds,
+      currentGroupId,
+    });
+  }, [field]);
   const [values, setValues] = useState(() => ({
     life: field.player.life,
     commanderDamage: field.player.counters.commanderDamage,
@@ -1158,6 +1197,7 @@ function CatchUpSheet() {
   const [expandedZone, setExpandedZone] = useState<CategoricalZone | null>(
     null,
   );
+  const [battlefieldLimit, setBattlefieldLimit] = useState(20);
   const [error, setError] = useState("");
 
   const save = () => {
@@ -1294,7 +1334,7 @@ function CatchUpSheet() {
           aria-labelledby="catch-up-battlefield"
         >
           <h3 id="catch-up-battlefield">Tracked Battlefield</h3>
-          {battlefieldGroups.map((group) => (
+          {battlefieldGroups.slice(0, battlefieldLimit).map((group) => (
             <div className="catch-up-object" key={group.id}>
               <NumericCorrectionRow
                 label={group.label}
@@ -1321,6 +1361,23 @@ function CatchUpSheet() {
               )}
             </div>
           ))}
+          {battlefieldGroups.length > 20 && (
+            <button
+              type="button"
+              className="quiet-action"
+              onClick={() =>
+                setBattlefieldLimit((current) =>
+                  current >= battlefieldGroups.length
+                    ? 20
+                    : Math.min(battlefieldGroups.length, current + 20),
+                )
+              }
+            >
+              {battlefieldLimit >= battlefieldGroups.length
+                ? "Show Relevant First"
+                : `Show ${Math.min(20, battlefieldGroups.length - battlefieldLimit)} More`}
+            </button>
+          )}
         </section>
       )}
       {(["graveyard", "exile"] as const).map((zone) => {

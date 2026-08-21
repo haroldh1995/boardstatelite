@@ -15,6 +15,11 @@ export default defineConfig({
         codeSplitting: {
           groups: [
             {
+              name: "athena-core",
+              test: /src[\\/]athena[\\/]/,
+              includeDependenciesRecursively: false,
+            },
+            {
               name: "react-vendor",
               test: /node_modules[\\/](?:react|react-dom|scheduler)[\\/]/,
               includeDependenciesRecursively: false,

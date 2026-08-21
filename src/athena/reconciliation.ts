@@ -20,6 +20,7 @@ import {
   zoneCategoryFromRelevantTotal,
 } from "../domain/zoneComposition";
 import { monotonicNowMs } from "../platform/runtime";
+import { athenaPerformanceMonitor } from "./performanceOptimization";
 import {
   ATHENA_RECONCILIATION_SCHEMA_VERSION,
   ATHENA_RECONCILIATION_VERSION,
@@ -251,6 +252,11 @@ export function applyAthenaReconciliation(
     updatedAt: request.createdAt,
     athena: { ...working.athena, reconciliation: state },
   };
+  athenaPerformanceMonitor.recordDuration("reconciliation", duration, {
+    workUnits: request.repairs.length,
+    recordedAt: request.createdAt,
+    enabled: field.settings.athena.developerDiagnosticsEnabled,
+  });
   return {
     ok: rejectedRepairIds.length === 0,
     status,
@@ -905,6 +911,11 @@ function failedResult(
   rejectedRepairIds = request.repairs.map((repair) => repair.id),
 ): AthenaReconciliationResult {
   const duration = Math.max(0, monotonicNowMs() - started);
+  athenaPerformanceMonitor.recordDuration("reconciliation", duration, {
+    workUnits: request.repairs.length,
+    recordedAt: request.createdAt,
+    enabled: field.settings.athena.developerDiagnosticsEnabled,
+  });
   const record = createRecord(request, {
     status: "failed",
     discrepancyCount: 0,

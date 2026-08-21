@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createTokenGroup } from "../domain/cards";
 import { activateField } from "../domain/engine";
 import { normalizeField } from "../domain/field";
 import { useFieldStore } from "../state/useFieldStore";
@@ -305,6 +306,79 @@ describe("rules result rendering layer", () => {
     expect(first.details.map((entry) => entry.detail)).toEqual(
       second.details.map((entry) => entry.detail),
     );
+  });
+
+  it("aggregates large deterministic animation and announcement workloads", () => {
+    const before = normalizeField(fieldWith([genericCreature()]));
+    const groupId = before.groups[0].id;
+    const changes: CanonicalRulesResult["changes"] = [
+      ...Array.from({ length: 64 }, () => ({
+        kind: "token" as const,
+        mode: "created" as const,
+        target: { groupId },
+        name: "Soldier",
+        quantity: 1,
+      })),
+      ...Array.from({ length: 64 }, () => ({
+        kind: "life" as const,
+        player: "you" as const,
+        mode: "gain" as const,
+        amount: 1,
+      })),
+    ];
+    const output = new RulesResultRenderer().renderCanonical(
+      before,
+      canonicalFor(before, changes, {
+        summary: ["Large deterministic result resolved."],
+      }),
+    );
+
+    expect(output.animationQueue).toHaveLength(2);
+    expect(output.animationQueue.map((entry) => entry.label)).toEqual(
+      expect.arrayContaining(["+64 Soldier tokens", "+64 life"]),
+    );
+    expect(output.accessibilityAnnouncements.join(" ")).toContain(
+      "+64 Soldier tokens",
+    );
+    expect(output.accessibilityAnnouncements).toHaveLength(3);
+  });
+
+  it("keeps an extreme token event on one aggregate stack", () => {
+    const stack = createTokenGroup({
+      name: "Scute Swarm",
+      quantity: 256,
+      power: 1,
+      toughness: 1,
+      subtypes: ["Insect"],
+      colors: ["G"],
+    });
+    const before = normalizeField(fieldWith([stack]));
+    const output = new RulesResultRenderer().renderCanonical(
+      before,
+      canonicalFor(
+        before,
+        [
+          {
+            kind: "token",
+            mode: "created",
+            target: { groupId: before.groups[0].id },
+            name: "Scute Swarm",
+            quantity: 256,
+            power: 1,
+            toughness: 1,
+            subtypes: ["Insect"],
+            colors: ["G"],
+          },
+        ],
+        { summary: ["Scute Swarm doubled."] },
+      ),
+    );
+
+    expect(output.result.field.groups).toHaveLength(1);
+    expect(output.result.field.groups[0].quantity).toBe(512);
+    expect(output.animationQueue).toHaveLength(1);
+    expect(output.animationQueue[0].label).toBe("+256 Scute Swarm tokens");
+    expect(before.groups[0].quantity).toBe(256);
   });
 });
 

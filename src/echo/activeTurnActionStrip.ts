@@ -199,6 +199,9 @@ export function synchronizeActionStripWithPlanner(
   const timestamp = options.timestamp ?? new Date().toISOString();
   const visibility = visibilityForMode(options.ambientMode);
   const existingByKey = new Map(strip.items.map((item) => [item.key, item]));
+  const plannerActionsById = new Map(
+    options.planner.actions.map((action) => [action.id, action]),
+  );
   const clearedKeys = new Set(strip.clearedCompletedItemKeys);
   const retainedClearedKeys = new Set<string>();
   const catalog = createCatalog(
@@ -210,9 +213,7 @@ export function synchronizeActionStripWithPlanner(
   catalog.forEach((draft, index) => {
     const existing = existingByKey.get(draft.key);
     const plannerStatus = draft.sourceActionId
-      ? options.planner.actions.find(
-          (action) => action.id === draft.sourceActionId,
-        )?.status
+      ? plannerActionsById.get(draft.sourceActionId)?.status
       : null;
     const status = chooseItemStatus(
       existing?.status,

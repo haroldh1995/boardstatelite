@@ -7,6 +7,7 @@ import type {
 } from "../echo/activeTurnActionStripTypes";
 import { monotonicNowMs } from "../platform/runtime";
 import { serializeStable } from "../utils/stableSerialization";
+import { rankAthenaActionStripItems } from "./performanceOptimization";
 import type { AthenaDecisionRequest } from "./decisionEngineTypes";
 import type { AthenaPendingTriggerQueueSnapshot } from "./triggerQueueTypes";
 import {
@@ -244,9 +245,13 @@ export function reconcileAthenaLiveTurn(
     options.confirmationReceiptId &&
     state.confirmationReceiptIds.includes(options.confirmationReceiptId),
   );
-  const activeDecision = activeRequiredDecision(field);
-  const focused = focusedAction(field.activeTurnActionStrip.items);
   const phase = phaseForField(field, state, signal);
+  const activeDecision = activeRequiredDecision(field);
+  const focused = focusedAction(field.activeTurnActionStrip.items, {
+    lifecycle: state.lifecycle,
+    phase,
+    currentActionId: state.currentActionId,
+  });
   const blockers = buildBlockers(
     activeDecision,
     queueState,
@@ -592,19 +597,14 @@ function reconcileActionDependencies(
 
 function focusedAction(
   items: ActiveTurnActionStripItem[],
+  context: Parameters<typeof rankAthenaActionStripItems>[1],
 ): ActiveTurnActionStripItem | null {
-  return (
-    items.find((item) => item.status === "current") ??
-    [...items]
-      .sort((left, right) => left.order - right.order)
-      .find(
-        (item) =>
-          item.status === "pending" &&
-          (item.validity === "ready" ||
-            item.validity === "awaiting-confirmation"),
-      ) ??
-    null
+  const executable = items.filter(
+    (item) =>
+      (item.status === "pending" || item.status === "current") &&
+      (item.validity === "ready" || item.validity === "awaiting-confirmation"),
   );
+  return rankAthenaActionStripItems(executable, context)[0]?.item ?? null;
 }
 
 function activeRequiredDecision(

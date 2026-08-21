@@ -14,6 +14,7 @@ import type {
 } from "../domain/types";
 import type { BoardStateRulesEvaluation } from "../rulesAdapter/types";
 import { monotonicNowMs } from "../platform/runtime";
+import { serializeStable } from "../utils/stableSerialization";
 import { createObjectResolver } from "./objectResolver";
 import {
   canonicalizeBoardStateEvaluation,
@@ -499,13 +500,92 @@ function animationsFor(
   mode: RulesRenderingMode,
 ): RulesResultAnimation[] {
   if (mode === "silent") return [];
-  return canonical.changes.map((change) => ({
+  return aggregateVisualChanges(canonical.changes).map((entry) => ({
     id: makeId("animation"),
-    kind: animationKind(change),
-    groupIds: groupIdsForAnimation(change),
-    label: labelForAnimation(change),
+    kind: animationKind(entry.change),
+    groupIds: groupIdsForAnimation(entry.change),
+    label: aggregateAnimationLabel(entry.change, entry.quantity),
     mode,
   }));
+}
+
+function aggregateVisualChanges(
+  changes: RulesResultChange[],
+): Array<{ change: RulesResultChange; quantity: number }> {
+  const output: Array<{ change: RulesResultChange; quantity: number }> = [];
+  const indexes = new Map<string, number>();
+  for (const change of changes) {
+    const key = aggregateAnimationKey(change);
+    const quantity = animationQuantity(change);
+    if (!key) {
+      output.push({ change, quantity });
+      continue;
+    }
+    const existingIndex = indexes.get(key);
+    if (existingIndex === undefined) {
+      indexes.set(key, output.length);
+      output.push({ change, quantity });
+      continue;
+    }
+    output[existingIndex] = {
+      ...output[existingIndex],
+      quantity: output[existingIndex].quantity + quantity,
+    };
+  }
+  return output;
+}
+
+function aggregateAnimationKey(change: RulesResultChange): string | null {
+  if (change.kind === "life") {
+    if (change.mode === "set") return null;
+    return `life:${change.player}:${change.mode}`;
+  }
+  if (change.kind === "counter") {
+    if (change.mode === "set") return null;
+    return `counter:${change.target.groupId ?? change.target.objectId ?? "unknown"}:${change.counter}:${change.mode}`;
+  }
+  if (change.kind === "token") {
+    return `token:${change.target?.groupId ?? "stack"}:${change.name}:${change.mode}:${serializeStable(
+      {
+        power: change.power ?? null,
+        toughness: change.toughness ?? null,
+        subtypes: change.subtypes ?? [],
+        colors: change.colors ?? [],
+        tapped: change.tapped ?? false,
+        attacking: change.attacking ?? false,
+      },
+    )}`;
+  }
+  return null;
+}
+
+function animationQuantity(change: RulesResultChange): number {
+  if (change.kind === "life" || change.kind === "counter") return change.amount;
+  if (change.kind === "token") return change.quantity;
+  return 1;
+}
+
+function aggregateAnimationLabel(
+  change: RulesResultChange,
+  quantity: number,
+): string {
+  const prefix =
+    (change.kind === "life" &&
+      (change.mode === "loss" ||
+        change.mode === "damage" ||
+        change.mode === "pay")) ||
+    (change.kind === "counter" && change.mode === "remove") ||
+    (change.kind === "token" && change.mode === "removed")
+      ? "-"
+      : "+";
+  if (change.kind === "life") return `${prefix}${quantity} life`;
+  if (change.kind === "counter") {
+    return `${prefix}${quantity} ${change.counter} counter${quantity === 1 ? "" : "s"}`;
+  }
+  if (change.kind === "token") {
+    return `${prefix}${quantity} ${change.name} token${quantity === 1 ? "" : "s"}`;
+  }
+  return labelForAnimation(change);
 }
 
 function animationKind(
@@ -552,8 +632,20 @@ function announcementsFor(
   if (validation.status === "invalid") {
     return ["Rules result could not be applied safely."];
   }
+  const aggregateAnnouncements =
+    canonical.changes.length > 3
+      ? aggregateVisualChanges(canonical.changes)
+          .filter(({ change }) =>
+            ["life", "counter", "token"].includes(change.kind),
+          )
+          .slice(0, 3)
+          .map(({ change, quantity }) =>
+            aggregateAnimationLabel(change, quantity),
+          )
+      : [];
   return [
-    ...canonical.summary.slice(0, 3),
+    ...canonical.summary.slice(0, aggregateAnnouncements.length > 0 ? 1 : 3),
+    ...aggregateAnnouncements,
     ...canonical.warnings.slice(0, 2).map((warning) => `Warning: ${warning}`),
     ...canonical.unsupportedInteractions
       .slice(0, 1)

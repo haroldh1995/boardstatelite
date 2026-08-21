@@ -1,6 +1,7 @@
 import type { FieldState, PermanentGroup, Zone } from "../domain/types";
 import { getZoneCompositionSnapshot } from "../domain/zoneComposition";
 import { serializeStable } from "../utils/stableSerialization";
+import { monotonicNowMs } from "../platform/runtime";
 import type { PlannedAction } from "../echo/preTurnPlannerTypes";
 import type {
   AthenaDecisionAnswer,
@@ -24,6 +25,7 @@ import {
 import type { AthenaTriggerResolutionEligibility } from "./triggerResolutionTypes";
 import type { AthenaReplacementProcessingResult } from "./replacementEffectTypes";
 import type { AthenaForecastInput } from "./eventForecastTypes";
+import { athenaPerformanceMonitor } from "./performanceOptimization";
 import { ATHENA_EVENT_CATEGORIES } from "./dependencyGraphTypes";
 import type {
   AthenaPendingTriggerQueueSnapshot,
@@ -310,6 +312,7 @@ export function buildAthenaDecisionCandidates(
     zones?: Zone[];
   } = {},
 ): AthenaDecisionCandidate[] {
+  const started = monotonicNowMs();
   const constraints = normalizeTargetConstraints({
     ...constraintsValue,
     zones: options.zones ?? constraintsValue.zones,
@@ -384,7 +387,20 @@ export function buildAthenaDecisionCandidates(
       });
     }
   }
-  return uniqueCandidates(candidates).slice(0, ATHENA_DECISION_MAX_CANDIDATES);
+  const result = uniqueCandidates(candidates).slice(
+    0,
+    ATHENA_DECISION_MAX_CANDIDATES,
+  );
+  athenaPerformanceMonitor.recordDuration(
+    "decision-generation",
+    monotonicNowMs() - started,
+    {
+      workUnits: field.groups.length,
+      recordedAt: field.updatedAt,
+      enabled: field.settings.athena.developerDiagnosticsEnabled,
+    },
+  );
+  return result;
 }
 
 export function createAthenaTriggerDecisionRequest(input: {
