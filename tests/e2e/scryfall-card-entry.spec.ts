@@ -119,13 +119,6 @@ async function openPicker(page: Page, width: number) {
       body: JSON.stringify({ data: [card], has_more: false }),
     });
   });
-  await page.route("https://api.scryfall.com/cards/named**", async (route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(card),
-    });
-  });
   await page.goto("/?fixture=reference", { waitUntil: "load" });
   await page.getByRole("button", { name: /^Add$/ }).click();
   await expect(page.getByRole("dialog")).toBeVisible();

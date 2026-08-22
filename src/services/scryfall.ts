@@ -5,7 +5,6 @@ import { cacheCard, cacheSearch, getCachedCard, getCachedSearch } from "./db";
 
 const SCRYFALL_SEARCH_URL = "https://api.scryfall.com/cards/search";
 const SCRYFALL_CARDS_URL = "https://api.scryfall.com/cards";
-const SCRYFALL_NAMED_URL = "https://api.scryfall.com/cards/named";
 const CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 14;
 const pendingSearches = new Map<string, Promise<CardIdentity[]>>();
 
@@ -87,15 +86,10 @@ export async function searchScryfallPage(
   }
   const url = options.pageUrl ?? searchUrl(trimmed);
   try {
-    const [response, namedCard] = await Promise.all([
-      fetchJson(url, {
-        signal: options.signal,
-        headers: { Accept: "application/json" },
-      }),
-      options.pageUrl || trimmed.includes(":")
-        ? Promise.resolve(null)
-        : fetchNamedCandidate(trimmed, options.signal),
-    ]);
+    const response = await fetchJson(url, {
+      signal: options.signal,
+      headers: { Accept: "application/json" },
+    });
     if (!response.ok) return { cards: [], nextPage: null, fromCache: false };
     const payload = (await response.json()) as {
       data?: unknown[];
@@ -104,15 +98,9 @@ export async function searchScryfallPage(
     };
     const cards = rankScryfallResults(
       trimmed,
-      [
-        ...(namedCard ? [namedCard] : []),
-        ...(payload.data ?? [])
-          .map((entry) => mapScryfallCard(entry as Record<string, unknown>))
-          .filter((card) => card.name),
-      ].filter(
-        (card, index, entries) =>
-          entries.findIndex((entry) => entry.cardId === card.cardId) === index,
-      ),
+      (payload.data ?? [])
+        .map((entry) => mapScryfallCard(entry as Record<string, unknown>))
+        .filter((card) => card.name),
     );
     if (!options.pageUrl) {
       await cacheSearch(trimmed, cards);
@@ -128,26 +116,6 @@ export async function searchScryfallPage(
     };
   } catch {
     return { cards: [], nextPage: null, fromCache: false };
-  }
-}
-
-async function fetchNamedCandidate(
-  query: string,
-  signal?: AbortSignal,
-): Promise<CardIdentity | null> {
-  const params = new URLSearchParams({ fuzzy: query });
-  try {
-    const response = await fetchJson(
-      `${SCRYFALL_NAMED_URL}?${params.toString()}`,
-      { signal, headers: { Accept: "application/json" } },
-    );
-    if (!response.ok) return null;
-    const card = mapScryfallCard(
-      (await response.json()) as Record<string, unknown>,
-    );
-    return card.cardId && card.name ? card : null;
-  } catch {
-    return null;
   }
 }
 
