@@ -305,6 +305,14 @@ describe("ATHENA unresolved card identification", () => {
       JSON.parse(JSON.stringify(useFieldStore.getState().field)),
     );
     expect(restored.athena.cardIdentification.activeRequestId).not.toBeNull();
+    expect(
+      restored.athena.cardIdentification.requests[0]?.constraints
+        .maximumManaValue,
+    ).toBeNull();
+    expect(
+      restored.athena.cardIdentification.requests[0]?.constraints
+        .minimumManaValue,
+    ).toBeNull();
     useFieldStore.setState({ field: restored });
     useFieldStore.getState().processConfirmedAthenaEvent(unresolved);
     expect(restored.athena.cardIdentification.requests).toHaveLength(1);

@@ -822,6 +822,7 @@ function nullableText(value: unknown): string | null {
 }
 
 function finiteNumberOrNull(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
   const numeric = typeof value === "number" ? value : Number(value);
   return Number.isFinite(numeric) && numeric >= 0 ? numeric : null;
 }
