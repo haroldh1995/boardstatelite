@@ -1671,6 +1671,9 @@ textarea:focus-visible {
     0 0 0 1px rgba(241, 192, 107, 0.08),
     var(--glow-green);
   padding: 18px;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .bottom-sheet {
@@ -2430,11 +2433,12 @@ textarea {
 .search-panel {
   display: grid;
   gap: 12px;
+  min-width: 0;
 }
 
 .search-box {
   display: grid;
-  grid-template-columns: 22px 1fr;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
   align-items: center;
   background: rgba(3, 9, 11, 0.88);
   border: 1px solid rgba(171, 255, 205, 0.22);
@@ -2445,6 +2449,17 @@ textarea {
 .search-box input {
   border: 0;
   background: transparent;
+  min-width: 0;
+}
+
+.search-clear {
+  width: 38px;
+  min-height: 38px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  display: grid;
+  place-items: center;
 }
 
 .offline-note {
@@ -2454,7 +2469,6 @@ textarea {
   margin-top: 8px;
 }
 
-.search-content,
 .sheet-columns {
   display: grid;
   grid-template-columns: minmax(220px, 0.9fr) minmax(260px, 1.1fr);
@@ -2466,11 +2480,13 @@ textarea {
 }
 
 .search-results {
-  max-height: 54svh;
+  max-height: min(58svh, 620px);
   overflow: auto;
   display: grid;
   gap: 6px;
   padding-right: 3px;
+  min-width: 0;
+  overscroll-behavior: contain;
 }
 
 .search-result {
@@ -2483,6 +2499,8 @@ textarea {
   padding: 6px;
   border-color: rgba(137, 184, 204, 0.2);
   background: rgba(5, 11, 16, 0.84);
+  min-width: 0;
+  width: 100%;
 }
 
 .search-result img {
@@ -2509,6 +2527,7 @@ textarea {
   grid-template-columns: minmax(130px, 220px) 1fr;
   gap: 12px;
   align-items: start;
+  min-width: 0;
 }
 
 .preview-card-image {
@@ -2520,6 +2539,47 @@ textarea {
 .preview-copy {
   display: grid;
   gap: 10px;
+  min-width: 0;
+}
+
+.search-confirmation-error,
+.search-confirmation-actions {
+  grid-column: 1 / -1;
+}
+
+.search-confirmation-error {
+  color: #ffd6d6 !important;
+}
+
+.search-confirmation-actions {
+  position: sticky;
+  bottom: -1px;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  padding: 10px 0 2px;
+  background: linear-gradient(180deg, transparent, rgba(3, 6, 13, 0.98) 24%);
+}
+
+.search-confirmation-actions.dual {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.search-confirmation-actions button {
+  width: 100%;
+  min-width: 0;
+  min-height: 50px;
+}
+
+.search-more,
+.search-more-status {
+  width: 100%;
+  min-height: 46px;
+}
+
+.card-identification-sheet {
+  min-width: 0;
 }
 
 .oracle-text {
@@ -3069,6 +3129,38 @@ textarea {
   .search-content,
   .card-preview-pane {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .modal-sheet.scryfall-sheet {
+    width: 100%;
+    max-height: 92svh;
+    padding: 14px;
+    border-radius: 14px;
+  }
+
+  .scryfall-sheet .segmented {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .scryfall-sheet .segmented button {
+    min-width: 0;
+    white-space: normal;
+  }
+
+  .card-preview-pane {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .preview-card-image {
+    width: min(100%, 310px);
+    justify-self: center;
+  }
+
+  .search-results {
+    max-height: 62svh;
   }
 }
 

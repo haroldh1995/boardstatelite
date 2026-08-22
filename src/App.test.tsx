@@ -38,6 +38,7 @@ import {
   createAthenaDecisionRequest,
   enqueueAthenaDecision,
 } from "./athena/decisionEngine";
+import { createUnspecifiedCardEntryDescriptor } from "./athena/cardIdentification";
 
 describe("Baord State Lite app shell", () => {
   beforeEach(() => {
@@ -897,4 +898,44 @@ describe("Baord State Lite app shell", () => {
       useFieldStore.getState().field.preTurnPlanner.actions[0].status,
     ).toBe("planned");
   }, 20_000);
+
+  it("automatically opens the shared picker for a structured unspecified entry", async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(
+      await screen.findByRole("button", { name: /continue to field/i }),
+    );
+    const field = useFieldStore.getState().field;
+    const unresolved = createAthenaForecastInput(
+      {
+        eventId: "app-unspecified-entry",
+        eventCategory: "creature-entered",
+        eventSource: "canonical-event",
+        authoritySource: "confirmed-user-report",
+        timestamp: field.updatedAt,
+        quantity: 1,
+        zoneOrigin: "library",
+        zoneDestination: "battlefield",
+        cardEntry: createUnspecifiedCardEntryDescriptor({
+          actionPolicy: "add-only",
+          originZone: "library",
+          cardTypes: ["Creature"],
+          tapped: true,
+          description: "Creature card from library",
+        }),
+      },
+      createForecastEnvironment(field),
+    );
+    act(() => {
+      useFieldStore.getState().processConfirmedAthenaEvent(unresolved);
+    });
+    expect(
+      await screen.findByRole("heading", { name: /choose entering card/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText("Search Scryfall cards"),
+    ).toBeInTheDocument();
+    expect(useFieldStore.getState().modal?.kind).toBe("cardIdentification");
+    expect(useFieldStore.getState().undoStack).toHaveLength(0);
+  });
 });

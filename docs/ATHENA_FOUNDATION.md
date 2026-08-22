@@ -187,6 +187,7 @@ Athena respects the support boundary already present in Lite:
 Athena persistence is intentionally small:
 
 - Persist Athena settings, version metadata, decision continuations, live-turn checkpoints, reconciliation records, diagnostics summaries, and restorable preview metadata.
+- Persist unresolved card-identification requests as structured data, never as modal state or executable continuation code.
 - Do not persist a copy of the battlefield.
 - Do not persist ephemeral calculations.
 - Do not wipe or reject legacy saves that lack Athena metadata.
@@ -220,6 +221,8 @@ Project Athena is complete through ATHENA-15. Its single supported Real Game Act
 10. The existing store creates one undo boundary, persists the canonical field, and presents aggregate feedback.
 
 Committed event lineage is retained by the live-turn state and rejects replay of the same original or replacement-revised root event. Voice/touch Prepared Action confirmation also retains its prepared-action receipt, so duplicate delivery cannot commit a second physical action.
+
+Structured effects that resolve to an unspecified card entering the battlefield pause before replacement or trigger processing and create one persisted Pending Card Identification record. Exact named cards, named tokens, and copies of known objects bypass this request. The shared Scryfall view identifies the physical card, while the platform-neutral request policy permits CAST, ADD, or both. CAST enters the existing spell-cast pipeline and then uses a separate permanent-entry event where supported; ADD enters directly without generating cast semantics. Known origin zones, entry status, stable request lineage, undo/redo state, and ATHENA-09 graveyard/exile identity are preserved. Unsupported Oracle-text inference remains manual or authority-required work rather than guessed automation.
 
 The current-state repair path is separate:
 

@@ -31,7 +31,7 @@ This audit describes the current Baord State Lite implementation before ecosyste
 - `src/components/PermanentCard.tsx`: card visuals, gestures, overlays, support indicators, Not Tracked and depower visuals.
 - `src/components/BottomDock.tsx`: Add, ACTIVATE FIELD, Transform All hold behavior, Tools.
 - `src/components/ModalRoot.tsx`: shared modal/sheet system, startup warning, add/search, preview, counters, removal, tracking confirmation, transform, settings, exact totals, summaries, import/export.
-- `src/components/ScryfallSearch.tsx`: Scryfall search UI, preview, printing selection, offline note.
+- `src/components/ScryfallSearch.tsx`: shared paged Scryfall search, mobile search/preview states, printing selection, contextual CAST/ADD actions, and offline note.
 
 ## Domain And State Organization
 
@@ -50,7 +50,7 @@ This audit describes the current Baord State Lite implementation before ecosyste
 - `src/platform/*`: Runtime, storage, persistence, network, and web microphone adapter ports that isolate browser APIs from portable BoardState Lite gameplay logic. Future Apple targets should replace these ports instead of moving domain, Echo, Athena, or state logic into web-only UI code.
 - `src/state/useFieldStore.ts`: Zustand store, local actions, undo/redo, modal state, persistence commits.
 - `src/services/db.ts`: Lite persistence through the platform field-persistence port and key-value port for fallback cache behavior.
-- `src/services/scryfall.ts`: Scryfall API mapping, search, card fetch, pending request de-duplication, and cache calls through the platform network port.
+- `src/services/scryfall.ts`: Scryfall API mapping, ranked paged search, exact-name candidate lookup, card fetch, pending request de-duplication, and cache calls through the platform network port.
 
 ## Styling And Visual System
 

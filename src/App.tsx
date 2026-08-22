@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { Battlefield } from "./components/Battlefield";
 import { ActiveTurnActionStrip } from "./components/ActiveTurnActionStrip";
@@ -27,6 +27,9 @@ function App() {
     [
       state.lastResult?.accessibilityAnnouncements?.join(" ") ?? "",
       state.field.athena.reconciliation.recent.at(-1)?.semanticSummary ?? "",
+      state.field.athena.cardIdentification.activeRequestId
+        ? "Choose the card entering the battlefield."
+        : "",
     ]
       .filter(Boolean)
       .join(" "),
@@ -35,10 +38,15 @@ function App() {
     (state) => state.field.athena.reconciliation.catchUpSuggested,
   );
   const openModal = useFieldStore((state) => state.openModal);
+  const modalKind = useFieldStore((state) => state.modal?.kind ?? null);
+  const pendingCardIdentificationId = useFieldStore(
+    (state) => state.field.athena.cardIdentification.activeRequestId,
+  );
   const dismissCatchUpSuggestion = useFieldStore(
     (state) => state.dismissCatchUpSuggestion,
   );
   const referenceMode = isReferenceFixtureMode();
+  const automaticallyPresentedCardIds = useRef(new Set<string>());
   const { needRefresh, updateServiceWorker } = useRegisterSW({
     onRegisteredSW() {
       // Registration is intentionally prompt-based so updates do not disrupt active games.
@@ -53,6 +61,22 @@ function App() {
     if (!hydrated) return;
     void initializeListening();
   }, [hydrated, initializeListening]);
+
+  useEffect(() => {
+    if (!pendingCardIdentificationId) {
+      automaticallyPresentedCardIds.current.clear();
+      return;
+    }
+    if (
+      !hydrated ||
+      modalKind ||
+      automaticallyPresentedCardIds.current.has(pendingCardIdentificationId)
+    ) {
+      return;
+    }
+    automaticallyPresentedCardIds.current.add(pendingCardIdentificationId);
+    openModal({ kind: "cardIdentification" });
+  }, [hydrated, modalKind, openModal, pendingCardIdentificationId]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -135,6 +159,22 @@ function App() {
               </button>
             </aside>
           )}
+          {pendingCardIdentificationId &&
+            modalKind !== "cardIdentification" && (
+              <aside
+                className="recovery-toast"
+                role="status"
+                aria-label="A resolving effect is waiting for the entering card to be identified."
+              >
+                <button
+                  type="button"
+                  className="primary-action"
+                  onClick={() => openModal({ kind: "cardIdentification" })}
+                >
+                  Choose Entering Card
+                </button>
+              </aside>
+            )}
           <SmartSuggestionsTray />
           <ActiveTurnActionStrip />
           <AthenaDecisionSurface />

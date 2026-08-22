@@ -51,6 +51,7 @@ export {
   AthenaReplacementEffectEngine,
   athenaReplacementEffectEngine,
   createAthenaDuplicateReplacementResult,
+  createAthenaDeferredReplacementResult,
   invalidateAthenaReplacementResult,
   isAthenaReplacementResultCurrent,
   processAthenaReplacementEffects,
@@ -138,6 +139,22 @@ export {
   recordAthenaLiveTurnPipeline,
   requestAthenaLiveTurnEnd,
 } from "./liveTurnOrchestrator";
+export {
+  actionAllowed,
+  activePendingCardIdentification,
+  classifyAthenaCardEntry,
+  completePendingCardIdentification,
+  createCardIdentificationAction,
+  createDefaultAthenaCardIdentificationState,
+  createStandaloneCardIdentificationAction,
+  createUnspecifiedCardEntryDescriptor,
+  enqueuePendingCardIdentification,
+  isPermanentCard,
+  normalizeAthenaCardEntryDescriptor,
+  normalizeAthenaCardIdentificationState,
+  validateCardIdentificationSelection,
+} from "./cardIdentification";
+export { ATHENA_CARD_IDENTIFICATION_VERSION } from "./cardIdentificationTypes";
 export {
   ATHENA_COMPATIBILITY_VERSION,
   ATHENA_CONTEXT_VERSION,
@@ -231,6 +248,16 @@ export type {
   AthenaReconciliationStatus,
   AthenaStructuredCorrectionIntent,
 } from "./reconciliationTypes";
+export type {
+  AthenaCardEntryActionPolicy,
+  AthenaCardEntryConstraints,
+  AthenaCardEntryDescriptor,
+  AthenaCardEntryIdentity,
+  AthenaCardIdentificationActionResult,
+  AthenaCardIdentificationState,
+  AthenaPendingCardIdentification,
+  AthenaPendingCardIdentificationStatus,
+} from "./cardIdentificationTypes";
 export * from "../domain/zoneComposition";
 export * from "../domain/zoneCompositionTypes";
 export type {

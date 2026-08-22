@@ -217,6 +217,7 @@ export interface AthenaConfirmedConsequencePipelineResult {
     | "committed"
     | "duplicate"
     | "correction-bypassed"
+    | "identification-required"
     | "unresolved"
     | "invalid"
     | "failed-safe";

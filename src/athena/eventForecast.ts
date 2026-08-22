@@ -79,6 +79,7 @@ import {
   type AthenaForecastWarning,
   type AthenaPlannerForecastAdapterInput,
 } from "./eventForecastTypes";
+import { normalizeAthenaCardEntryDescriptor } from "./cardIdentification";
 import type { AthenaAuthoritySource, AthenaAwarenessContext } from "./types";
 
 const DEFAULT_TIMESTAMP = "1970-01-01T00:00:00.000Z";
@@ -185,6 +186,7 @@ export function createAthenaForecastInput(
       knownCharacteristics,
     ),
     permanentDefinition: clonePermanentDefinition(draft.permanentDefinition),
+    cardEntry: normalizeAthenaCardEntryDescriptor(draft.cardEntry),
     lifeDelta: finiteNumberOrNull(draft.lifeDelta),
     commanderDamageDelta: finiteNumberOrNull(draft.commanderDamageDelta),
     relevantTotalImplications: normalizeTotalImplications(

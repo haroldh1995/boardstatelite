@@ -73,6 +73,7 @@ export type ModalKind =
   | "catchUp"
   | "exactTotal"
   | "zoneComposition"
+  | "cardIdentification"
   | "triggerOrder"
   | "customEffect";
 
@@ -142,6 +143,7 @@ export interface CardIdentity {
   manaValue: number;
   typeLine: string;
   oracleText: string;
+  flavorText?: string;
   imageUrl: string;
   imageSmall: string;
   imageArt: string;

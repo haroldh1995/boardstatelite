@@ -772,6 +772,35 @@ export function createAthenaDuplicateReplacementResult(
   });
 }
 
+export function createAthenaDeferredReplacementResult(
+  environment: AthenaForecastEnvironment,
+  event: AthenaForecastInput,
+  reason: string,
+  timestamp = event.timestamp,
+): AthenaReplacementProcessingResult {
+  const base = createAthenaDuplicateReplacementResult(
+    environment,
+    event,
+    timestamp,
+  );
+  return {
+    ...base,
+    id: `athena-replacement:deferred:${normalizeIdPart(event.eventId)}`,
+    validity: "unresolved",
+    finalEvent: null,
+    warnings: [
+      {
+        id: `athena-replacement-warning:deferred:${normalizeIdPart(event.eventId)}`,
+        code: "manual-required",
+        message: reason,
+        relationshipId: null,
+        sourceGroupId: null,
+      },
+    ],
+    semanticDescriptions: [reason],
+  };
+}
+
 export class AthenaReplacementCancellationController {
   private readonly state = {
     cancelled: false,
@@ -2005,6 +2034,33 @@ function copyForecastInput(event: AthenaForecastInput): AthenaForecastInput {
           cardFaces: event.permanentDefinition.cardFaces.map((face) => ({
             ...face,
           })),
+        }
+      : null,
+    cardEntry: event.cardEntry
+      ? {
+          ...event.cardEntry,
+          identity:
+            event.cardEntry.identity.kind === "named-card"
+              ? {
+                  kind: "named-card" as const,
+                  card: {
+                    ...event.cardEntry.identity.card,
+                    colors: [...event.cardEntry.identity.card.colors],
+                    colorIdentity: [
+                      ...event.cardEntry.identity.card.colorIdentity,
+                    ],
+                    keywords: [...event.cardEntry.identity.card.keywords],
+                    cardFaces: event.cardEntry.identity.card.cardFaces.map(
+                      (face) => ({ ...face }),
+                    ),
+                  },
+                }
+              : { ...event.cardEntry.identity },
+          destinationStatus: { ...event.cardEntry.destinationStatus },
+          constraints: {
+            ...event.cardEntry.constraints,
+            cardTypes: [...event.cardEntry.constraints.cardTypes],
+          },
         }
       : null,
     relevantTotalImplications: { ...event.relevantTotalImplications },

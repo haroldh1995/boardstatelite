@@ -1,5 +1,12 @@
 import { create } from "zustand";
-import { createGenericGroup, makeId, withStackKey } from "../domain/cards";
+import {
+  createCardGroup,
+  createGenericGroup,
+  makeId,
+  parseCharacteristics,
+  splitGroupForQuantity,
+  withStackKey,
+} from "../domain/cards";
 import {
   activateField as resolveActivateField,
   setTrackingEnabled as resolveSetTrackingEnabled,
@@ -132,6 +139,12 @@ import type {
 } from "../athena/eventForecastTypes";
 import type { AthenaConfirmedConsequencePipelineResult } from "../athena/triggerResolutionTypes";
 import {
+  completePendingCardIdentification,
+  createCardIdentificationAction,
+  createStandaloneCardIdentificationAction,
+} from "../athena/cardIdentification";
+import type { AthenaCardIdentificationActionResult } from "../athena/cardIdentificationTypes";
+import {
   answerAthenaDecision as resolveAthenaDecisionAnswer,
   answerAthenaDecisionFromVoice as resolveAthenaDecisionVoiceAnswer,
   answerToTriggerResolutionDecision,
@@ -193,6 +206,11 @@ interface FieldStore {
   openModal: (modal: ModalState) => void;
   closeModal: () => void;
   addCard: (card: CardIdentity, quantity?: number) => void;
+  confirmScryfallCardAction: (input: {
+    card: CardIdentity;
+    action: "cast" | "add";
+    requestId?: string | null;
+  }) => { valid: boolean; reason: string };
   addGeneric: (input: Parameters<typeof createGenericGroup>[0]) => void;
   activateField: () => void;
   applyCounters: (
@@ -444,6 +462,34 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
         },
       ],
     });
+  },
+
+  confirmScryfallCardAction(input) {
+    const before = get().field;
+    const request = input.requestId
+      ? before.athena.cardIdentification.requests.find(
+          (entry) => entry.id === input.requestId,
+        )
+      : null;
+    if (
+      input.requestId &&
+      (!request || !["pending", "presented"].includes(request.status))
+    ) {
+      return {
+        valid: false,
+        reason: "This card identification was already completed or expired.",
+      };
+    }
+    const action = request
+      ? createCardIdentificationAction(request, input.card, input.action)
+      : createStandaloneCardIdentificationAction(
+          before,
+          createManualCardEntryEvent(before, input.card),
+          input.card,
+          input.action,
+        );
+    if (!action.valid) return { valid: false, reason: action.reason };
+    return commitCardIdentificationAction(before, action, set);
   },
 
   addGeneric(input) {
@@ -976,6 +1022,11 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
       queue,
       timestamp: event.timestamp,
     });
+    if (result.validity === "identification-required") {
+      set({ field: result.resultingField, lastResult: null });
+      void saveField(result.resultingField);
+      return result;
+    }
     if (result.validity !== "committed") {
       const request = createAthenaReplacementDecisionRequest({
         field: before,
@@ -2094,6 +2145,253 @@ function createConfirmedManualAthenaEvent(
     },
     createForecastEnvironment(field),
   );
+}
+
+function createManualCardEntryEvent(
+  field: FieldState,
+  card: CardIdentity,
+): AthenaForecastInput {
+  const characteristics = parseCharacteristics(card.typeLine, card);
+  return createConfirmedManualAthenaEvent(field, {
+    eventCategory: characteristics.cardTypes.includes("Land")
+      ? "land-entered"
+      : characteristics.isCreature
+        ? "creature-entered"
+        : "permanent-entered",
+    quantity: 1,
+    permanentDefinition: card,
+    knownCharacteristics: characteristics,
+    zoneOrigin: null,
+    zoneDestination: "battlefield",
+    metadata: { label: card.name, interaction: "scryfall-card-selection" },
+  });
+}
+
+function commitCardIdentificationAction(
+  before: FieldState,
+  action: AthenaCardIdentificationActionResult,
+  set: (partial: Partial<FieldStore>) => void,
+): { valid: boolean; reason: string } {
+  const request = action.requestId
+    ? before.athena.cardIdentification.requests.find(
+        (entry) => entry.id === action.requestId,
+      )
+    : null;
+  const prepared = prepareCardIdentificationOrigin(
+    before,
+    action.eventDrafts,
+    action.selectedCard,
+    request?.originZone ?? null,
+    action.action,
+  );
+  if (!prepared.valid) return { valid: false, reason: prepared.reason };
+  const timestamp = action.eventDrafts[0]?.timestamp ?? before.updatedAt;
+  const baseQueue = athenaTriggerQueueForField(before, timestamp);
+  const transactionQueue = new AthenaPendingTriggerQueue({
+    canonicalSessionId: before.session.id,
+    participantId: before.multiplayer.registry.localParticipantId,
+    timestamp,
+    snapshot: baseQueue.toSnapshot(),
+  });
+  let working = prepared.field;
+  const canonicalEvents: GameEvent[] = [];
+  const summaries: string[] = [];
+  let lastQueueSnapshot = transactionQueue.toSnapshot();
+  for (const eventDraft of prepared.events) {
+    const event = createAthenaForecastInput(
+      {
+        ...eventDraft,
+        awarenessContextVersion: undefined,
+        awarenessContextFingerprint: undefined,
+        dependencyGraphVersion: undefined,
+        dependencyGraphFingerprint: undefined,
+        relationshipMapVersion: undefined,
+        relationshipMapFingerprint: undefined,
+      },
+      createForecastEnvironment(working),
+    );
+    const result = processAthenaConfirmedEventWithBookkeeping({
+      field: working,
+      event,
+      queue: transactionQueue,
+      timestamp: event.timestamp,
+    });
+    if (result.validity !== "committed") {
+      return { valid: false, reason: result.reason };
+    }
+    working = result.resultingField;
+    lastQueueSnapshot = result.queue;
+    if (result.rootCanonicalEvent)
+      canonicalEvents.push(result.rootCanonicalEvent);
+    canonicalEvents.push(
+      ...(result.autoResolution?.generatedCanonicalEvents ?? []),
+    );
+    if (result.autoResolution?.semanticDescription) {
+      summaries.push(result.autoResolution.semanticDescription);
+    }
+  }
+  if (request) {
+    working = completePendingCardIdentification(working, {
+      requestId: request.id,
+      card: action.selectedCard,
+      action: action.action,
+      completionEventIds: canonicalEvents.map((event) => event.id),
+      timestamp,
+    });
+  }
+  working = withNextAthenaTriggerDecision(
+    working,
+    lastQueueSnapshot,
+    timestamp,
+  );
+  working = recordAthenaLiveTurnPipeline(working, {
+    queue: lastQueueSnapshot,
+    canonicalEvents,
+    unexpected: true,
+    timestamp,
+  });
+  if (!baseQueue.replaceFromSnapshot(lastQueueSnapshot)) {
+    return {
+      valid: false,
+      reason: "The pending trigger queue changed before card confirmation.",
+    };
+  }
+  const label =
+    action.action === "cast"
+      ? `Cast ${action.selectedCard.name}`
+      : `Put ${action.selectedCard.name} onto battlefield`;
+  commitField(
+    label,
+    before,
+    working,
+    [
+      action.reason,
+      ...summaries.filter(
+        (summary, index, entries) => entries.indexOf(summary) === index,
+      ),
+    ],
+    set,
+    null,
+    false,
+    canonicalEvents,
+  );
+  return { valid: true, reason: action.reason };
+}
+
+function prepareCardIdentificationOrigin(
+  field: FieldState,
+  events: AthenaForecastInput[],
+  card: CardIdentity,
+  originZone: AthenaForecastInput["zoneOrigin"],
+  action: "cast" | "add",
+): {
+  valid: boolean;
+  reason: string;
+  field: FieldState;
+  events: AthenaForecastInput[];
+} {
+  if (!originZone || originZone === "battlefield") {
+    return {
+      valid: true,
+      reason: "No tracked origin move was required.",
+      field,
+      events,
+    };
+  }
+  const existing = field.groups.find(
+    (group) =>
+      group.zone === originZone &&
+      (group.identity?.cardId === card.cardId ||
+        (card.oracleId && group.identity?.oracleId === card.oracleId)),
+  );
+  let working = field;
+  let sourceGroupId = existing?.id ?? null;
+  if (!sourceGroupId) {
+    const unknown = field.groups.find(
+      (group) =>
+        group.zone === originZone && !group.identity && group.quantity > 0,
+    );
+    if (unknown && (originZone === "graveyard" || originZone === "exile")) {
+      const priorKnownIds = new Set(
+        field.groups
+          .filter((group) => group.identity?.cardId === card.cardId)
+          .map((group) => group.id),
+      );
+      const reconciled = reconcileUnknownZoneGroupIdentity(field, {
+        groupId: unknown.id,
+        card,
+        quantity: 1,
+        source: "scryfall-reconciliation",
+        timestamp: events[0]?.timestamp,
+      });
+      if (!reconciled.ok) {
+        return {
+          valid: false,
+          reason: reconciled.reason,
+          field,
+          events,
+        };
+      }
+      working = reconciled.field;
+      sourceGroupId =
+        working.groups.find(
+          (group) =>
+            group.zone === originZone &&
+            group.identity?.cardId === card.cardId &&
+            !priorKnownIds.has(group.id),
+        )?.id ??
+        working.groups.find(
+          (group) =>
+            group.zone === originZone && group.identity?.cardId === card.cardId,
+        )?.id ??
+        null;
+    } else if (unknown) {
+      const split = splitGroupForQuantity(field.groups, unknown.id, 1);
+      if (!split.targetId) {
+        return {
+          valid: false,
+          reason: "The source-zone card could not be separated.",
+          field,
+          events,
+        };
+      }
+      const target = split.groups.find((group) => group.id === split.targetId)!;
+      const identified = withStackKey({
+        ...createCardGroup(card, 1, originZone),
+        id: target.id,
+        session: target.session,
+        owner: target.owner,
+        controller: target.controller,
+        order: target.order,
+        notes: target.notes,
+        trackingEnabled: target.trackingEnabled,
+      });
+      working = {
+        ...field,
+        groups: split.groups.map((group) =>
+          group.id === target.id ? identified : group,
+        ),
+      };
+      sourceGroupId = identified.id;
+    }
+  }
+  if (!sourceGroupId) {
+    return {
+      valid: true,
+      reason: "The origin quantity is not tracked exactly.",
+      field: working,
+      events,
+    };
+  }
+  return {
+    valid: true,
+    reason: "The tracked origin card was preserved.",
+    field: working,
+    events: events.map((event, index) => ({
+      ...event,
+      subjectGroupIds: index === 0 || action === "add" ? [sourceGroupId] : [],
+    })),
+  };
 }
 
 function commitResult(

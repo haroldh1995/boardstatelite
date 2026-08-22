@@ -25,6 +25,7 @@ import type {
   AthenaAwarenessContext,
 } from "./types";
 import type { AthenaReplacementProcessingResult } from "./replacementEffectTypes";
+import type { AthenaCardEntryDescriptor } from "./cardIdentificationTypes";
 
 export const ATHENA_EVENT_FORECAST_VERSION = 2;
 export const ATHENA_EVENT_FORECAST_CACHE_VERSION = 2;
@@ -165,6 +166,7 @@ export interface AthenaForecastInput {
   counterType: string | null;
   tokenDefinition: AthenaForecastTokenDefinitionReference | null;
   permanentDefinition: CardIdentity | null;
+  cardEntry: AthenaCardEntryDescriptor | null;
   lifeDelta: number | null;
   commanderDamageDelta: number | null;
   relevantTotalImplications: Partial<Record<RelevantTotalKey, number>>;
@@ -190,6 +192,7 @@ export type AthenaForecastInputDraft = Partial<
     | "knownCharacteristics"
     | "tokenDefinition"
     | "permanentDefinition"
+    | "cardEntry"
     | "relevantTotalImplications"
     | "metadata"
   >
@@ -202,6 +205,7 @@ export type AthenaForecastInputDraft = Partial<
     | null;
   tokenDefinition?: Partial<AthenaForecastTokenDefinitionReference> | null;
   permanentDefinition?: CardIdentity | null;
+  cardEntry?: AthenaCardEntryDescriptor | null;
   relevantTotalImplications?: Partial<Record<RelevantTotalKey, number>>;
   metadata?: Record<string, string | number | boolean | null>;
 };

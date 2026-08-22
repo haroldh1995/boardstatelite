@@ -27,6 +27,10 @@ import {
   normalizeAthenaReconciliationState,
 } from "./reconciliation";
 import {
+  createDefaultAthenaCardIdentificationState,
+  normalizeAthenaCardIdentificationState,
+} from "./cardIdentification";
+import {
   ATHENA_COMPATIBILITY_VERSION,
   ATHENA_CONTEXT_VERSION,
   ATHENA_FOUNDATION_VERSION,
@@ -143,6 +147,9 @@ export function createDefaultAthenaState(
     reconciliation: input.reconciliation
       ? normalizeAthenaReconciliationState(input.reconciliation)
       : createDefaultAthenaReconciliationState(),
+    cardIdentification: input.cardIdentification
+      ? normalizeAthenaCardIdentificationState(input.cardIdentification)
+      : createDefaultAthenaCardIdentificationState(),
     activePreview,
     recentPreviewIds: Array.isArray(input.recentPreviewIds)
       ? uniqueStrings(input.recentPreviewIds).slice(0, 20)
@@ -214,6 +221,14 @@ export function normalizeAthenaState(
     reconciliation: normalizeAthenaReconciliationState(
       candidate.reconciliation,
       timestamp,
+    ),
+    cardIdentification: normalizeAthenaCardIdentificationState(
+      candidate.cardIdentification,
+      {
+        sessionId: options.sessionId,
+        participantId: options.participantId,
+        timestamp,
+      },
     ),
     activePreview,
     recentPreviewIds,

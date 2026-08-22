@@ -20,6 +20,11 @@ import type {
 } from "../domain/zoneCompositionTypes";
 import type { AthenaReconciliationRepair } from "../athena/reconciliationTypes";
 import { rankAthenaReconciliationGroups } from "../athena/performanceOptimization";
+import {
+  actionAllowed,
+  activePendingCardIdentification,
+  validateCardIdentificationSelection,
+} from "../athena/cardIdentification";
 import type { EchoPersonalGameplayLearningSensitivity } from "../echo/personalGameplayTypes";
 import { useFieldStore } from "../state/useFieldStore";
 import { PreTurnPlannerSheet } from "./PreTurnPlannerSheet";
@@ -59,11 +64,20 @@ export function ModalRoot() {
     >
       <section
         ref={sheetRef}
-        className={
-          modal.kind === "managePermanent"
-            ? "modal-sheet bottom-sheet"
-            : "modal-sheet"
-        }
+        className={[
+          "modal-sheet",
+          modal.kind === "managePermanent" ? "bottom-sheet" : "",
+          [
+            "add",
+            "cardIdentification",
+            "replaceGeneric",
+            "transformAll",
+          ].includes(modal.kind)
+            ? "scryfall-sheet"
+            : "",
+        ]
+          .filter(Boolean)
+          .join(" ")}
         role="dialog"
         aria-modal="true"
         aria-labelledby="modal-title"
@@ -117,6 +131,8 @@ function ModalContent({ modal }: { modal: ModalState }) {
           }
         />
       );
+    case "cardIdentification":
+      return <CardIdentificationSheet />;
     case "preview":
       return <PreviewSheet groupId={modal.groupId} />;
     case "life":
@@ -253,8 +269,10 @@ function AddSheet({
   correctionOnly?: boolean;
   initialTab?: "card" | "generic";
 }) {
-  const addCard = useFieldStore((state) => state.addCard);
   const addGeneric = useFieldStore((state) => state.addGeneric);
+  const confirmScryfallCardAction = useFieldStore(
+    (state) => state.confirmScryfallCardAction,
+  );
   const applyReconciliation = useFieldStore(
     (state) => state.applyReconciliation,
   );
@@ -301,30 +319,78 @@ function AddSheet({
               ? "Identify card already present"
               : "Search card to track"
           }
-          actionLabel={
-            correctionOnly ? "Add Already Present" : "Add Tracked Card"
-          }
-          onConfirm={(card) => {
-            if (correctionOnly) {
-              applyReconciliation({
-                source: "manual-correction",
-                level: "quick-correction",
-                provenance: "catch-up-card-identification",
-                repairs: [
+          actions={
+            correctionOnly
+              ? [
                   {
-                    id: makeId("repair"),
-                    kind: "add-card-already-present",
-                    identity: card,
-                    quantity: 1,
-                    zone: "battlefield",
+                    id: "correction-add",
+                    label: "Add Already Present",
+                    semanticLabel:
+                      "Add selected card as already present without gameplay triggers.",
+                    onConfirm: (card) => {
+                      applyReconciliation({
+                        source: "manual-correction",
+                        level: "quick-correction",
+                        provenance: "catch-up-card-identification",
+                        repairs: [
+                          {
+                            id: makeId("repair"),
+                            kind: "add-card-already-present",
+                            identity: card,
+                            quantity: 1,
+                            zone: "battlefield",
+                          },
+                        ],
+                      });
+                      closeModal();
+                    },
                   },
-                ],
-              });
-            } else {
-              addCard(card);
-            }
-            closeModal();
-          }}
+                ]
+              : [
+                  {
+                    id: "cast",
+                    label: "CAST",
+                    semanticLabel: "Cast selected card.",
+                    onConfirm: (card) => {
+                      const result = confirmScryfallCardAction({
+                        card,
+                        action: "cast",
+                      });
+                      if (result.valid) closeModal();
+                      return result;
+                    },
+                  },
+                  {
+                    id: "add",
+                    label: "ADD",
+                    semanticLabel:
+                      "Put selected card onto the battlefield without casting it.",
+                    validate: (card) => {
+                      const validation = validateCardIdentificationSelection(
+                        card,
+                        {
+                          cardTypes: [],
+                          permanentOnly: true,
+                          maximumManaValue: null,
+                          minimumManaValue: null,
+                          description: null,
+                          exhaustive: true,
+                        },
+                        "add",
+                      );
+                      return validation.valid ? null : validation.reason;
+                    },
+                    onConfirm: (card) => {
+                      const result = confirmScryfallCardAction({
+                        card,
+                        action: "add",
+                      });
+                      if (result.valid) closeModal();
+                      return result;
+                    },
+                  },
+                ]
+          }
         />
       ) : (
         <form
@@ -435,6 +501,74 @@ function AddSheet({
           </button>
         </form>
       )}
+    </div>
+  );
+}
+
+function CardIdentificationSheet() {
+  const request = useFieldStore((state) =>
+    activePendingCardIdentification(state.field),
+  );
+  const confirmScryfallCardAction = useFieldStore(
+    (state) => state.confirmScryfallCardAction,
+  );
+  const closeModal = useFieldStore((state) => state.closeModal);
+
+  if (!request) {
+    return (
+      <div>
+        <h2 id="modal-title">Card already identified</h2>
+        <p>The pending battlefield entry is no longer active.</p>
+        <button type="button" className="primary-action" onClick={closeModal}>
+          Continue
+        </button>
+      </div>
+    );
+  }
+
+  const actions = (["cast", "add"] as const)
+    .filter((action) => actionAllowed(request.actionPolicy, action))
+    .map((action) => ({
+      id: action,
+      label: action === "cast" ? "CAST" : "ADD",
+      semanticLabel:
+        action === "cast"
+          ? "Cast selected card."
+          : "Put selected card onto the battlefield without casting it.",
+      validate: (
+        card: Parameters<typeof validateCardIdentificationSelection>[0],
+      ) => {
+        const validation = validateCardIdentificationSelection(
+          card,
+          request.constraints,
+          action,
+        );
+        return validation.valid ? null : validation.reason;
+      },
+      onConfirm: (
+        card: Parameters<typeof validateCardIdentificationSelection>[0],
+      ) => {
+        const result = confirmScryfallCardAction({
+          card,
+          action,
+          requestId: request.id,
+        });
+        if (result.valid) closeModal();
+        return result;
+      },
+    }));
+
+  return (
+    <div className="card-identification-sheet">
+      <h2 id="modal-title">Choose entering card</h2>
+      <p>{request.semanticPrompt}</p>
+      {request.constraints.description && (
+        <p className="muted">{request.constraints.description}</p>
+      )}
+      <ScryfallSearch
+        label="Choose the card entering the battlefield"
+        actions={actions}
+      />
     </div>
   );
 }

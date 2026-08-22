@@ -33,9 +33,14 @@ import type {
   AthenaForecastInput,
 } from "./eventForecastTypes";
 import {
+  createAthenaDeferredReplacementResult,
   createAthenaDuplicateReplacementResult,
   processAthenaReplacementEffects,
 } from "./replacementEffect";
+import {
+  classifyAthenaCardEntry,
+  enqueuePendingCardIdentification,
+} from "./cardIdentification";
 import type { AthenaReplacementProcessingOptions } from "./replacementEffectTypes";
 import {
   AthenaPendingTriggerQueue,
@@ -872,20 +877,70 @@ export function processAthenaConfirmedEventWithBookkeeping(input: {
 }): AthenaConfirmedConsequencePipelineResult {
   const timestamp = input.timestamp ?? input.event.timestamp;
   const environment = createForecastEnvironment(input.field);
+  const cardEntry = classifyAthenaCardEntry(input.field, input.event);
+  if (cardEntry.kind === "identification-required") {
+    const resultingField = enqueuePendingCardIdentification(
+      input.field,
+      cardEntry.request,
+    );
+    return {
+      version: ATHENA_TRIGGER_RESOLUTION_VERSION,
+      originalField: input.field,
+      resultingField,
+      proposedEvent: input.event,
+      rootReplacement: createAthenaDeferredReplacementResult(
+        environment,
+        input.event,
+        cardEntry.request.semanticPrompt,
+        timestamp,
+      ),
+      rootCanonicalEvent: null,
+      generatedTriggerIds: [],
+      autoResolution: null,
+      queue: input.queue.toSnapshot(),
+      validity: "identification-required",
+      reason: cardEntry.request.semanticPrompt,
+      atomic: true,
+      directBattlefieldMutation: false,
+    };
+  }
+  if (cardEntry.kind === "manual-required") {
+    return {
+      version: ATHENA_TRIGGER_RESOLUTION_VERSION,
+      originalField: input.field,
+      resultingField: input.field,
+      proposedEvent: input.event,
+      rootReplacement: createAthenaDeferredReplacementResult(
+        environment,
+        input.event,
+        cardEntry.reason,
+        timestamp,
+      ),
+      rootCanonicalEvent: null,
+      generatedTriggerIds: [],
+      autoResolution: null,
+      queue: input.queue.toSnapshot(),
+      validity: "unresolved",
+      reason: cardEntry.reason,
+      atomic: true,
+      directBattlefieldMutation: false,
+    };
+  }
+  const event = cardEntry.event;
   if (
     hasCommittedCanonicalEventLineage(
       input.field.athena.liveTurn.processedCanonicalEventIds,
-      input.event,
+      event,
     )
   ) {
     return {
       version: ATHENA_TRIGGER_RESOLUTION_VERSION,
       originalField: input.field,
       resultingField: input.field,
-      proposedEvent: input.event,
+      proposedEvent: event,
       rootReplacement: createAthenaDuplicateReplacementResult(
         environment,
-        input.event,
+        event,
         timestamp,
       ),
       rootCanonicalEvent: null,
@@ -898,21 +953,17 @@ export function processAthenaConfirmedEventWithBookkeeping(input: {
       directBattlefieldMutation: false,
     };
   }
-  const replacement = processAthenaReplacementEffects(
-    environment,
-    input.event,
-    {
-      ...input.replacement,
-      timestamp,
-      cancellation: input.cancellation ?? input.replacement?.cancellation,
-    },
-  );
+  const replacement = processAthenaReplacementEffects(environment, event, {
+    ...input.replacement,
+    timestamp,
+    cancellation: input.cancellation ?? input.replacement?.cancellation,
+  });
   if (replacement.validity === "bypassed") {
     return {
       version: ATHENA_TRIGGER_RESOLUTION_VERSION,
       originalField: input.field,
       resultingField: input.field,
-      proposedEvent: input.event,
+      proposedEvent: event,
       rootReplacement: replacement,
       rootCanonicalEvent: null,
       generatedTriggerIds: [],
@@ -930,7 +981,7 @@ export function processAthenaConfirmedEventWithBookkeeping(input: {
       version: ATHENA_TRIGGER_RESOLUTION_VERSION,
       originalField: input.field,
       resultingField: input.field,
-      proposedEvent: input.event,
+      proposedEvent: event,
       rootReplacement: replacement,
       rootCanonicalEvent: null,
       generatedTriggerIds: [],
@@ -954,7 +1005,7 @@ export function processAthenaConfirmedEventWithBookkeeping(input: {
       version: ATHENA_TRIGGER_RESOLUTION_VERSION,
       originalField: input.field,
       resultingField: input.field,
-      proposedEvent: input.event,
+      proposedEvent: event,
       rootReplacement: replacement,
       rootCanonicalEvent: null,
       generatedTriggerIds: [],
@@ -981,7 +1032,7 @@ export function processAthenaConfirmedEventWithBookkeeping(input: {
       version: ATHENA_TRIGGER_RESOLUTION_VERSION,
       originalField: input.field,
       resultingField: input.field,
-      proposedEvent: input.event,
+      proposedEvent: event,
       rootReplacement: replacement,
       rootCanonicalEvent: null,
       generatedTriggerIds: [],
@@ -998,7 +1049,7 @@ export function processAthenaConfirmedEventWithBookkeeping(input: {
       version: ATHENA_TRIGGER_RESOLUTION_VERSION,
       originalField: input.field,
       resultingField: input.field,
-      proposedEvent: input.event,
+      proposedEvent: event,
       rootReplacement: replacement,
       rootCanonicalEvent: null,
       generatedTriggerIds: [],
@@ -1022,7 +1073,7 @@ export function processAthenaConfirmedEventWithBookkeeping(input: {
     version: ATHENA_TRIGGER_RESOLUTION_VERSION,
     originalField: input.field,
     resultingField: autoResolution.field,
-    proposedEvent: input.event,
+    proposedEvent: event,
     rootReplacement: replacement,
     rootCanonicalEvent: rootCommit.event,
     generatedTriggerIds: generation.triggerInstances.map(
@@ -1148,7 +1199,28 @@ export function applyAthenaCanonicalConsequenceEvent(
       if (!beforeIds.has(retained.id)) generated.add(retained.id);
     }
   } else if (event.eventCategory === "spell-cast") {
-    // Casting is a canonical event even when Lite does not model the stack.
+    const existingIds = [...new Set(event.subjectGroupIds)];
+    if (existingIds.length > 1) {
+      return fail("Casting supports one grouped source card.");
+    }
+    if (existingIds.length === 1) {
+      const existing = working.groups.find(
+        (group) => group.id === existingIds[0],
+      );
+      if (!existing || existing.zone === "battlefield") {
+        return fail("The card is no longer in its expected casting zone.");
+      }
+      const split = splitGroupForQuantity(
+        working.groups,
+        existing.id,
+        Math.min(existing.quantity, event.quantity),
+      );
+      if (!split.targetId) return fail("The casting card could not be moved.");
+      working.groups = split.groups.filter(
+        (group) => group.id !== split.targetId,
+      );
+      changed.add(split.targetId);
+    }
   } else if (event.eventCategory === "cards-drawn") {
     let libraryQuantity = event.quantity;
     working.groups = working.groups
@@ -1935,6 +2007,7 @@ function applyEntryState(
       statuses: {
         ...group.statuses,
         tapped: event.metadata.entersTapped === true,
+        attacking: event.metadata.entersAttacking === true,
         transformed: event.metadata.entersTransformed === true,
       },
     }),
