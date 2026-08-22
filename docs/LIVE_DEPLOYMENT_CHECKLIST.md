@@ -83,8 +83,9 @@ Live checks:
 
 Verify at minimum:
 
-- Mobile width around 390px or 430px.
-- Desktop width around 1280px.
+- Mobile widths at 320px, 375px, 390px, and 430px.
+- Tablet portrait around 768px.
+- Desktop around 1280px.
 
 For visual changes, also run:
 

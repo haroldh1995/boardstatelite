@@ -36,6 +36,7 @@ import type {
 } from "./eventForecastTypes";
 import { athenaPerformanceMonitor } from "./performanceOptimization";
 import { processAthenaConfirmedEventWithBookkeeping } from "./triggerResolution";
+import { withNextAthenaTriggerDecision } from "./decisionEngine";
 import {
   ATHENA_TURN_INTENT_VERSION,
   type AthenaPreparedActionEligibility,
@@ -376,7 +377,12 @@ export class AthenaTurnIntentEngine {
       ...(pipeline.autoResolution?.generatedCanonicalEvents ?? []),
     ];
     const eventIds = uniqueStrings(canonicalEvents.map((entry) => entry.id));
-    let planner = pipeline.resultingField.preTurnPlanner;
+    const decisionAwareField = withNextAthenaTriggerDecision(
+      pipeline.resultingField,
+      pipeline.queue,
+      timestamp,
+    );
+    let planner = decisionAwareField.preTurnPlanner;
     if (action) {
       planner = recordPlannedActionExecution(planner, action.id, {
         timestamp,
@@ -387,12 +393,12 @@ export class AthenaTurnIntentEngine {
       planner = recordConfirmedLandPlay(planner, timestamp);
     }
     let strip = synchronizeActionStripWithPlanner(
-      pipeline.resultingField.activeTurnActionStrip,
+      decisionAwareField.activeTurnActionStrip,
       {
         planner,
-        ambientMode: pipeline.resultingField.ambient.currentMode,
+        ambientMode: decisionAwareField.ambient.currentMode,
         timestamp,
-        sessionId: pipeline.resultingField.session.id,
+        sessionId: decisionAwareField.session.id,
       },
     );
     const retained = strip.items.find(
@@ -430,7 +436,7 @@ export class AthenaTurnIntentEngine {
       };
     }
     const field = {
-      ...pipeline.resultingField,
+      ...decisionAwareField,
       updatedAt: timestamp,
       preTurnPlanner: planner,
       activeTurnActionStrip: strip,

@@ -26,3 +26,17 @@ fingerprinting on cache misses.
 Automated budgets are intentionally generous to avoid machine-dependent flaky
 tests. Development diagnostics retain bounded samples only, stay out of the
 production gameplay UI, and collect no microphone content.
+
+## ATHENA-15 Final Verification
+
+The final integration pass re-ran the same heavy fixture on 2026-08-22. A
+ten-sample warm median measured 145.102 ms for an uncached derived-state build
+and 2.711 ms for stable prepared-turn revalidation. Separate five-sample runs
+measured total counting at 0.275-0.289 ms, target candidate generation at
+0.327-0.474 ms, and a 100-field Catch Me Up batch at 6.344-10.730 ms.
+
+The shared Windows test host varied substantially between consecutive runs, so
+these values are recorded as final budget verification rather than a claimed
+device-level improvement over the ATHENA-14 sample. Every measured workflow
+remained within its deterministic test budget, and ATHENA-15 did not change the
+derived-state, dependency-graph, or prepared-forecast optimization algorithms.

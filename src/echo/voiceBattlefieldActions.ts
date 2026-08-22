@@ -1,23 +1,22 @@
-import {
-  createGenericGroup,
-  createTokenGroup,
-  makeId,
-  recalculateStats,
-  splitGroupForQuantity,
-  withStackKey,
-} from "../domain/cards";
+import { makeId } from "../domain/cards";
 import { normalizeField } from "../domain/field";
-import { applyCounters, removeGroupQuantity, setLife } from "../domain/engine";
 import type {
   CounterName,
   FieldState,
   GameEvent,
   GameEventType,
-  PermanentGroup,
   ResolutionResult,
   ResolutionStep,
   Zone,
 } from "../domain/types";
+import {
+  createAthenaForecastInput,
+  createForecastEnvironment,
+} from "../athena/eventForecast";
+import { createAthenaPendingTriggerQueue } from "../athena/triggerQueue";
+import { processAthenaConfirmedEventWithBookkeeping } from "../athena/triggerResolution";
+import { withNextAthenaTriggerDecision } from "../athena/decisionEngine";
+import { recordAthenaLiveTurnPipeline } from "../athena/liveTurnOrchestrator";
 import { normalizeAmbientConfidence } from "./ambientConfidence";
 import type {
   AmbientConfidenceAssessment,
@@ -552,6 +551,29 @@ export function publishVoiceBattlefieldActionsToPipeline(
       events: [],
     };
   }
+  if (
+    (input.approval ?? "automatic") === "automatic" &&
+    input.speakerVerified !== true
+  ) {
+    const rejectedSession: EchoVoiceBattlefieldActionSession = {
+      ...input.session,
+      status: "failed",
+      preview,
+      updatedAt: timestamp,
+      completedAt: null,
+      currentClarificationId: null,
+      recoveryReason:
+        "Speaker verification is required for automatic voice gameplay actions.",
+      accessibilityAnnouncement:
+        "Voice action not applied. Speaker verification is required.",
+    };
+    return resultForVoiceBattlefieldSession(
+      input.field,
+      rejectedSession,
+      preview,
+      intents,
+    );
+  }
 
   let currentField = normalizeField({
     ...input.field,
@@ -576,12 +598,18 @@ export function publishVoiceBattlefieldActionsToPipeline(
       timestamp,
       currentField,
     );
-    const mutation: AmbientFieldMutation = ({ field }) =>
-      applyVoiceBattlefieldActionToField({
+    const mutation: AmbientFieldMutation = ({ field }) => {
+      const result = applyVoiceBattlefieldActionToField({
         field,
         action,
         timestamp,
+        speakerVerified: input.speakerVerified,
       });
+      if (result.title === "Voice Action Not Applied") {
+        throw new Error(result.summary[0] ?? "Voice action was not applied.");
+      }
+      return result;
+    };
     const pipelineResult = ambientEventPipeline.process({
       field: currentField,
       intent,
@@ -669,36 +697,24 @@ export function applyVoiceBattlefieldActionToField(
       changedGroupIds: [],
     });
   }
-  if (action.kind === "life-gain" || action.kind === "life-loss") {
-    const delta =
-      action.kind === "life-gain" ? action.quantity : -action.quantity;
-    return setLife(
-      input.field,
-      input.field.player.life + delta,
-      action.kind === "life-gain" ? "gain" : "loss",
-    );
-  }
-  if (
-    action.kind === "counter-add" &&
-    action.target?.groupId &&
-    action.counterName
-  ) {
-    return applyCounters(
-      input.field,
-      action.target.groupId,
-      action.counterName,
-      action.quantity,
-      "all",
-      1,
-      "game-action",
-    );
-  }
-  if (action.kind === "token-remove" && action.target?.groupId) {
-    return removeGroupQuantity(
-      input.field,
-      action.target.groupId,
-      action.quantity,
-    );
+  const athenaResult = applySupportedVoiceActionThroughAthena(
+    input.field,
+    action,
+    input.timestamp,
+    input.speakerVerified,
+  );
+  if (athenaResult) return athenaResult;
+  if (action.kind === "token-remove" || action.kind === "permanent-remove") {
+    return finalizeVoiceResult(input.field, input.field, {
+      title: "Voice Action Not Applied",
+      summary: [
+        action.clarificationQuestion ??
+          "Choose how the permanent left, or use Correction Only for the current battlefield.",
+      ],
+      details: [],
+      events: [],
+      changedGroupIds: [],
+    });
   }
 
   const before = input.field;
@@ -707,61 +723,7 @@ export function applyVoiceBattlefieldActionToField(
   const events: GameEvent[] = [];
   const changedGroupIds = new Set<string>();
 
-  if (action.kind === "commander-damage") {
-    const beforeLife = next.player.life;
-    next.player = {
-      ...next.player,
-      life: Math.max(0, next.player.life - action.quantity),
-      counters: {
-        ...next.player.counters,
-        commanderDamage: next.player.counters.commanderDamage + action.quantity,
-      },
-    };
-    details.push(
-      step(
-        "Commander damage recorded",
-        `Recorded ${action.quantity} commander damage and adjusted life from ${beforeLife} to ${next.player.life}.`,
-        "damage-dealt",
-      ),
-    );
-    events.push(
-      createVoiceEvent("damage-dealt", null, action.quantity, [], {
-        commanderDamage: true,
-      }),
-    );
-  } else if (action.kind === "counter-remove") {
-    next = applyCounterRemoval(next, action, details, events, changedGroupIds);
-  } else if (action.kind === "token-create") {
-    next = applyTokenCreation(next, action, details, events, changedGroupIds);
-  } else if (action.kind === "permanent-create") {
-    next = applyPermanentCreation(
-      next,
-      action,
-      details,
-      events,
-      changedGroupIds,
-    );
-  } else if (
-    action.kind === "permanent-destroy" ||
-    action.kind === "permanent-sacrifice" ||
-    action.kind === "permanent-exile" ||
-    action.kind === "permanent-remove" ||
-    action.kind === "return-to-hand"
-  ) {
-    next = applyZoneOrRemoval(next, action, details, events, changedGroupIds);
-  } else if (action.kind === "return-to-battlefield") {
-    next = applyReturnToBattlefield(
-      next,
-      action,
-      details,
-      events,
-      changedGroupIds,
-    );
-  } else if (action.kind === "tap" || action.kind === "untap") {
-    next = applyTapState(next, action, details, events, changedGroupIds);
-  } else if (action.kind === "draw-cards" || action.kind === "discard-cards") {
-    next = applyCardCountAction(next, action, details, events, changedGroupIds);
-  } else if (action.kind === "trigger-announcement") {
+  if (action.kind === "trigger-announcement") {
     details.push(
       step(
         "Trigger announced",
@@ -815,6 +777,238 @@ export function applyVoiceBattlefieldActionToField(
     events,
     changedGroupIds: [...changedGroupIds],
   });
+}
+
+function applySupportedVoiceActionThroughAthena(
+  field: FieldState,
+  action: EchoVoiceBattlefieldAction,
+  timestamp: string,
+  speakerVerified = false,
+): ResolutionResult | null {
+  const category = athenaCategoryForVoiceAction(action);
+  if (!category) return null;
+  const targetGroups =
+    (action.kind === "tap" || action.kind === "untap") &&
+    action.note === "everything"
+      ? field.groups.filter(
+          (group) => group.zone === "battlefield" && group.controller === "you",
+        )
+      : action.target?.groupId
+        ? field.groups.filter((group) => group.id === action.target?.groupId)
+        : [];
+  const target = targetGroups[0] ?? null;
+  if (
+    (category === "counter-placed" ||
+      category === "counter-removed" ||
+      category === "permanent-tapped" ||
+      category === "permanent-untapped" ||
+      category === "permanent-died" ||
+      category === "permanent-sacrificed" ||
+      category === "permanent-exiled" ||
+      category === "permanent-returned-to-hand" ||
+      category === "permanent-returned-to-battlefield") &&
+    !target
+  ) {
+    return finalizeVoiceResult(field, field, {
+      title: "Voice Action Not Applied",
+      summary: [
+        action.clarificationQuestion ??
+          "Choose the battlefield object for this action.",
+      ],
+      details: [],
+      events: [],
+      changedGroupIds: [],
+    });
+  }
+  const environment = createForecastEnvironment(field);
+  const tokenDefinition =
+    category === "token-created"
+      ? {
+          id: `echo-token:${normalizeActionText(action.tokenName ?? "Token")}`,
+          name: action.tokenName ?? "Token",
+          power: action.tokenPower ?? 1,
+          toughness: action.tokenToughness ?? 1,
+          characteristics: voiceTokenCharacteristics(
+            action.tokenName ?? "Token",
+          ),
+        }
+      : null;
+  const event = createAthenaForecastInput(
+    {
+      eventId: `echo-action:${action.id}`,
+      eventCategory: category,
+      eventSource: "echo-reported",
+      authoritySource: "project-echo-voice-report",
+      timestamp,
+      quantity: action.quantity,
+      sourceObjectId: target?.id ?? null,
+      subjectGroupIds: targetGroups.map((group) => group.id),
+      knownCharacteristics:
+        tokenDefinition?.characteristics ?? target?.characteristics ?? null,
+      counterType: action.counterName,
+      tokenDefinition,
+      zoneOrigin: target?.zone ?? action.zoneOrigin,
+      zoneDestination: voiceDestination(category),
+      metadata: {
+        confirmed: true,
+        canonicalEvent: true,
+        hypothetical: false,
+        label: target?.label ?? action.tokenName ?? action.kind,
+        targetQuantity:
+          category === "counter-placed" || category === "counter-removed"
+            ? (target?.quantity ?? null)
+            : null,
+        echoVoiceBattlefieldActionId: action.id,
+        commanderDamage: action.kind === "commander-damage",
+      },
+      lifeDelta:
+        action.kind === "commander-damage" ? -action.quantity : undefined,
+      commanderDamageDelta:
+        action.kind === "commander-damage" ? action.quantity : undefined,
+      confidence: {
+        level: action.confidence.level === "low" ? "medium" : "high",
+        score: action.confidence.score,
+        speakerVerified: speakerVerified ? true : null,
+      },
+    },
+    environment,
+  );
+  const queue = createAthenaPendingTriggerQueue({
+    canonicalSessionId: field.session.id,
+    participantId: field.multiplayer.registry.localParticipantId,
+    timestamp,
+  });
+  const pipeline = processAthenaConfirmedEventWithBookkeeping({
+    field,
+    event,
+    queue,
+    timestamp,
+  });
+  if (pipeline.validity !== "committed" || !pipeline.rootCanonicalEvent) {
+    if (pipeline.validity === "duplicate") {
+      return finalizeVoiceResult(field, field, {
+        title: "Voice Action Already Applied",
+        summary: [pipeline.reason],
+        details: [],
+        events: [],
+        changedGroupIds: [],
+      });
+    }
+    return finalizeVoiceResult(field, field, {
+      title: "Voice Action Not Applied",
+      summary: [pipeline.reason],
+      details: [],
+      events: [],
+      changedGroupIds: [],
+    });
+  }
+  const canonicalEvents = [
+    pipeline.rootCanonicalEvent,
+    ...(pipeline.autoResolution?.generatedCanonicalEvents ?? []),
+  ];
+  const withDecision = withNextAthenaTriggerDecision(
+    pipeline.resultingField,
+    pipeline.queue,
+    timestamp,
+  );
+  const coordinated = recordAthenaLiveTurnPipeline(withDecision, {
+    queue: pipeline.queue,
+    canonicalEvents,
+    unexpected: true,
+    timestamp,
+  });
+  return finalizeVoiceResult(field, coordinated, {
+    title: "Voice Action Applied",
+    summary: [voiceAthenaSummary(field, coordinated, action)],
+    details: [],
+    events: canonicalEvents,
+    changedGroupIds: uniqueStringValues(
+      canonicalEvents.flatMap((entry) => entry.groupIds),
+    ),
+  });
+}
+
+function athenaCategoryForVoiceAction(
+  action: EchoVoiceBattlefieldAction,
+): GameEventType | null {
+  if (action.kind === "life-gain") return "life-gained";
+  if (action.kind === "life-loss") return "life-lost";
+  if (action.kind === "commander-damage") return "damage-dealt";
+  if (action.kind === "counter-add") return "counter-placed";
+  if (action.kind === "counter-remove") return "counter-removed";
+  if (action.kind === "token-create") return "token-created";
+  if (action.kind === "permanent-create") return "permanent-entered";
+  if (action.kind === "permanent-destroy") return "permanent-died";
+  if (action.kind === "permanent-sacrifice") return "permanent-sacrificed";
+  if (action.kind === "permanent-exile") return "permanent-exiled";
+  if (action.kind === "return-to-hand") return "permanent-returned-to-hand";
+  if (action.kind === "return-to-battlefield")
+    return "permanent-returned-to-battlefield";
+  if (action.kind === "tap") return "permanent-tapped";
+  if (action.kind === "untap") return "permanent-untapped";
+  if (action.kind === "draw-cards") return "cards-drawn";
+  if (action.kind === "discard-cards") return "cards-discarded";
+  return null;
+}
+
+function voiceDestination(category: GameEventType): Zone | null {
+  if (category === "permanent-died" || category === "permanent-sacrificed")
+    return "graveyard";
+  if (category === "permanent-exiled") return "exile";
+  if (category === "permanent-returned-to-hand") return "hand";
+  if (category === "permanent-returned-to-battlefield") return "battlefield";
+  if (category === "permanent-entered") return "battlefield";
+  if (category === "cards-drawn") return "hand";
+  if (category === "cards-discarded") return "graveyard";
+  return null;
+}
+
+function voiceAthenaSummary(
+  before: FieldState,
+  after: FieldState,
+  action: EchoVoiceBattlefieldAction,
+): string {
+  if (action.kind === "life-gain")
+    return `Life gain: ${before.player.life} to ${after.player.life}.`;
+  if (action.kind === "life-loss")
+    return `Life loss: ${before.player.life} to ${after.player.life}.`;
+  return summarizeAction(action)[0];
+}
+
+function voiceTokenCharacteristics(name: string) {
+  const normalized = normalizeActionText(name);
+  const artifactOnly = new Set([
+    "blood",
+    "clue",
+    "food",
+    "map",
+    "powerstone",
+    "treasure",
+  ]).has(normalized);
+  return {
+    cardTypes: artifactOnly ? ["Artifact"] : ["Creature"],
+    supertypes: [],
+    subtypes: [name],
+    colors: [],
+    manaValue: 0,
+    isToken: true,
+    isCreature: !artifactOnly,
+    isLegendary: false,
+    knownFields: [
+      "cardTypes" as const,
+      "supertypes" as const,
+      "subtypes" as const,
+      "colors" as const,
+      "manaValue" as const,
+      "isToken" as const,
+      "isCreature" as const,
+      "isLegendary" as const,
+    ],
+  };
+}
+
+function uniqueStringValues(values: string[]): string[] {
+  return [...new Set(values)].sort((left, right) => left.localeCompare(right));
 }
 
 export function cancelVoiceBattlefieldActionSession(
@@ -953,25 +1147,59 @@ function parseVoiceBattlefieldAction(input: {
   }
 
   const tokenRemove = text.match(
-    /\b(?:remove|sacrifice|sac|exile|destroy)\s+(\d+|[a-z]+)?\s*(.+?)(?:\s+tokens?)?$/,
+    /\b(remove|sacrifice|sac|exile|destroy)\s+(\d+|[a-z]+)?\s*(.+?)(?:\s+tokens?)?$/,
   );
   if (
     tokenRemove &&
     /\b(token|treasure|soldier|clue|food|blood|map)\b/.test(text)
   ) {
-    const targetText = cleanObjectText(tokenRemove[2]);
+    const operation = tokenRemove[1];
+    const targetText = cleanObjectText(tokenRemove[3]);
     const target = resolveActionTarget(
       input.field,
       targetText,
       input.timestamp,
     );
+    const kind =
+      operation === "sacrifice" || operation === "sac"
+        ? "permanent-sacrifice"
+        : operation === "destroy"
+          ? "permanent-destroy"
+          : operation === "exile"
+            ? "permanent-exile"
+            : "token-remove";
     return [
       createVoiceAction(input, {
-        kind: "token-remove",
-        intentKind: "sacrifice-permanent",
+        kind,
+        intentKind:
+          kind === "permanent-sacrifice"
+            ? "sacrifice-permanent"
+            : kind === "permanent-destroy"
+              ? "destroy-permanent"
+              : kind === "permanent-exile"
+                ? "exile-permanent"
+                : "custom",
         quantity: extractQuantity(text) ?? 1,
         target,
-        generatedEventType: "permanent-sacrificed",
+        zoneOrigin: "battlefield",
+        zoneDestination:
+          kind === "permanent-exile"
+            ? "exile"
+            : kind === "token-remove"
+              ? null
+              : "graveyard",
+        generatedEventType:
+          kind === "permanent-sacrifice"
+            ? "permanent-sacrificed"
+            : kind === "permanent-destroy"
+              ? "permanent-died"
+              : kind === "permanent-exile"
+                ? "permanent-exiled"
+                : null,
+        clarificationQuestion:
+          kind === "token-remove"
+            ? "Did the tokens die, get sacrificed, get exiled, or should Lite only correct the quantity?"
+            : null,
       }),
     ];
   }
@@ -1013,6 +1241,10 @@ function parseVoiceBattlefieldAction(input: {
         zoneOrigin: zone.origin,
         zoneDestination: zone.destination,
         generatedEventType: zone.eventType,
+        clarificationQuestion:
+          zone.kind === "permanent-remove"
+            ? "Did it die, get sacrificed, get exiled, return to hand, or should Lite only correct the battlefield?"
+            : null,
       }),
     ];
   }
@@ -1130,7 +1362,9 @@ function createVoiceAction(
   },
 ): EchoVoiceBattlefieldAction {
   const targetMissing =
-    actionRequiresTarget(action.kind) && !action.target?.groupId;
+    actionRequiresTarget(action.kind) &&
+    !action.target?.groupId &&
+    action.note !== "everything";
   const targetAmbiguous = action.target?.entityResult?.status === "ambiguous";
   const clarificationQuestion =
     action.clarificationQuestion ??
@@ -1463,322 +1697,6 @@ function clarificationRequestsForVoiceAction(input: {
   ];
 }
 
-function applyCounterRemoval(
-  field: FieldState,
-  action: EchoVoiceBattlefieldAction,
-  details: ResolutionStep[],
-  events: GameEvent[],
-  changedGroupIds: Set<string>,
-): FieldState {
-  if (!action.target?.groupId || !action.counterName) return field;
-  const counterName = action.counterName;
-  const group = field.groups.find(
-    (entry) => entry.id === action.target?.groupId,
-  );
-  if (!group) return field;
-  const removeAmount = Math.min(
-    group.counters[counterName] ?? 0,
-    action.quantity,
-  );
-  const next = {
-    ...field,
-    groups: field.groups.map((entry) => {
-      if (entry.id !== group.id) return entry;
-      const nextCounters = { ...entry.counters };
-      const remaining = Math.max(
-        0,
-        (nextCounters[counterName] ?? 0) - removeAmount,
-      );
-      if (remaining === 0) delete nextCounters[counterName];
-      else nextCounters[counterName] = remaining;
-      changedGroupIds.add(entry.id);
-      return withStackKey(
-        recalculateStats({ ...entry, counters: nextCounters }),
-      );
-    }),
-  };
-  details.push(
-    step(
-      "Counter removed",
-      `Removed ${removeAmount} ${counterName} counter(s) from ${group.label}.`,
-      "counter-removed",
-    ),
-  );
-  events.push(
-    createVoiceEvent("counter-removed", group.id, removeAmount, [group.id], {
-      counter: counterName,
-    }),
-  );
-  return next;
-}
-
-function applyTokenCreation(
-  field: FieldState,
-  action: EchoVoiceBattlefieldAction,
-  details: ResolutionStep[],
-  events: GameEvent[],
-  changedGroupIds: Set<string>,
-): FieldState {
-  const tokenName = action.tokenName ?? "Token";
-  const token = createTokenForVoiceAction(
-    tokenName,
-    action.quantity,
-    action.tokenPower,
-    action.tokenToughness,
-  );
-  const next = {
-    ...field,
-    groups: [...field.groups, token],
-  };
-  changedGroupIds.add(token.id);
-  details.push(
-    step(
-      "Token created",
-      `Created ${action.quantity} ${tokenName} token(s).`,
-      "token-created",
-    ),
-  );
-  events.push(
-    createVoiceEvent("token-created", null, action.quantity, [token.id], {
-      name: tokenName,
-    }),
-  );
-  if (token.characteristics.isCreature) {
-    events.push(
-      createVoiceEvent("creature-entered", null, action.quantity, [token.id], {
-        source: "Voice battlefield action",
-      }),
-    );
-  }
-  return next;
-}
-
-function applyPermanentCreation(
-  field: FieldState,
-  action: EchoVoiceBattlefieldAction,
-  details: ResolutionStep[],
-  events: GameEvent[],
-  changedGroupIds: Set<string>,
-): FieldState {
-  if (action.target?.groupId) {
-    return applyReturnToBattlefield(
-      field,
-      action,
-      details,
-      events,
-      changedGroupIds,
-    );
-  }
-  const group = createGenericGroup({
-    kind: "Noncreature permanent",
-    label: action.note ?? "Reported permanent",
-    quantity: action.quantity,
-    zone: "battlefield",
-  });
-  changedGroupIds.add(group.id);
-  details.push(
-    step(
-      "Permanent entered",
-      `${group.label} entered the battlefield as reported.`,
-      "permanent-entered",
-    ),
-  );
-  events.push(
-    createVoiceEvent(
-      "permanent-entered",
-      group.id,
-      group.quantity,
-      [group.id],
-      {
-        source: "voice-report",
-      },
-    ),
-  );
-  return { ...field, groups: [...field.groups, group] };
-}
-
-function applyZoneOrRemoval(
-  field: FieldState,
-  action: EchoVoiceBattlefieldAction,
-  details: ResolutionStep[],
-  events: GameEvent[],
-  changedGroupIds: Set<string>,
-): FieldState {
-  if (!action.target?.groupId) return field;
-  const group = field.groups.find(
-    (entry) => entry.id === action.target?.groupId,
-  );
-  if (!group) return field;
-  const quantity = Math.max(1, Math.min(action.quantity, group.quantity));
-  const split = splitGroupForQuantity(field.groups, group.id, quantity);
-  let groups = split.groups;
-  const targetId = split.targetId ?? group.id;
-  const movedGroup = groups.find((entry) => entry.id === targetId) ?? group;
-  const destination =
-    action.kind === "permanent-exile"
-      ? "exile"
-      : action.kind === "return-to-hand"
-        ? "hand"
-        : action.kind === "permanent-remove"
-          ? null
-          : "graveyard";
-  if (destination) {
-    groups = groups.map((entry) =>
-      entry.id === targetId
-        ? withStackKey({
-            ...entry,
-            zone: destination,
-            statuses: { ...entry.statuses, attacking: false, blocking: false },
-          })
-        : entry,
-    );
-  } else {
-    groups = groups.filter((entry) => entry.id !== targetId);
-  }
-  changedGroupIds.add(targetId);
-  const eventType = eventTypeForRemoval(action.kind);
-  details.push(
-    step(
-      "Permanent moved",
-      `${movedGroup.label} ${removalDescription(action.kind)}.`,
-      eventType,
-    ),
-  );
-  events.push(
-    createVoiceEvent(eventType, targetId, quantity, [targetId], {
-      zoneOrigin: group.zone,
-      zoneDestination: destination ?? "removed",
-    }),
-  );
-  return { ...field, groups };
-}
-
-function applyReturnToBattlefield(
-  field: FieldState,
-  action: EchoVoiceBattlefieldAction,
-  details: ResolutionStep[],
-  events: GameEvent[],
-  changedGroupIds: Set<string>,
-): FieldState {
-  if (!action.target?.groupId) return field;
-  const group = field.groups.find(
-    (entry) => entry.id === action.target?.groupId,
-  );
-  if (!group) return field;
-  const groups = field.groups.map((entry) =>
-    entry.id === group.id
-      ? withStackKey({
-          ...entry,
-          zone: "battlefield",
-          statuses: {
-            ...entry.statuses,
-            tapped: false,
-            attacking: false,
-            blocking: false,
-          },
-        })
-      : entry,
-  );
-  changedGroupIds.add(group.id);
-  details.push(
-    step(
-      "Permanent returned",
-      `${group.label} returned to the battlefield.`,
-      "permanent-returned-to-battlefield",
-    ),
-  );
-  events.push(
-    createVoiceEvent(
-      "permanent-returned-to-battlefield",
-      group.id,
-      group.quantity,
-      [group.id],
-      {
-        zoneOrigin: group.zone,
-        zoneDestination: "battlefield",
-      },
-    ),
-  );
-  return { ...field, groups };
-}
-
-function applyTapState(
-  field: FieldState,
-  action: EchoVoiceBattlefieldAction,
-  details: ResolutionStep[],
-  events: GameEvent[],
-  changedGroupIds: Set<string>,
-): FieldState {
-  const tapped = action.kind === "tap";
-  const targetIds =
-    action.note === "everything"
-      ? field.groups
-          .filter(
-            (group) =>
-              group.zone === "battlefield" && group.controller === "you",
-          )
-          .map((group) => group.id)
-      : action.target?.groupId
-        ? [action.target.groupId]
-        : [];
-  const groups = field.groups.map((group) => {
-    if (!targetIds.includes(group.id)) return group;
-    changedGroupIds.add(group.id);
-    return withStackKey(
-      recalculateStats({
-        ...group,
-        statuses: { ...group.statuses, tapped },
-      }),
-    );
-  });
-  const eventType = tapped ? "permanent-tapped" : "permanent-untapped";
-  details.push(
-    step(
-      tapped ? "Permanent tapped" : "Permanent untapped",
-      action.note === "everything"
-        ? `${targetIds.length} permanent group(s) ${tapped ? "tapped" : "untapped"}.`
-        : `${action.target?.label ?? "Permanent"} ${tapped ? "tapped" : "untapped"}.`,
-      eventType,
-    ),
-  );
-  events.push(
-    createVoiceEvent(
-      eventType,
-      action.target?.groupId ?? null,
-      targetIds.length || 1,
-      targetIds,
-      {
-        scope: action.note === "everything" ? "all" : "selected",
-      },
-    ),
-  );
-  return { ...field, groups };
-}
-
-function applyCardCountAction(
-  field: FieldState,
-  action: EchoVoiceBattlefieldAction,
-  details: ResolutionStep[],
-  _events: GameEvent[],
-  changedGroupIds: Set<string>,
-): FieldState {
-  const drew = action.kind === "draw-cards";
-  const handGroup = createGenericGroup({
-    kind: "Custom",
-    label: drew ? "Manual cards drawn" : "Manual cards discarded",
-    quantity: action.quantity,
-    zone: drew ? "hand" : "graveyard",
-  });
-  changedGroupIds.add(handGroup.id);
-  details.push(
-    step(
-      drew ? "Cards drawn" : "Cards discarded",
-      `${drew ? "Drew" : "Discarded"} ${action.quantity} card(s).`,
-    ),
-  );
-  return { ...field, groups: [...field.groups, handGroup] };
-}
-
 function finalizeVoiceResult(
   before: FieldState,
   after: FieldState,
@@ -1925,40 +1843,6 @@ function parseZoneAction(text: string): {
     };
   }
   return null;
-}
-
-function createTokenForVoiceAction(
-  name: string,
-  quantity: number,
-  power: number | null,
-  toughness: number | null,
-): PermanentGroup {
-  const normalized = normalizeActionText(name);
-  const artifactTokens = new Set([
-    "treasure",
-    "clue",
-    "food",
-    "blood",
-    "map",
-    "powerstone",
-  ]);
-  if (artifactTokens.has(normalized)) {
-    return createGenericGroup({
-      kind: "Token",
-      label: titleCase(name),
-      quantity,
-      cardTypes: ["Artifact"],
-      subtypes: [titleCase(name)],
-      token: true,
-    });
-  }
-  return createTokenGroup({
-    name: titleCase(name),
-    quantity,
-    power: power ?? 1,
-    toughness: toughness ?? 1,
-    subtypes: [titleCase(name)],
-  });
 }
 
 function createVoiceEvent(
@@ -2537,6 +2421,8 @@ function normalizeGameEventType(value: unknown): GameEventType | null {
     value === "damage-dealt" ||
     value === "land-entered" ||
     value === "spell-cast" ||
+    value === "cards-drawn" ||
+    value === "cards-discarded" ||
     value === "permanent-died" ||
     value === "permanent-sacrificed" ||
     value === "permanent-exiled" ||
@@ -2574,7 +2460,8 @@ function actionRequiresTarget(kind: EchoVoiceBattlefieldActionKind): boolean {
     kind === "permanent-exile" ||
     kind === "return-to-hand" ||
     kind === "return-to-battlefield" ||
-    kind === "tap"
+    kind === "tap" ||
+    kind === "untap"
   );
 }
 
@@ -2584,23 +2471,6 @@ function targetQuestionForKind(kind: EchoVoiceBattlefieldActionKind): string {
   if (kind === "token-remove") return "Which token?";
   if (kind === "tap" || kind === "untap") return "Which permanent?";
   return "Which object?";
-}
-
-function eventTypeForRemoval(
-  kind: EchoVoiceBattlefieldActionKind,
-): GameEventType {
-  if (kind === "permanent-sacrifice") return "permanent-sacrificed";
-  if (kind === "permanent-exile") return "permanent-exiled";
-  if (kind === "return-to-hand") return "permanent-returned-to-hand";
-  return "permanent-died";
-}
-
-function removalDescription(kind: EchoVoiceBattlefieldActionKind): string {
-  if (kind === "permanent-sacrifice") return "was sacrificed";
-  if (kind === "permanent-exile") return "was exiled";
-  if (kind === "return-to-hand") return "returned to hand";
-  if (kind === "permanent-remove") return "was removed";
-  return "was destroyed";
 }
 
 function normalizeCounterName(value: string): CounterName {

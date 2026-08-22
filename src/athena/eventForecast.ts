@@ -2246,7 +2246,11 @@ function createInputFromIntent(
       confidence: {
         level: intent.confidence.level,
         score: intent.confidence.score,
-        speakerVerified: intent.source === "voice-command" ? true : null,
+        speakerVerified:
+          intent.source === "voice-command" &&
+          intent.payload.speakerVerified === true
+            ? true
+            : null,
       },
     },
     { context, graph, relationshipMap },
@@ -2264,6 +2268,8 @@ function eventCategoryForIntentKind(
       return "spell-cast";
     case "draw-cards":
       return "cards-drawn";
+    case "discard-cards":
+      return "cards-discarded";
     case "create-token":
       return "token-created";
     case "add-counters":

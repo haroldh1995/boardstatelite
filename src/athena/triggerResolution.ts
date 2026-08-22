@@ -32,7 +32,10 @@ import type {
   AthenaForecastEnvironment,
   AthenaForecastInput,
 } from "./eventForecastTypes";
-import { processAthenaReplacementEffects } from "./replacementEffect";
+import {
+  createAthenaDuplicateReplacementResult,
+  processAthenaReplacementEffects,
+} from "./replacementEffect";
 import type { AthenaReplacementProcessingOptions } from "./replacementEffectTypes";
 import {
   AthenaPendingTriggerQueue,
@@ -869,6 +872,32 @@ export function processAthenaConfirmedEventWithBookkeeping(input: {
 }): AthenaConfirmedConsequencePipelineResult {
   const timestamp = input.timestamp ?? input.event.timestamp;
   const environment = createForecastEnvironment(input.field);
+  if (
+    hasCommittedCanonicalEventLineage(
+      input.field.athena.liveTurn.processedCanonicalEventIds,
+      input.event,
+    )
+  ) {
+    return {
+      version: ATHENA_TRIGGER_RESOLUTION_VERSION,
+      originalField: input.field,
+      resultingField: input.field,
+      proposedEvent: input.event,
+      rootReplacement: createAthenaDuplicateReplacementResult(
+        environment,
+        input.event,
+        timestamp,
+      ),
+      rootCanonicalEvent: null,
+      generatedTriggerIds: [],
+      autoResolution: null,
+      queue: input.queue.toSnapshot(),
+      validity: "duplicate",
+      reason: "The canonical event lineage was already committed.",
+      atomic: true,
+      directBattlefieldMutation: false,
+    };
+  }
   const replacement = processAthenaReplacementEffects(
     environment,
     input.event,
@@ -911,6 +940,28 @@ export function processAthenaConfirmedEventWithBookkeeping(input: {
       reason:
         replacement.warnings[0]?.message ??
         "Root replacement processing ended as " + replacement.validity + ".",
+      atomic: true,
+      directBattlefieldMutation: false,
+    };
+  }
+  const canonicalEventId = canonicalEventIdForForecast(replacement.finalEvent);
+  if (
+    input.field.athena.liveTurn.processedCanonicalEventIds.includes(
+      canonicalEventId,
+    )
+  ) {
+    return {
+      version: ATHENA_TRIGGER_RESOLUTION_VERSION,
+      originalField: input.field,
+      resultingField: input.field,
+      proposedEvent: input.event,
+      rootReplacement: replacement,
+      rootCanonicalEvent: null,
+      generatedTriggerIds: [],
+      autoResolution: null,
+      queue: input.queue.toSnapshot(),
+      validity: "duplicate",
+      reason: "The canonical event lineage was already committed.",
       atomic: true,
       directBattlefieldMutation: false,
     };
@@ -1135,6 +1186,48 @@ export function applyAthenaCanonicalConsequenceEvent(
     if (!retained) return fail("The confirmed draw could not be recorded.");
     changed.add(retained.id);
     if (!beforeIds.has(retained.id)) generated.add(retained.id);
+  } else if (event.eventCategory === "cards-discarded") {
+    let remaining = event.quantity;
+    working.groups = working.groups
+      .map((entry) => {
+        if (
+          remaining <= 0 ||
+          entry.zone !== "hand" ||
+          !entry.isGeneric ||
+          entry.identity
+        ) {
+          return entry;
+        }
+        const removed = Math.min(entry.quantity, remaining);
+        remaining -= removed;
+        changed.add(entry.id);
+        return withStackKey({ ...entry, quantity: entry.quantity - removed });
+      })
+      .filter((entry) => entry.quantity > 0);
+    if (remaining > 0) {
+      return fail(
+        "Discarded card identity is required when the unknown hand count is insufficient.",
+      );
+    }
+    let group = createGenericGroup({
+      kind: "Custom",
+      label: "Unknown discarded cards",
+      quantity: event.quantity,
+      zone: "graveyard",
+    });
+    group = withStackKey({
+      ...group,
+      id: `athena-group:${stableHash(`${resolutionId}:${event.eventId}:discard`)}`,
+      order: event.sequence,
+    });
+    const beforeIds = new Set(working.groups.map((entry) => entry.id));
+    working.groups = mergeCompatibleStacks([...working.groups, group]);
+    const retained = working.groups.find(
+      (entry) => entry.stackKey === group.stackKey,
+    );
+    if (!retained) return fail("The confirmed discard could not be recorded.");
+    changed.add(retained.id);
+    if (!beforeIds.has(retained.id)) generated.add(retained.id);
   } else if (event.eventCategory === "life-gained") {
     if (working.player.life > Number.MAX_SAFE_INTEGER - event.quantity) {
       return fail("Life total overflow was prevented.");
@@ -1142,6 +1235,20 @@ export function applyAthenaCanonicalConsequenceEvent(
     working.player.life += event.quantity;
   } else if (event.eventCategory === "life-lost") {
     working.player.life = Math.max(0, working.player.life - event.quantity);
+  } else if (event.eventCategory === "damage-dealt") {
+    if (event.lifeDelta !== null) {
+      working.player.life = Math.max(0, working.player.life + event.lifeDelta);
+    }
+    if (event.commanderDamageDelta !== null) {
+      const commanderDamage = safeAdd(
+        working.player.counters.commanderDamage,
+        event.commanderDamageDelta,
+      );
+      if (commanderDamage === null) {
+        return fail("Commander damage overflow was prevented.");
+      }
+      working.player.counters.commanderDamage = commanderDamage;
+    }
   } else if (
     event.eventCategory === "counter-placed" ||
     event.eventCategory === "counter-removed"
@@ -1149,7 +1256,27 @@ export function applyAthenaCanonicalConsequenceEvent(
     if (!event.counterType || event.subjectGroupIds.length === 0) {
       return fail("Counter consequences require a counter type and recipient.");
     }
-    const targetIds = new Set(event.subjectGroupIds);
+    let targetIds = new Set(event.subjectGroupIds);
+    const targetQuantity = numericMetadata(event.metadata.targetQuantity);
+    if (targetIds.size === 1 && targetQuantity !== null) {
+      const targetId = [...targetIds][0];
+      const target = working.groups.find((group) => group.id === targetId);
+      if (!target || targetQuantity <= 0 || targetQuantity > target.quantity) {
+        return fail("The counter recipient quantity is no longer available.");
+      }
+      if (targetQuantity < target.quantity) {
+        const split = splitGroupForQuantity(
+          working.groups,
+          target.id,
+          targetQuantity,
+        );
+        if (!split.targetId) {
+          return fail("The counter recipient could not be split safely.");
+        }
+        working.groups = split.groups;
+        targetIds = new Set([split.targetId]);
+      }
+    }
     let targetCount = 0;
     working.groups = working.groups.map((group) => {
       if (!targetIds.has(group.id) || group.zone !== "battlefield")
@@ -1162,10 +1289,13 @@ export function applyAthenaCanonicalConsequenceEvent(
           : Math.max(0, current - event.quantity);
       if (next === null) return group;
       changed.add(group.id);
+      const counters = { ...group.counters };
+      if (next === 0) delete counters[event.counterType!];
+      else counters[event.counterType!] = next;
       return withStackKey(
         recalculateStats({
           ...group,
-          counters: { ...group.counters, [event.counterType!]: next },
+          counters,
         }),
       );
     });
@@ -1199,7 +1329,7 @@ export function applyAthenaCanonicalConsequenceEvent(
     });
     const cardTypes = uniqueStrings([
       ...token.characteristics.cardTypes,
-      "Creature",
+      ...(token.characteristics.isCreature ? ["Creature"] : []),
     ]);
     const groupId = `athena-group:${stableHash(`${resolutionId}:${event.eventId}:${token.id}`)}`;
     group = withStackKey({
@@ -1211,7 +1341,7 @@ export function applyAthenaCanonicalConsequenceEvent(
         cardTypes,
         supertypes: [...token.characteristics.supertypes],
         colors: [...token.characteristics.colors],
-        isCreature: true,
+        isCreature: token.characteristics.isCreature,
         isLegendary: token.characteristics.isLegendary,
         isToken: true,
       },
@@ -1259,6 +1389,24 @@ export function applyAthenaCanonicalConsequenceEvent(
         targetIds.length === 1
           ? Math.min(current.quantity, event.quantity)
           : current.quantity;
+      if (
+        current.characteristics.isToken &&
+        event.zoneDestination !== "battlefield"
+      ) {
+        working.groups =
+          quantity >= current.quantity
+            ? working.groups.filter((group) => group.id !== current.id)
+            : working.groups.map((group) =>
+                group.id === current.id
+                  ? withStackKey({
+                      ...group,
+                      quantity: group.quantity - quantity,
+                    })
+                  : group,
+              );
+        changed.add(current.id);
+        continue;
+      }
       const split = splitGroupForQuantity(working.groups, current.id, quantity);
       if (!split.targetId)
         return fail("The zone movement could not be prepared.");
@@ -1309,10 +1457,13 @@ export function applyAthenaCanonicalConsequenceEvent(
 
   const canonicalEvent = {
     ...gameEventFromForecast(event, resolutionId),
-    groupIds:
-      event.subjectGroupIds.length > 0
-        ? [...event.subjectGroupIds]
-        : [...generated, ...changed],
+    groupIds: uniqueStrings(
+      changed.size > 0 || generated.size > 0
+        ? [...changed, ...generated]
+        : event.subjectGroupIds.length > 0
+          ? [...event.subjectGroupIds]
+          : [...generated],
+    ),
   };
   return {
     event: canonicalEvent,
@@ -1725,6 +1876,14 @@ function gameEventFromForecast(
     token:
       event.eventCategory === "token-created" ||
       event.knownCharacteristics?.isToken === true,
+    damage: event.eventCategory === "damage-dealt",
+    lifeLoss:
+      event.eventCategory === "life-lost" ||
+      event.eventCategory === "damage-dealt",
+    combatDamage: event.metadata.combatDamage === true,
+    commanderDamage:
+      event.commanderDamageDelta !== null ||
+      event.metadata.commanderDamage === true,
     metadata: gameEventMetadata({
       ...event.metadata,
       counterType: event.counterType,
@@ -1734,6 +1893,21 @@ function gameEventFromForecast(
     zoneOrigin: event.zoneOrigin ?? undefined,
     zoneDestination: event.zoneDestination ?? undefined,
   };
+}
+
+function canonicalEventIdForForecast(event: AthenaForecastInput): string {
+  return `canonical:${event.eventId}`;
+}
+
+function hasCommittedCanonicalEventLineage(
+  committedEventIds: readonly string[],
+  event: AthenaForecastInput,
+): boolean {
+  const rootId = canonicalEventIdForForecast(event);
+  return committedEventIds.some((eventId) => {
+    if (eventId === rootId) return true;
+    return /^:r\d+$/.test(eventId.slice(rootId.length));
+  });
 }
 
 function applyEntryState(

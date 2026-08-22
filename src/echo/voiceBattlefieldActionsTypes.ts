@@ -220,6 +220,7 @@ export interface EchoVoiceBattlefieldPublishInput {
   preview?: EchoVoiceBattlefieldPreview | null;
   timestamp?: string;
   approval?: "automatic" | "manual" | "confirmation-required";
+  speakerVerified?: boolean;
 }
 
 export interface EchoVoiceBattlefieldPreviewInput {
@@ -243,6 +244,7 @@ export interface EchoVoiceBattlefieldActionApplyInput {
   field: FieldState;
   action: EchoVoiceBattlefieldAction;
   timestamp: string;
+  speakerVerified?: boolean;
 }
 
 export interface EchoVoiceBattlefieldConfidenceReason {

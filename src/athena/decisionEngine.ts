@@ -22,7 +22,11 @@ import {
   ATHENA_DECISION_ENGINE_VERSION,
   ATHENA_DECISION_QUEUE_SCHEMA_VERSION,
 } from "./decisionEngineTypes";
-import type { AthenaTriggerResolutionEligibility } from "./triggerResolutionTypes";
+import { evaluateAthenaTriggerResolutionEligibility } from "./triggerResolution";
+import type {
+  AthenaTriggerResolutionDecision,
+  AthenaTriggerResolutionEligibility,
+} from "./triggerResolutionTypes";
 import type { AthenaReplacementProcessingResult } from "./replacementEffectTypes";
 import type { AthenaForecastInput } from "./eventForecastTypes";
 import { athenaPerformanceMonitor } from "./performanceOptimization";
@@ -302,6 +306,54 @@ export function activeAthenaDecision(
     queue.requests.find((request) => !TERMINAL_STATUSES.has(request.status)) ??
     null
   );
+}
+
+export function withNextAthenaTriggerDecision(
+  field: FieldState,
+  queue: AthenaPendingTriggerQueueSnapshot,
+  timestamp = field.updatedAt,
+  decisions: Record<string, AthenaTriggerResolutionDecision> = {},
+): FieldState {
+  for (const trigger of queue.entries) {
+    if (
+      [
+        "resolved",
+        "declined",
+        "cancelled",
+        "invalidated",
+        "stale",
+        "failed-safe",
+      ].includes(trigger.queueState)
+    ) {
+      continue;
+    }
+    const eligibility = evaluateAthenaTriggerResolutionEligibility(
+      trigger,
+      field,
+      decisions[trigger.id] ?? {},
+    );
+    const request = createAthenaTriggerDecisionRequest({
+      field,
+      trigger,
+      eligibility,
+      queue,
+      collectedDecision: decisions[trigger.id],
+      timestamp,
+    });
+    if (!request) continue;
+    return {
+      ...field,
+      athena: {
+        ...field.athena,
+        decisions: enqueueAthenaDecision(
+          field.athena.decisions,
+          request,
+          timestamp,
+        ),
+      },
+    };
+  }
+  return field;
 }
 
 export function buildAthenaDecisionCandidates(

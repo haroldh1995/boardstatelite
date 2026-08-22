@@ -215,6 +215,7 @@ export interface AthenaConfirmedConsequencePipelineResult {
   queue: AthenaPendingTriggerQueueSnapshot;
   validity:
     | "committed"
+    | "duplicate"
     | "correction-bypassed"
     | "unresolved"
     | "invalid"

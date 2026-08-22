@@ -860,7 +860,7 @@ function sourceRelationships(
         supportForObject(object),
         authoritySource,
         true,
-        `${object.label} watches supported event categories for future Athena consequence analysis.`,
+        `${object.label} watches supported event categories for Athena consequence processing.`,
       ),
     );
   }
@@ -875,7 +875,7 @@ function sourceRelationships(
         supportForObject(object),
         authoritySource,
         true,
-        `${object.label} has a replacement-effect boundary that future Athena analysis can consult.`,
+        `${object.label} has a replacement-effect boundary that Athena processing can consult.`,
       ),
     );
   }
@@ -1185,6 +1185,7 @@ function eventTypesForOracle(text: string): GameEventType[] {
   if (text.includes("token")) events.push("token-created");
   if (text.includes("counter")) events.push("counter-placed");
   if (text.includes("draw")) events.push("cards-drawn");
+  if (text.includes("discard")) events.push("cards-discarded");
   if (text.includes("life")) events.push("life-gained", "life-lost");
   return uniqueStrings(events);
 }

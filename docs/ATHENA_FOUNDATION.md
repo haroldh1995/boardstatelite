@@ -1,13 +1,13 @@
 # Project Athena Foundation
 
-Project Athena is BoardState Lite's personal battlefield-awareness architecture. It prepares Lite to understand relationships between the user's tracked battlefield objects, relevant totals, tokens, counters, replacement boundaries, static-effect boundaries, trigger boundaries, previews, and authority sources without turning Lite into the full BoardState rules engine.
+Project Athena is BoardState Lite's personal battlefield-awareness and bookkeeping architecture. It understands supported relationships between the user's tracked battlefield objects, relevant totals, tokens, counters, replacement boundaries, static-effect boundaries, trigger boundaries, previews, and authority sources without turning Lite into the full BoardState rules engine.
 
 ## Responsibility Boundaries
 
 Athena owns local awareness and organization:
 
 - Read-only awareness context over the current personal battlefield.
-- Relationship contracts for future triggers, replacements, static totals, attachments, token stacks, counters, transformed objects, Not Tracked objects, and depowered objects.
+- Relationship contracts for triggers, replacements, static totals, attachments, token stacks, counters, transformed objects, Not Tracked objects, and depowered objects.
 - Preview metadata that remains isolated from committed state.
 - Authority-aware result labeling and precedence.
 - Support-status findings for fully supported, partially supported, quantity-only, unsupported, manual, or authority-required outcomes.
@@ -21,7 +21,7 @@ Echo owns input and intent:
 BoardState remains the authority:
 
 - Complete Commander rules, stack and priority, full replacement-effect ordering, complete multiplayer battlefield authority, simulations, Dry Runs, tutorials, question systems, judge-grade explanations, and authoritative replay.
-- Future BoardState authoritative results outrank any local Lite helper preview.
+- Verified BoardState authoritative results outrank any local Lite helper preview.
 - Athena must consume and organize authoritative results when they exist rather than silently contradicting them.
 
 ## Single Source Of Truth
@@ -37,7 +37,7 @@ Athena must not create:
 - A second session identity.
 - A second synchronization model.
 
-Any future Athena-applied change must flow through the existing canonical event/result pathways, then into the current undo, history, persistence, animation, and accessibility systems.
+Any Athena-applied gameplay change must flow through the existing canonical event/result pathways, then into the current undo, history, persistence, animation, and accessibility systems.
 
 ## Awareness Context
 
@@ -56,7 +56,7 @@ The context is a derived read model. It is not persisted as a battlefield copy.
 
 ## Relationship Contracts
 
-Athena relationship records are intentionally broad enough for later milestones without evaluating full rules today. Supported relationship kinds include:
+Athena relationship records cover the supported local bookkeeping boundary. Relationship kinds include:
 
 - Event watchers.
 - Replacement-effect boundaries.
@@ -72,7 +72,7 @@ Athena relationship records are intentionally broad enough for later milestones 
 - Stack lineage.
 - Authoritative result superseding preview.
 
-Current ATHENA-01 analysis only builds concrete relationships from existing Lite data and known helper boundaries. It does not expand card coverage or parse unsupported Oracle text as if it were understood.
+The foundation builds concrete relationships from existing Lite data and known helper boundaries. It does not expand card coverage or parse unsupported Oracle text as if it were understood.
 
 ## Dependency Graph
 
@@ -86,13 +86,13 @@ The graph keeps grouped tokens and generic groups quantity-aware. A token stack 
 
 Not Tracked and Depower remain separate graph states. Not Tracked objects stay present, count toward totals, and can receive effects, but their source relationships are disabled with a Not Tracked reason. Depowered objects stay present and count normally, while only their disabled ability-source relationships are marked unavailable.
 
-Generic placeholders remain first-class recipients and total contributors. They do not expose card-ability source relationships unless future user-approved custom automation provides a structured relationship.
+Generic placeholders remain first-class recipients and total contributors. They do not expose card-ability source relationships unless user-approved custom automation provides a structured relationship.
 
 Attachments are explicit graph relationships from attachment object to host object. Missing hosts produce disabled stale-reference relationships instead of mutating battlefield state.
 
 Transformations preserve the same object node identity, update graph relationships for the current face, and add lineage metadata without creating retroactive enter-the-battlefield events.
 
-Incremental update support currently uses deterministic invalidation plus safe graph reconstruction. Incremental and full rebuild results are compared by stable graph identity in tests, keeping the API ready for future targeted update optimizations without creating another source of truth.
+Incremental update support uses deterministic invalidation plus safe graph reconstruction. Incremental and full rebuild results are compared by stable graph identity in tests without creating another source of truth.
 
 Project Echo can query the graph for dependencies relevant to a structured intent. For example, a land-play intent can ask for land-entry observers, token/counter replacement boundaries, relevant total readers, unsupported relationships, and authority-required relationships without executing the intent.
 
@@ -100,9 +100,9 @@ Project Echo can query the graph for dependencies relevant to a structured inten
 
 ATHENA-03 adds a derived Trigger Source and Effect Relationship Mapper on top of the dependency graph. The mapper groups graph relationships by stable effect source and exposes read-only records for triggered abilities, replacement effects, static readers, generated event categories, affected object sets, optional or manual choices, support status, disabled state, and authority requirements.
 
-The mapper does not execute gameplay, resolve triggers, calculate cascades, mutate battlefield state, or replace the canonical Ambient Event Pipeline. It is an internal relationship query boundary for future Athena consequence analysis and Project Echo handoff.
+The mapper does not execute gameplay, resolve triggers, calculate cascades, mutate battlefield state, or replace the canonical event pipeline. It is the internal relationship query boundary used by Athena forecasting, trigger generation, static recalculation, and Project Echo handoff.
 
-Mapped relationships keep replacement effects, triggered abilities, static effects, token creation, counter placement, life modification, custom automation, unsupported effects, and authority-required effects distinct so later Athena modules can query one category without recreating parsing or graph traversal logic.
+Mapped relationships keep replacement effects, triggered abilities, static effects, token creation, counter placement, life modification, custom automation, unsupported effects, and authority-required effects distinct so downstream Athena modules can query one category without recreating parsing or graph traversal logic.
 
 ## Event Forecast And Consequence Preview
 
@@ -176,7 +176,7 @@ Lite local-helper results are useful, but they are not BoardState authority.
 Athena respects the support boundary already present in Lite:
 
 - Fully automated cards can be treated as supported local-helper sources.
-- Partially automated cards can be represented with partial support and future manual choices.
+- Partially automated cards can be represented with partial support and explicit manual choices.
 - Quantity-only tokens and placeholders remain useful recipients and total contributors, but not ability sources.
 - Unsupported text remains unsupported and requires manual resolution or BoardState authority.
 - Not Tracked objects remain present and count toward totals while becoming unavailable as effect sources.
@@ -186,7 +186,7 @@ Athena respects the support boundary already present in Lite:
 
 Athena persistence is intentionally small:
 
-- Persist Athena settings, version metadata, diagnostics summaries, and restorable preview metadata only.
+- Persist Athena settings, version metadata, decision continuations, live-turn checkpoints, reconciliation records, diagnostics summaries, and restorable preview metadata.
 - Do not persist a copy of the battlefield.
 - Do not persist ephemeral calculations.
 - Do not wipe or reject legacy saves that lack Athena metadata.
@@ -204,20 +204,35 @@ Athena is designed for Commander games with large personal battlefields:
 - Keep worker-compatible data structures where practical, while avoiding unnecessary worker complexity now.
 - Avoid polling loops, persistent timers, or allocations during ordinary rendering.
 
-## Planned Athena Sequence
+## Completed Integration
 
-- ATHENA-02: Battlefield dependency graph and supported relationship indexing.
-- ATHENA-03: Trigger source and effect relationship mapper.
-- ATHENA-04: Event consequence analyzer for supported local helper events.
-- ATHENA-05: Replacement awareness and authority-aware ordering boundary.
-- ATHENA-06: Confirmed-event trigger generation and deterministic pending queue.
-- ATHENA-07: Supported trigger-resolution preparation and fast-path contracts.
-- ATHENA-08: Token, stack, counter, and grouped-result preparation.
-- ATHENA-09: Static effect and relevant-total reconciliation.
-- ATHENA-10: Choice requirement collection and clarification handoff.
-- ATHENA-11: Bounded cascade preview and staged consequence preparation.
-- ATHENA-12: Echo intent analysis handoff and action staging.
-- ATHENA-13: Rules-result reconciliation with BoardState authority.
-- ATHENA-14: Recovery, stale-work protection, and large-session performance hardening.
-- ATHENA-15: Loop safety, accessibility, and animation coordination.
-- ATHENA-16: Final Athena production integration audit.
+Project Athena is complete through ATHENA-15. Its single supported Real Game Action path is:
+
+1. Echo or touch produces structured, confirmed intent.
+2. A Prepared Action or direct report becomes an Athena forecast input with stable event lineage.
+3. ATHENA-05 produces the final replacement-aware event.
+4. The canonical committer updates the existing `FieldState`.
+5. ATHENA-06 generates deterministic pending trigger identities from the final event.
+6. ATHENA-08 resolves supported deterministic work and emits further canonical events.
+7. ATHENA-11 pauses only unresolved decision-dependent work and persists structured continuation data.
+8. ATHENA-07 rebuilds disposable derived state from canonical state.
+9. ATHENA-12 reconciles planner, action-strip, combat, and turn progression.
+10. The existing store creates one undo boundary, persists the canonical field, and presents aggregate feedback.
+
+Committed event lineage is retained by the live-turn state and rejects replay of the same original or replacement-revised root event. Voice/touch Prepared Action confirmation also retains its prepared-action receipt, so duplicate delivery cannot commit a second physical action.
+
+The current-state repair path is separate:
+
+1. Exact editors, Quick Correction, or Catch Me Up create a structured reconciliation request.
+2. ATHENA-13 applies Correction Only atomically.
+3. Correction Only bypasses ATHENA-05, ATHENA-06, and ATHENA-08.
+4. Relevant totals, dependencies, derived state, decisions, Prepared Actions, and the live-turn coordinator revalidate from the corrected field.
+5. History records a correction or reconciliation boundary, never an invented game event.
+
+Legacy Activate Field remains an explicit compatibility/manual helper. It uses the same field, rules-result renderer, undo boundary, derived-state refresh, planner reconciliation, and persistence path; it does not own a second session, history, or battlefield. Normal prepared actions, explicit land-entry game actions, life gain/loss steps, and counter-placement game actions use the canonical Athena pipeline. Exact life, player-counter, base P/T, relevant-total, and neutral representation edits use reconciliation.
+
+## Platform Boundary
+
+`src/athena`, `src/domain`, `src/echo`, shared-session, rules-adapter, services, state, and utility code are covered by an automated portability scan. Core modules cannot directly use DOM types/events, browser storage, IndexedDB adapters, service workers, browser speech/audio, browser animation schedulers, wall-clock/random globals, or required timers. Clock, ID, persistence, microphone, network, and web rendering behavior remain capability or platform concerns.
+
+The portable models use explicit records, arrays, string unions, stable IDs, serialized continuation records, and immutable snapshots. They map to Swift enums/value models, Codable-like persistence, async capability protocols, observable view models, and native accessibility adapters without relying on DOM bubbling, CSS state, browser storage semantics, or persisted JavaScript closures. This is an architectural portability guarantee; no Swift implementation or Swift build is part of this repository.

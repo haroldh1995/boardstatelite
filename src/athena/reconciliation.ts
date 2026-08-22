@@ -4,6 +4,7 @@ import {
   mergeCompatibleStacks,
   parseCharacteristics,
   recalculateStats,
+  splitGroupForQuantity,
   supportStatusForCard,
   withStackKey,
 } from "../domain/cards";
@@ -448,13 +449,20 @@ function applyRepair(
     );
   }
   if (repair.kind === "set-counter") {
-    const group = field.groups.find((entry) => entry.id === repair.groupId)!;
+    const originalGroup = field.groups.find(
+      (entry) => entry.id === repair.groupId,
+    )!;
+    const split =
+      repair.quantity !== undefined
+        ? splitGroupForQuantity(field.groups, originalGroup.id, repair.quantity)
+        : { groups: field.groups, targetId: originalGroup.id };
+    const group = split.groups.find((entry) => entry.id === split.targetId)!;
     const before = group.counters[repair.counter] ?? 0;
     const value = nonnegative(repair.value);
     const counters = { ...group.counters };
     if (value === 0) delete counters[repair.counter];
     else counters[repair.counter] = value;
-    const groups = field.groups.map((entry) =>
+    const groups = split.groups.map((entry) =>
       entry.id === group.id
         ? withStackKey(recalculateStats({ ...entry, counters }))
         : entry,
@@ -465,6 +473,32 @@ function applyRepair(
       before,
       value,
       `${repair.counter} counters on ${group.label} corrected from ${before} to ${value}.`,
+      { ...field, groups },
+      request,
+    );
+  }
+  if (repair.kind === "set-status") {
+    const group = field.groups.find((entry) => entry.id === repair.groupId)!;
+    const before = group.statuses[repair.status];
+    const groups = field.groups.map((entry) =>
+      entry.id === group.id
+        ? withStackKey(
+            recalculateStats({
+              ...entry,
+              statuses: {
+                ...entry.statuses,
+                [repair.status]: repair.value,
+              },
+            }),
+          )
+        : entry,
+    );
+    return simpleRepair(
+      field,
+      repair,
+      before,
+      repair.value,
+      `${group.label} ${repair.status} status corrected.`,
       { ...field, groups },
       request,
     );
@@ -535,9 +569,18 @@ function applyRepair(
     repair.kind === "replace-identity" ||
     repair.kind === "set-current-face"
   ) {
-    const group = field.groups.find((entry) => entry.id === repair.groupId)!;
+    const originalGroup = field.groups.find(
+      (entry) => entry.id === repair.groupId,
+    )!;
+    const split =
+      repair.kind === "replace-identity" && repair.quantity !== undefined
+        ? splitGroupForQuantity(field.groups, originalGroup.id, repair.quantity)
+        : { groups: field.groups, targetId: originalGroup.id };
+    const group = split.groups.find((entry) => entry.id === split.targetId)!;
     const identity = repair.identity;
     const characteristics = parseCharacteristics(identity.typeLine, identity);
+    const printedPower = numericStat(identity.power);
+    const printedToughness = numericStat(identity.toughness);
     const corrected = withStackKey(
       recalculateStats({
         ...group,
@@ -552,29 +595,49 @@ function applyRepair(
         originalIdentity:
           repair.kind === "replace-identity"
             ? identity
-            : (group.originalIdentity ?? identity),
+            : (group.originalIdentity ?? group.identity),
         originalCharacteristics:
           repair.kind === "replace-identity"
             ? characteristics
-            : (group.originalCharacteristics ?? characteristics),
+            : (group.originalCharacteristics ?? group.characteristics),
         characteristics: {
           ...characteristics,
           isToken: group.characteristics.isToken,
         },
         isGeneric: false,
+        abilitiesActive:
+          repair.kind === "set-current-face" && repair.restoreAbilities
+            ? true
+            : group.abilitiesActive,
+        depowerMode:
+          repair.kind === "set-current-face" && repair.restoreAbilities
+            ? "none"
+            : group.depowerMode,
         statuses: {
           ...group.statuses,
           transformed:
             repair.kind === "set-current-face"
               ? repair.transformed
               : group.statuses.transformed,
+          depowered:
+            repair.kind === "set-current-face" && repair.restoreAbilities
+              ? false
+              : group.statuses.depowered,
         },
         pt: {
           ...group.pt,
-          printedPower: numericStat(identity.power),
-          printedToughness: numericStat(identity.toughness),
-          basePower: numericStat(identity.power),
-          baseToughness: numericStat(identity.toughness),
+          printedPower,
+          printedToughness,
+          basePower: correctedBaseStat(
+            group.pt.basePower,
+            group.pt.printedPower,
+            printedPower,
+          ),
+          baseToughness: correctedBaseStat(
+            group.pt.baseToughness,
+            group.pt.printedToughness,
+            printedToughness,
+          ),
         },
       }),
     );
@@ -586,7 +649,7 @@ function applyRepair(
       `${group.label} identity corrected to ${identity.name}.`,
       {
         ...field,
-        groups: field.groups.map((entry) =>
+        groups: split.groups.map((entry) =>
           entry.id === group.id ? corrected : entry,
         ),
       },
@@ -849,15 +912,25 @@ function validateRepair(
   repair: AthenaReconciliationRepair,
 ): string | null {
   if (!repair.id) return "A repair is missing stable identity.";
-  if ("value" in repair && !Number.isFinite(repair.value))
+  if (
+    "value" in repair &&
+    typeof repair.value === "number" &&
+    !Number.isFinite(repair.value)
+  )
     return `Repair ${repair.id} has an invalid quantity.`;
-  if ("value" in repair && repair.kind !== "set-life" && repair.value < 0) {
+  if (
+    "value" in repair &&
+    typeof repair.value === "number" &&
+    repair.kind !== "set-life" &&
+    repair.value < 0
+  ) {
     return `Repair ${repair.id} cannot use a negative quantity.`;
   }
   if (
     [
       "set-group-quantity",
       "set-counter",
+      "set-status",
       "set-base-power-toughness",
       "replace-identity",
       "set-current-face",
@@ -867,6 +940,28 @@ function validateRepair(
     const groupId = "groupId" in repair ? repair.groupId : null;
     if (!groupId || !field.groups.some((group) => group.id === groupId))
       return `Repair ${repair.id} references a missing object.`;
+  }
+  if (
+    repair.kind === "replace-identity" &&
+    repair.quantity !== undefined &&
+    (!Number.isInteger(repair.quantity) ||
+      repair.quantity < 1 ||
+      repair.quantity >
+        (field.groups.find((group) => group.id === repair.groupId)?.quantity ??
+          0))
+  ) {
+    return "Identity replacement quantity is not available.";
+  }
+  if (
+    repair.kind === "set-counter" &&
+    repair.quantity !== undefined &&
+    (!Number.isInteger(repair.quantity) ||
+      repair.quantity < 1 ||
+      repair.quantity >
+        (field.groups.find((group) => group.id === repair.groupId)?.quantity ??
+          0))
+  ) {
+    return "Counter correction quantity is not available.";
   }
   if (repair.kind === "set-attachment") {
     if (!field.groups.some((group) => group.id === repair.attachmentId))
@@ -1247,6 +1342,14 @@ function playerCounterLabel(
 function numericStat(value: string | null): number | null {
   if (value === null || !/^-?\d+$/.test(value)) return null;
   return Number(value);
+}
+
+function correctedBaseStat(
+  base: number | null,
+  printed: number | null,
+  correctedPrinted: number | null,
+): number | null {
+  return base !== printed ? base : correctedPrinted;
 }
 
 function createDefaultDiagnostics(): AthenaReconciliationDiagnostics {

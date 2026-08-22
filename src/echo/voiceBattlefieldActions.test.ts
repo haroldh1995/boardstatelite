@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createTokenGroup } from "../domain/cards";
+import { createGenericGroup, createTokenGroup } from "../domain/cards";
 import { normalizeField } from "../domain/field";
 import type { FieldState, PermanentGroup } from "../domain/types";
 import {
@@ -60,6 +60,31 @@ describe("Echo voice battlefield action framework", () => {
     });
   });
 
+  it("does not automatically publish gameplay from an unverified speaker", () => {
+    const field = actionField([]);
+    const captured = captureVoiceBattlefieldActionTranscript({
+      field,
+      transcript: "Gain three life.",
+      timestamp,
+    });
+
+    const published = publishVoiceBattlefieldActionsToPipeline({
+      field: { ...field, voiceBattlefieldActions: captured.state },
+      session: captured.session,
+      preview: captured.preview,
+      timestamp: "2026-07-26T00:00:01.000Z",
+      speakerVerified: false,
+    });
+
+    expect(published.pipelineResults).toEqual([]);
+    expect(published.session).toMatchObject({
+      status: "failed",
+      recoveryReason:
+        "Speaker verification is required for automatic voice gameplay actions.",
+    });
+    expect(published.state.sessions.at(-1)?.status).toBe("failed");
+  });
+
   it("stages and publishes multiple life, token, and counter actions through the pipeline", () => {
     const anim = tracked(animPakal());
     const field = actionField([anim]);
@@ -86,6 +111,7 @@ describe("Echo voice battlefield action framework", () => {
       session: captured.session,
       preview: captured.preview,
       timestamp: "2026-07-26T00:00:01.000Z",
+      speakerVerified: true,
     });
 
     expect(published.pipelineResults).toHaveLength(3);
@@ -132,6 +158,7 @@ describe("Echo voice battlefield action framework", () => {
       session: captured.session,
       preview: captured.preview,
       timestamp: "2026-07-26T00:00:01.000Z",
+      speakerVerified: true,
     });
 
     expect(captured.preview?.actions[0]).toMatchObject({
@@ -149,6 +176,72 @@ describe("Echo voice battlefield action framework", () => {
         group.label.startsWith("Anim Pakal"),
       )?.counters["+1/+1"],
     ).toBeUndefined();
+  });
+
+  it("keeps noncreature artifact tokens out of creature-entry triggers", () => {
+    const field = actionField([soulWarden()]);
+    const captured = captureVoiceBattlefieldActionTranscript({
+      field,
+      transcript: "Create two Treasures.",
+      timestamp,
+    });
+    const published = publishVoiceBattlefieldActionsToPipeline({
+      field: { ...field, voiceBattlefieldActions: captured.state },
+      session: captured.session,
+      preview: captured.preview,
+      timestamp: "2026-07-26T00:00:01.000Z",
+      speakerVerified: true,
+    });
+    const finalField = published.pipelineResults.at(-1)!.field;
+    const treasure = finalField.groups.find(
+      (group) => group.label === "Treasure",
+    );
+
+    expect(finalField.player.life).toBe(40);
+    expect(treasure).toMatchObject({
+      quantity: 2,
+      characteristics: { isCreature: false, isToken: true },
+    });
+    expect(treasure?.characteristics.cardTypes).toEqual(["Artifact"]);
+  });
+
+  it("routes known-quantity discards through the canonical zone pipeline", () => {
+    const hand = createGenericGroup({
+      kind: "Custom",
+      label: "Unknown cards in hand",
+      quantity: 3,
+      zone: "hand",
+    });
+    const field = actionField([hand]);
+    const captured = captureVoiceBattlefieldActionTranscript({
+      field,
+      transcript: "Discard two cards.",
+      timestamp,
+    });
+    const published = publishVoiceBattlefieldActionsToPipeline({
+      field: { ...field, voiceBattlefieldActions: captured.state },
+      session: captured.session,
+      preview: captured.preview,
+      timestamp: "2026-07-26T00:00:01.000Z",
+      speakerVerified: true,
+    });
+    const finalField = published.pipelineResults.at(-1)!.field;
+
+    expect(
+      finalField.groups
+        .filter((group) => group.zone === "hand")
+        .reduce((sum, group) => sum + group.quantity, 0),
+    ).toBe(1);
+    expect(
+      finalField.groups
+        .filter((group) => group.zone === "graveyard")
+        .reduce((sum, group) => sum + group.quantity, 0),
+    ).toBe(2);
+    expect(finalField.athena.liveTurn.processedCanonicalEventIds).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^canonical:echo-action:/),
+      ]),
+    );
   });
 
   it("handles tap, untap, zone movement, sacrifice, and commander damage actions", () => {
@@ -178,6 +271,7 @@ describe("Echo voice battlefield action framework", () => {
       session: captured.session,
       preview: captured.preview,
       timestamp: "2026-07-26T00:00:01.000Z",
+      speakerVerified: true,
     });
     const finalField = published.pipelineResults.at(-1)!.field;
 
@@ -191,6 +285,16 @@ describe("Echo voice battlefield action framework", () => {
     ).toBe(1);
     expect(finalField.player.life).toBe(38);
     expect(finalField.player.counters.commanderDamage).toBe(2);
+    expect(
+      finalField.groups.some(
+        (group) => group.zone === "graveyard" && group.label === "Treasure",
+      ),
+    ).toBe(false);
+    expect(
+      finalField.athena.liveTurn.processedCanonicalEventIds.some((id) =>
+        id.startsWith("canonical:echo-action:"),
+      ),
+    ).toBe(true);
   });
 
   it("uses clarification for ambiguous targets and supports staged correction", () => {
@@ -226,6 +330,39 @@ describe("Echo voice battlefield action framework", () => {
     });
   });
 
+  it("does not invent a zone event for an ambiguous remove command", () => {
+    const solRing = tracked(
+      testCard({
+        name: "Sol Ring",
+        typeLine: "Artifact",
+        oracleText: "{T}: Add {C}{C}.",
+      }),
+    );
+    const field = actionField([solRing]);
+    const captured = captureVoiceBattlefieldActionTranscript({
+      field,
+      transcript: "Remove Sol Ring.",
+      timestamp,
+    });
+
+    expect(captured.preview?.actions[0]).toMatchObject({
+      kind: "permanent-remove",
+      clarificationRequired: true,
+    });
+    expect(captured.preview?.clarificationRequests[0]?.question).toContain(
+      "should Lite only correct the battlefield",
+    );
+
+    const applied = applyVoiceBattlefieldActionToField({
+      field,
+      action: captured.preview!.actions[0],
+      timestamp,
+      speakerVerified: true,
+    });
+    expect(applied.field.groups).toEqual(field.groups);
+    expect(applied.events).toEqual([]);
+  });
+
   it("removes counters, creates placeholders for reported entries, and recovers corrupt state safely", () => {
     const anim = withCounters(tracked(animPakal()), { Shield: 1 });
     const field = actionField([anim]);
@@ -239,6 +376,7 @@ describe("Echo voice battlefield action framework", () => {
       session: captured.session,
       preview: captured.preview,
       timestamp: "2026-07-26T00:00:01.000Z",
+      speakerVerified: true,
     });
     const finalField = published.pipelineResults.at(-1)!.field;
 

@@ -1922,17 +1922,19 @@ function ExactTotalSheet({ total }: { total: RelevantTotal }) {
           onChange={(event) => setValue(Number(event.target.value))}
         />
       </label>
-      <label>
-        Apply as
-        <select
-          value={mode}
-          onChange={(event) => setMode(event.target.value as typeof mode)}
-        >
-          <option value="correction">Correction only</option>
-          <option value="one-at-a-time">Game action: one at a time</option>
-          <option value="simultaneous">Game action: simultaneous</option>
-        </select>
-      </label>
+      {total.key === "lands" ? (
+        <label>
+          Apply as
+          <select
+            value={mode}
+            onChange={(event) => setMode(event.target.value as typeof mode)}
+          >
+            <option value="correction">Correction only</option>
+            <option value="one-at-a-time">Game action: one at a time</option>
+            <option value="simultaneous">Game action: simultaneous</option>
+          </select>
+        </label>
+      ) : null}
       <button type="submit" className="primary-action">
         Apply
       </button>

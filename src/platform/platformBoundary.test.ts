@@ -23,9 +23,16 @@ const portableRoots = [
 ];
 
 const blockedRuntimeReferences: Array<{ label: string; pattern: RegExp }> = [
+  {
+    label: "browser window global",
+    pattern:
+      /\bglobalThis\.window\b|\bwindow\.(?:document|navigator|location|localStorage|sessionStorage|indexedDB|matchMedia|addEventListener|removeEventListener)\b/,
+  },
   { label: "document", pattern: /\bdocument\b/ },
   { label: "navigator", pattern: /\bnavigator\b/ },
   { label: "browser storage", pattern: /\b(?:localStorage|sessionStorage)\b/ },
+  { label: "IndexedDB global", pattern: /\bindexedDB\b/ },
+  { label: "service worker", pattern: /\bserviceWorker\b/ },
   { label: "browser fetch", pattern: /\bfetch\s*\(/ },
   { label: "DOM element type", pattern: /\bHTML[A-Za-z]*Element\b/ },
   {
@@ -36,7 +43,17 @@ const blockedRuntimeReferences: Array<{ label: string; pattern: RegExp }> = [
     label: "web audio",
     pattern: /\b(?:AudioContext|webkitAudioContext|getUserMedia)\b/,
   },
+  {
+    label: "browser speech",
+    pattern:
+      /\b(?:SpeechRecognition|webkitSpeechRecognition|speechSynthesis)\b/,
+  },
+  { label: "media recorder", pattern: /\bMediaRecorder\b/ },
   { label: "IndexedDB adapter", pattern: /\bDexie\b|from\s+["']dexie["']/ },
+  {
+    label: "browser animation scheduler",
+    pattern: /\b(?:requestAnimationFrame|cancelAnimationFrame)\s*\(/,
+  },
   { label: "wall clock", pattern: /\bDate\.now\s*\(/ },
   { label: "random source", pattern: /\b(?:crypto|Math\.random\s*\()\b/ },
   { label: "performance clock", pattern: /\bperformance\.now\s*\(/ },

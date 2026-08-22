@@ -1477,6 +1477,8 @@ function normalizeGameEventType(
     "damage-dealt",
     "land-entered",
     "spell-cast",
+    "cards-drawn",
+    "cards-discarded",
     "permanent-died",
     "permanent-sacrificed",
     "permanent-exiled",

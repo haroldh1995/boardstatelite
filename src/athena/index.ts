@@ -50,6 +50,7 @@ export {
   AthenaReplacementCancellationController,
   AthenaReplacementEffectEngine,
   athenaReplacementEffectEngine,
+  createAthenaDuplicateReplacementResult,
   invalidateAthenaReplacementResult,
   isAthenaReplacementResultCurrent,
   processAthenaReplacementEffects,
@@ -95,6 +96,7 @@ export {
   createBasicLandIdentity,
   executeAthenaPreparedAction,
   matchAthenaPreparedActionForVoice,
+  reconcileAthenaTurnIntentWithCanonicalAction,
   revalidateAthenaTurnIntent,
 } from "./turnIntent";
 export {
@@ -122,6 +124,7 @@ export {
   revalidateAthenaDecisions,
   setAthenaOptionalDecisionPreference,
   validateAthenaDecisionAnswer,
+  withNextAthenaTriggerDecision,
 } from "./decisionEngine";
 export { createAthenaManualResultForecast } from "./decisionManualResult";
 export {

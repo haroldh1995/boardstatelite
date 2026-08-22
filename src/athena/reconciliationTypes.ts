@@ -79,10 +79,18 @@ export type AthenaReconciliationRepair =
     }
   | {
       id: string;
+      kind: "set-status";
+      groupId: string;
+      status: keyof FieldState["groups"][number]["statuses"];
+      value: boolean;
+    }
+  | {
+      id: string;
       kind: "set-counter";
       groupId: string;
       counter: CounterName;
       value: number;
+      quantity?: number;
     }
   | {
       id: string;
@@ -103,12 +111,14 @@ export type AthenaReconciliationRepair =
       groupId: string;
       identity: CardIdentity;
       transformed: boolean;
+      restoreAbilities?: boolean;
     }
   | {
       id: string;
       kind: "replace-identity";
       groupId: string;
       identity: CardIdentity;
+      quantity?: number;
     }
   | {
       id: string;

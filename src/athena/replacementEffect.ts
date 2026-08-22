@@ -739,6 +739,39 @@ export function processAthenaReplacementEffects(
   }
 }
 
+export function createAthenaDuplicateReplacementResult(
+  environment: AthenaForecastEnvironment,
+  event: AthenaForecastInput,
+  timestamp = event.timestamp,
+): AthenaReplacementProcessingResult {
+  const originalEvent = copyForecastInput(event);
+  const versions = replacementVersionSnapshot(originalEvent, environment);
+  const cacheKey = replacementCacheKey(originalEvent, versions, {});
+  return successfulResult({
+    id: `athena-replacement:duplicate:${normalizeIdPart(originalEvent.eventId)}`,
+    cacheKey,
+    timestamp,
+    validity: "resolved",
+    originalEvent,
+    finalEvent: originalEvent,
+    versions,
+    definitions: [],
+    excluded: [],
+    steps: [],
+    choices: [],
+    warnings: [],
+    authorityFinalEventAccepted: false,
+    durationMs: 0,
+    forecastReference: null,
+    cacheHit: true,
+    discrepancyCount: 0,
+    duplicateCount: 1,
+    semanticDescriptions: [
+      "Previously committed canonical event lineage was not processed again.",
+    ],
+  });
+}
+
 export class AthenaReplacementCancellationController {
   private readonly state = {
     cancelled: false,

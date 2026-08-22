@@ -1,21 +1,8 @@
 import { create } from "zustand";
-import {
-  createCardGroup,
-  createGenericGroup,
-  makeId,
-  recalculateStats,
-  withStackKey,
-} from "../domain/cards";
+import { createGenericGroup, makeId, withStackKey } from "../domain/cards";
 import {
   activateField as resolveActivateField,
-  applyCounters as resolveApplyCounters,
-  removeGroupQuantity as resolveRemoveGroupQuantity,
-  replaceGenericIdentity as resolveReplaceGenericIdentity,
-  resolveLandEntry,
-  restoreTransformations as resolveRestoreTransformations,
-  setLife as resolveSetLife,
   setTrackingEnabled as resolveSetTrackingEnabled,
-  transformCreatures as resolveTransformCreatures,
 } from "../domain/engine";
 import {
   calculateTotals,
@@ -127,29 +114,32 @@ import type {
 } from "../echo/listeningTypes";
 import { applyAthenaDerivedStateToField } from "../athena/derivedState";
 import {
+  createAthenaForecastInput,
+  createForecastEnvironment,
+} from "../athena/eventForecast";
+import {
   createAthenaPendingTriggerQueue,
   AthenaPendingTriggerQueue,
 } from "../athena/triggerQueue";
 import {
-  evaluateAthenaTriggerResolutionEligibility,
   processAthenaConfirmedEventWithBookkeeping,
   processAthenaPendingTriggers,
   resolveAthenaPendingTrigger,
 } from "../athena/triggerResolution";
-import type { AthenaForecastInput } from "../athena/eventForecastTypes";
 import type {
-  AthenaConfirmedConsequencePipelineResult,
-  AthenaTriggerResolutionDecision,
-} from "../athena/triggerResolutionTypes";
+  AthenaForecastInput,
+  AthenaForecastInputDraft,
+} from "../athena/eventForecastTypes";
+import type { AthenaConfirmedConsequencePipelineResult } from "../athena/triggerResolutionTypes";
 import {
   answerAthenaDecision as resolveAthenaDecisionAnswer,
   answerAthenaDecisionFromVoice as resolveAthenaDecisionVoiceAnswer,
   answerToTriggerResolutionDecision,
   createAthenaPreparedChoiceRequest,
   createAthenaReplacementDecisionRequest,
-  createAthenaTriggerDecisionRequest,
   enqueueAthenaDecision,
   revalidateAthenaDecisions,
+  withNextAthenaTriggerDecision,
 } from "../athena/decisionEngine";
 import { createAthenaManualResultForecast } from "../athena/decisionManualResult";
 import type {
@@ -168,10 +158,7 @@ import {
   recordAthenaLiveTurnPipeline,
   requestAthenaLiveTurnEnd,
 } from "../athena/liveTurnOrchestrator";
-import {
-  applyZoneCompositionCorrection,
-  reconcileUnknownZoneGroupIdentity,
-} from "../domain/zoneComposition";
+import { reconcileUnknownZoneGroupIdentity } from "../domain/zoneComposition";
 import {
   applyAthenaReconciliation,
   createAthenaReconciliationRequest,
@@ -442,38 +429,45 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
   },
 
   addCard(card, quantity = 1) {
-    const before = get().field;
-    const next = normalizeField({
-      ...before,
-      groups: [...before.groups, createCardGroup(card, quantity)],
-      recentCards: [
-        card,
-        ...before.recentCards.filter((entry) => entry.cardId !== card.cardId),
-      ].slice(0, 20),
+    get().applyReconciliation({
+      source: "manual-correction",
+      level: "quick-correction",
+      confidence: "exact",
+      provenance: "Tracked card added as already present",
+      repairs: [
+        {
+          id: makeId("repair-add-card"),
+          kind: "add-card-already-present",
+          identity: card,
+          quantity: Math.max(1, Math.trunc(quantity)),
+          zone: "battlefield",
+        },
+      ],
     });
-    commitField(
-      "Add tracked card",
-      before,
-      next,
-      [`Added ${card.name} as an active tracked permanent.`],
-      set,
-    );
   },
 
   addGeneric(input) {
-    const before = get().field;
     const generic = createGenericGroup(input);
-    const next = normalizeField({
-      ...before,
-      groups: [...before.groups, generic],
+    get().applyReconciliation({
+      source: "manual-correction",
+      level: "quick-correction",
+      confidence: "exact",
+      provenance: "Generic placeholder added as already present",
+      repairs: [
+        {
+          id: makeId("repair-add-generic"),
+          kind: "add-generic-already-present",
+          label: generic.label,
+          quantity: generic.quantity,
+          cardTypes: [...generic.characteristics.cardTypes],
+          subtypes: [...generic.characteristics.subtypes],
+          token: generic.characteristics.isToken,
+          power: generic.pt.basePower,
+          toughness: generic.pt.baseToughness,
+          zone: generic.zone,
+        },
+      ],
     });
-    commitField(
-      "Add generic placeholder",
-      before,
-      next,
-      [`Added ${generic.quantity} ${generic.label}.`],
-      set,
-    );
   },
 
   activateField() {
@@ -488,123 +482,220 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
   },
 
   applyCounters(groupId, counter, amount, scope, customQuantity, mode) {
-    commitResult(
-      "Counters updated",
-      resolveApplyCounters(
-        get().field,
-        groupId,
-        counter,
-        amount,
-        scope,
-        customQuantity,
-        mode,
-      ),
-      set,
-    );
+    const field = get().field;
+    const group = field.groups.find((entry) => entry.id === groupId);
+    const normalizedAmount = Math.max(0, Math.trunc(amount));
+    if (mode === "game-action" && group && normalizedAmount > 0) {
+      const targetQuantity =
+        scope === "one"
+          ? 1
+          : scope === "custom"
+            ? Math.max(1, Math.min(Math.trunc(customQuantity), group.quantity))
+            : group.quantity;
+      get().processConfirmedAthenaEvent(
+        createConfirmedManualAthenaEvent(field, {
+          eventCategory: "counter-placed",
+          quantity: normalizedAmount,
+          subjectGroupIds: [group.id],
+          counterType: counter,
+          knownCharacteristics: group.characteristics,
+          metadata: {
+            label: group.label,
+            targetQuantity,
+            interaction: "counter-game-action",
+          },
+        }),
+      );
+      return;
+    }
+    if (!group || normalizedAmount === 0) return;
+    const targetQuantity =
+      scope === "one"
+        ? 1
+        : scope === "custom"
+          ? Math.max(1, Math.min(Math.trunc(customQuantity), group.quantity))
+          : group.quantity;
+    get().applyReconciliation({
+      source: "manual-correction",
+      level: "quick-correction",
+      confidence: "exact",
+      provenance: "Counter correction control",
+      repairs: [
+        {
+          id: makeId("repair-counter"),
+          kind: "set-counter",
+          groupId,
+          counter,
+          value: (group.counters[counter] ?? 0) + normalizedAmount,
+          quantity: targetQuantity,
+        },
+      ],
+    });
   },
 
   removeGroup(groupId, quantity) {
-    commitResult(
-      "Remove permanent",
-      resolveRemoveGroupQuantity(get().field, groupId, quantity),
-      set,
-    );
+    const group = get().field.groups.find((entry) => entry.id === groupId);
+    if (!group) return;
+    get().applyReconciliation({
+      source: "manual-correction",
+      level: "quick-correction",
+      confidence: "exact",
+      provenance: "Neutral representation removal",
+      repairs: [
+        {
+          id: makeId("repair-group-quantity"),
+          kind: "set-group-quantity",
+          groupId,
+          value: Math.max(
+            0,
+            group.quantity - Math.max(0, Math.trunc(quantity)),
+          ),
+        },
+      ],
+    });
   },
 
   replaceGeneric(groupId, card, scope, customQuantity) {
-    commitResult(
-      "Replace generic placeholder",
-      resolveReplaceGenericIdentity(
-        get().field,
-        groupId,
-        card,
-        scope,
-        customQuantity,
-      ),
-      set,
-    );
+    const group = get().field.groups.find((entry) => entry.id === groupId);
+    if (!group || !group.isGeneric) return;
+    const quantity =
+      scope === "one"
+        ? 1
+        : scope === "custom"
+          ? Math.max(1, Math.min(Math.trunc(customQuantity), group.quantity))
+          : group.quantity;
+    get().applyReconciliation({
+      source: "manual-correction",
+      level: "quick-correction",
+      confidence: "exact",
+      provenance: "Generic placeholder identity replacement",
+      repairs: [
+        {
+          id: makeId("repair-replace-identity"),
+          kind: "replace-identity",
+          groupId,
+          identity: card,
+          quantity,
+        },
+      ],
+    });
   },
 
   transformCreatures(card, scope, selectedIds, restoreAbilities) {
-    commitResult(
-      "Transform all creatures",
-      resolveTransformCreatures(
-        get().field,
-        card,
-        scope,
-        selectedIds,
+    const targets = get().field.groups.filter((group) => {
+      if (group.zone !== "battlefield" || !group.characteristics.isCreature)
+        return false;
+      if (scope === "nontoken") return !group.characteristics.isToken;
+      if (scope === "tokens") return group.characteristics.isToken;
+      if (scope === "selected") return selectedIds.includes(group.id);
+      return true;
+    });
+    if (targets.length === 0) return;
+    get().applyReconciliation({
+      source: "manual-correction",
+      level:
+        targets.length > 1 ? "battlefield-reconciliation" : "quick-correction",
+      confidence: "exact",
+      provenance: "Transform All current-state identity update",
+      repairs: targets.map((group) => ({
+        id: makeId("repair-transform-face"),
+        kind: "set-current-face" as const,
+        groupId: group.id,
+        identity: card,
+        transformed: true,
         restoreAbilities,
-      ),
-      set,
-    );
+      })),
+    });
   },
 
   restoreTransformations() {
-    commitResult(
-      "Restore transformations",
-      resolveRestoreTransformations(get().field),
-      set,
+    const targets = get().field.groups.filter(
+      (group) =>
+        group.statuses.transformed &&
+        group.originalIdentity &&
+        group.originalCharacteristics,
     );
+    if (targets.length === 0) return;
+    get().applyReconciliation({
+      source: "manual-correction",
+      level:
+        targets.length > 1 ? "battlefield-reconciliation" : "quick-correction",
+      confidence: "exact",
+      provenance: "Restore transformed current-state identities",
+      repairs: targets.map((group) => ({
+        id: makeId("repair-restore-face"),
+        kind: "set-current-face" as const,
+        groupId: group.id,
+        identity: group.originalIdentity!,
+        transformed: false,
+      })),
+    });
   },
 
   adjustLife(delta, mode) {
     const field = get().field;
-    commitResult(
-      "Life change",
-      resolveSetLife(field, field.player.life + delta, mode),
-      set,
-      false,
+    const quantity = Math.abs(Math.trunc(delta));
+    if (quantity === 0) return;
+    get().processConfirmedAthenaEvent(
+      createConfirmedManualAthenaEvent(field, {
+        eventCategory: delta > 0 ? "life-gained" : "life-lost",
+        quantity,
+        metadata: { lifeChangeMode: mode, interaction: "life-step" },
+      }),
     );
   },
 
   setLifeExact(value) {
-    commitResult(
-      "Set life total",
-      resolveSetLife(get().field, value, "set"),
-      set,
-      false,
-    );
+    get().applyReconciliation({
+      source: "manual-correction",
+      level: "quick-correction",
+      confidence: "exact",
+      provenance: "Exact life editor",
+      repairs: [
+        {
+          id: makeId("repair-life"),
+          kind: "set-life",
+          value: Math.max(0, Math.trunc(value)),
+        },
+      ],
+    });
   },
 
   setPlayerCounter(key, value) {
-    const before = get().field;
-    const next = normalizeField({
-      ...before,
-      player: {
-        ...before.player,
-        counters: {
-          ...before.player.counters,
-          [key]: Math.max(0, Math.trunc(value)),
+    get().applyReconciliation({
+      source: "manual-correction",
+      level: "quick-correction",
+      confidence: "exact",
+      provenance: "Exact player counter editor",
+      repairs: [
+        {
+          id: makeId("repair-player-counter"),
+          kind: "set-player-counter",
+          counter: key,
+          value: Math.max(0, Math.trunc(value)),
         },
-      },
+      ],
     });
-    commitField(
-      "Player counter updated",
-      before,
-      next,
-      [`${key} set to ${Math.max(0, Math.trunc(value))}.`],
-      set,
-    );
   },
 
   toggleStatus(groupId, status, value) {
-    const before = get().field;
-    const next = normalizeField({
-      ...before,
-      groups: before.groups.map((group) => {
-        if (group.id !== groupId) return group;
-        return withStackKey(
-          recalculateStats({
-            ...group,
-            statuses: {
-              ...group.statuses,
-              [status]: value ?? !group.statuses[status],
-            },
-          }),
-        );
-      }),
+    const group = get().field.groups.find((entry) => entry.id === groupId);
+    if (!group) return;
+    get().applyReconciliation({
+      source: "manual-correction",
+      level: "quick-correction",
+      confidence: "exact",
+      provenance: "Permanent status control",
+      repairs: [
+        {
+          id: makeId("repair-status"),
+          kind: "set-status",
+          groupId,
+          status,
+          value: value ?? !group.statuses[status],
+        },
+      ],
     });
-    commitField("Status updated", before, next, ["Status changed."], set);
   },
 
   setDepowerMode(groupId, mode) {
@@ -650,92 +741,99 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
   },
 
   setBasePowerToughness(groupId, power, toughness) {
-    const before = get().field;
-    const next = normalizeField({
-      ...before,
-      groups: before.groups.map((group) => {
-        if (group.id !== groupId) return group;
-        return withStackKey(
-          recalculateStats({
-            ...group,
-            pt: {
-              ...group.pt,
-              basePower: power,
-              baseToughness: toughness,
-            },
-          }),
-        );
-      }),
+    get().applyReconciliation({
+      source: "manual-correction",
+      level: "quick-correction",
+      confidence: "exact",
+      provenance: "Base power and toughness editor",
+      repairs: [
+        {
+          id: makeId("repair-base-power-toughness"),
+          kind: "set-base-power-toughness",
+          groupId,
+          power,
+          toughness,
+        },
+      ],
     });
-    commitField(
-      "Base power and toughness updated",
-      before,
-      next,
-      ["Base power/toughness changed."],
-      set,
-    );
   },
 
   setRelevantTotal(key, value, mode = "correction") {
     const field = get().field;
-    if (key === "cardsInGraveyard" || key === "cardsInExile") {
-      const result = applyZoneCompositionCorrection(field, {
-        zone: key === "cardsInGraveyard" ? "graveyard" : "exile",
-        physicalTotal: value,
-      });
-      if (!result.ok) return;
-      commitField(
-        `${key === "cardsInGraveyard" ? "Graveyard" : "Exile"} corrected`,
-        field,
-        normalizeField(result.field),
-        result.summary,
-        set,
-        null,
-        false,
-      );
-      return;
-    }
     const totals = calculateTotals(field.groups);
     const current = totals[key] ?? 0;
     const nextValue = Math.max(0, Math.trunc(value));
     const delta = nextValue - current;
     if (delta === 0) return;
     if (key === "lands" && delta > 0 && mode !== "correction") {
-      commitResult(
-        "Landfall background event",
-        resolveLandEntry(field, delta, mode),
-        set,
+      get().processConfirmedAthenaEvent(
+        createConfirmedManualAthenaEvent(field, {
+          eventCategory: "land-entered",
+          quantity: delta,
+          knownCharacteristics: { cardTypes: ["Land"] },
+          zoneDestination: "battlefield",
+          metadata: {
+            label: "Generic Land",
+            landEntryMode: mode,
+            interaction: "relevant-total-game-action",
+          },
+        }),
       );
       return;
     }
-    const before = field;
-    const next = normalizeField({
-      ...before,
-      groups: adjustManualTotal(before.groups, key, delta),
+    get().applyReconciliation({
+      source: "manual-correction",
+      level: "quick-correction",
+      confidence: "exact",
+      provenance:
+        mode === "correction"
+          ? "Relevant total editor"
+          : "Unsupported historical total adjustment reconciled as current state",
+      repairs: [
+        {
+          id: makeId("repair-relevant-total"),
+          kind: "set-relevant-total",
+          key,
+          value: nextValue,
+        },
+      ],
     });
-    commitField(
-      "Relevant total updated",
-      before,
-      next,
-      [`${key} adjusted by ${delta}.`],
-      set,
-    );
   },
 
   correctZoneComposition(input) {
-    const before = get().field;
-    const result = applyZoneCompositionCorrection(before, input);
-    if (!result.ok) return result;
-    commitField(
-      `${input.zone === "graveyard" ? "Graveyard" : "Exile"} composition corrected`,
-      before,
-      normalizeField(result.field),
-      result.summary,
-      set,
-      null,
-      false,
-    );
-    return { ...result, field: get().field };
+    const result = get().applyReconciliation({
+      source: "manual-correction",
+      level: "quick-correction",
+      confidence: "exact",
+      timestamp: input.timestamp,
+      provenance: `${input.zone} composition editor`,
+      repairs: [
+        {
+          id: makeId("repair-zone-composition"),
+          kind: "set-zone-composition",
+          zone: input.zone,
+          physicalTotal: input.physicalTotal,
+          manuallyAccountedPhysicalCards: input.manuallyAccountedPhysicalCards,
+          categoryTotals: input.categoryTotals,
+        },
+      ],
+    });
+    return {
+      ok: result.ok,
+      field: result.field,
+      reason: result.failureReason ?? result.semanticDescription,
+      summary: result.discrepancies.map((entry) => entry.semanticDescription),
+      changedCategoryKeys:
+        input.selectedCategoryKeys ??
+        (Object.keys(
+          input.categoryTotals ?? {},
+        ) as ZoneCompositionCommandResult<FieldState>["changedCategoryKeys"]),
+      correctionOnly: true,
+      gameplayEventsGenerated: false,
+      replacementEffectsApplied: false,
+      triggerInstancesGenerated: 0,
+      consequenceEventsGenerated: 0,
+    };
   },
 
   applyReconciliation(input) {
@@ -909,7 +1007,7 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
       );
       return { ...result, resultingField: decisionField };
     }
-    const resultingFieldWithDecision = withPendingAthenaDecision(
+    const resultingFieldWithDecision = withNextAthenaTriggerDecision(
       result.resultingField,
       result.queue,
       event.timestamp,
@@ -937,6 +1035,10 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
       set,
       null,
       false,
+      [
+        ...(result.rootCanonicalEvent ? [result.rootCanonicalEvent] : []),
+        ...(result.autoResolution?.generatedCanonicalEvents ?? []),
+      ],
     );
     return { ...result, resultingField };
   },
@@ -1961,6 +2063,39 @@ function createFailedAudioSampleMetrics(error: string): EchoAudioSampleMetrics {
   };
 }
 
+function createConfirmedManualAthenaEvent(
+  field: FieldState,
+  draft: Omit<
+    AthenaForecastInputDraft,
+    "eventId" | "eventSource" | "authoritySource" | "timestamp" | "confidence"
+  >,
+): AthenaForecastInput {
+  const timestamp = new Date().toISOString();
+  const eventId = makeId("manual-canonical-event");
+  return createAthenaForecastInput(
+    {
+      ...draft,
+      eventId,
+      batchId: draft.batchId ?? eventId,
+      eventSource: "manual-report",
+      authoritySource: "confirmed-user-report",
+      timestamp,
+      metadata: {
+        ...draft.metadata,
+        confirmed: true,
+        canonicalEvent: true,
+        hypothetical: false,
+      },
+      confidence: {
+        level: "high",
+        score: 1,
+        speakerVerified: null,
+      },
+    },
+    createForecastEnvironment(field),
+  );
+}
+
 function commitResult(
   label: string,
   result: ResolutionResult,
@@ -2129,7 +2264,7 @@ function continueAthenaDecisionResponse(
         });
         latestQueue = pipeline.queue;
         if (pipeline.validity === "committed") {
-          working = withPendingAthenaDecision(
+          working = withNextAthenaTriggerDecision(
             pipeline.resultingField,
             pipeline.queue,
             timestamp,
@@ -2211,11 +2346,16 @@ function continueAthenaDecisionResponse(
       working = cycle.field;
       canonicalEvents.push(...cycle.generatedCanonicalEvents);
       summary = [summary, cycle.semanticDescription].filter(Boolean).join(" ");
-      working = withPendingAthenaDecision(working, cycle.queue, timestamp);
+      working = withNextAthenaTriggerDecision(working, cycle.queue, timestamp);
     } else {
-      working = withPendingAthenaDecision(working, resolved.queue, timestamp, {
-        [continuation.triggerId]: decision,
-      });
+      working = withNextAthenaTriggerDecision(
+        working,
+        resolved.queue,
+        timestamp,
+        {
+          [continuation.triggerId]: decision,
+        },
+      );
     }
   } else if (continuation.kind === "replacement-processing") {
     const queue = athenaTriggerQueueForContinuation(
@@ -2253,7 +2393,7 @@ function continueAthenaDecisionResponse(
     });
     latestQueue = pipeline.queue;
     if (pipeline.validity === "committed") {
-      working = withPendingAthenaDecision(
+      working = withNextAthenaTriggerDecision(
         pipeline.resultingField,
         pipeline.queue,
         timestamp,
@@ -2358,54 +2498,6 @@ function continueAthenaDecisionResponse(
     canonicalEvents,
   );
   return response;
-}
-
-function withPendingAthenaDecision(
-  field: FieldState,
-  queueSnapshot: AthenaPendingTriggerQueueSnapshot,
-  timestamp: string,
-  decisions: Record<string, AthenaTriggerResolutionDecision> = {},
-): FieldState {
-  for (const trigger of queueSnapshot.entries) {
-    if (
-      [
-        "resolved",
-        "declined",
-        "cancelled",
-        "invalidated",
-        "stale",
-        "failed-safe",
-      ].includes(trigger.queueState)
-    ) {
-      continue;
-    }
-    const eligibility = evaluateAthenaTriggerResolutionEligibility(
-      trigger,
-      field,
-      decisions[trigger.id] ?? {},
-    );
-    const request = createAthenaTriggerDecisionRequest({
-      field,
-      trigger,
-      eligibility,
-      queue: queueSnapshot,
-      collectedDecision: decisions[trigger.id],
-      timestamp,
-    });
-    if (!request) continue;
-    return {
-      ...field,
-      athena: {
-        ...field.athena,
-        decisions: enqueueAthenaDecision(
-          field.athena.decisions,
-          request,
-          timestamp,
-        ),
-      },
-    };
-  }
-  return field;
 }
 
 function athenaTriggerQueueForContinuation(
@@ -3120,92 +3212,4 @@ function transitionForActionItem(
     return result.ok ? result.state : field.ambient;
   }
   return field.ambient;
-}
-
-function adjustManualTotal(
-  groups: FieldState["groups"],
-  key: RelevantTotalKey,
-  delta: number,
-): FieldState["groups"] {
-  if (delta > 0) {
-    return [...groups, createManualGroup(key, delta)];
-  }
-  let remaining = Math.abs(delta);
-  const nextGroups = groups
-    .map((group) => {
-      if (!group.label.startsWith(`Manual ${key}`) || remaining <= 0)
-        return group;
-      const removed = Math.min(group.quantity, remaining);
-      remaining -= removed;
-      return { ...group, quantity: group.quantity - removed };
-    })
-    .filter((group) => group.quantity > 0);
-  return nextGroups;
-}
-
-function createManualGroup(
-  key: RelevantTotalKey,
-  quantity: number,
-): FieldState["groups"][number] {
-  if (key === "creatures") {
-    return createGenericGroup({
-      kind: "Creature",
-      label: `Manual ${key}`,
-      quantity,
-    });
-  }
-  if (key === "artifacts") {
-    return createGenericGroup({
-      kind: "Artifact",
-      label: `Manual ${key}`,
-      quantity,
-    });
-  }
-  if (key === "equipment") {
-    return createGenericGroup({
-      kind: "Equipment",
-      label: `Manual ${key}`,
-      quantity,
-    });
-  }
-  if (key === "enchantments") {
-    return createGenericGroup({
-      kind: "Enchantment",
-      label: `Manual ${key}`,
-      quantity,
-    });
-  }
-  if (key === "cardsInHand") {
-    return createGenericGroup({
-      kind: "Custom",
-      label: `Manual ${key}`,
-      quantity,
-      zone: "hand",
-    });
-  }
-  if (key === "cardsInGraveyard") {
-    return createGenericGroup({
-      kind: "Custom",
-      label: `Manual ${key}`,
-      quantity,
-      zone: "graveyard",
-    });
-  }
-  if (key === "cardsInExile") {
-    return createGenericGroup({
-      kind: "Custom",
-      label: `Manual ${key}`,
-      quantity,
-      zone: "exile",
-    });
-  }
-  if (key === "cardsRemainingInLibrary") {
-    return createGenericGroup({
-      kind: "Custom",
-      label: `Manual ${key}`,
-      quantity,
-      zone: "library",
-    });
-  }
-  return createGenericGroup({ kind: "Land", label: `Manual ${key}`, quantity });
 }
