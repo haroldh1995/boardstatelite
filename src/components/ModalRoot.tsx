@@ -1,4 +1,4 @@
-import { Minus, Plus, X } from "lucide-react";
+import { Check, Minus, Plus, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { COUNTER_OPTIONS, makeId } from "../domain/cards";
 import { calculateTotals, relevantTotalLabel } from "../domain/field";
@@ -26,6 +26,7 @@ import {
   validateCardIdentificationSelection,
 } from "../athena/cardIdentification";
 import type { EchoPersonalGameplayLearningSensitivity } from "../echo/personalGameplayTypes";
+import { getLandPlayTurnStatus } from "../echo/preTurnPlanner";
 import { useFieldStore } from "../state/useFieldStore";
 import { PreTurnPlannerSheet } from "./PreTurnPlannerSheet";
 import { ScryfallSearch } from "./ScryfallSearch";
@@ -166,6 +167,8 @@ function ModalContent({ modal }: { modal: ModalState }) {
       return <PreTurnPlannerSheet />;
     case "catchUp":
       return <CatchUpSheet />;
+    case "landPlay":
+      return <LandPlaySheet />;
     case "exactTotal":
       return (
         <ExactTotalSheet
@@ -670,6 +673,7 @@ function PlayerCountersSheet() {
 function ManagePermanentSheet({ groupId }: { groupId?: string }) {
   const group = useGroup(groupId);
   const applyCounters = useFieldStore((state) => state.applyCounters);
+  const removeCounters = useFieldStore((state) => state.removeCounters);
   const toggleStatus = useFieldStore((state) => state.toggleStatus);
   const setDepowerMode = useFieldStore((state) => state.setDepowerMode);
   const openModal = useFieldStore((state) => state.openModal);
@@ -685,8 +689,18 @@ function ManagePermanentSheet({ groupId }: { groupId?: string }) {
   const [mode, setMode] = useState<CounterApplicationMode>("game-action");
   const [power, setPower] = useState(group?.pt.basePower ?? 1);
   const [toughness, setToughness] = useState(group?.pt.baseToughness ?? 1);
+  const counterOptions = useMemo(
+    () => [
+      ...COUNTER_OPTIONS,
+      ...Object.keys(group?.counters ?? {}).filter(
+        (option) => !COUNTER_OPTIONS.includes(option),
+      ),
+    ],
+    [group?.counters],
+  );
 
   if (!group) return <p>Permanent not found.</p>;
+  const selectedCounterCount = Math.max(0, group.counters[counter] ?? 0);
   const canToggleTracking = Boolean(group.identity) && !group.isGeneric;
   const trackingEnabled = group.trackingEnabled !== false;
   return (
@@ -731,11 +745,14 @@ function ManagePermanentSheet({ groupId }: { groupId?: string }) {
               value={counter}
               onChange={(event) => setCounter(event.target.value)}
             >
-              {COUNTER_OPTIONS.map((option) => (
+              {counterOptions.map((option) => (
                 <option key={option}>{option}</option>
               ))}
             </select>
           </label>
+          <p className="selected-counter-count" aria-live="polite">
+            {counter}: {selectedCounterCount}
+          </p>
           <label>
             Amount
             <input
@@ -799,6 +816,67 @@ function ManagePermanentSheet({ groupId }: { groupId?: string }) {
           >
             Apply Counters
           </button>
+          <div
+            className="counter-removal-actions"
+            role="group"
+            aria-label={`Remove ${counter} counters`}
+          >
+            <button
+              type="button"
+              disabled={selectedCounterCount === 0}
+              aria-label={`Remove 1 ${counter} counter from ${group.label}`}
+              onClick={() => {
+                removeCounters(
+                  group.id,
+                  counter,
+                  1,
+                  scope,
+                  customQuantity,
+                  mode,
+                );
+                closeModal();
+              }}
+            >
+              Remove 1
+            </button>
+            <button
+              type="button"
+              disabled={selectedCounterCount === 0 || amount <= 0}
+              aria-label={`Remove ${amount} ${counter} counters from ${group.label}`}
+              onClick={() => {
+                removeCounters(
+                  group.id,
+                  counter,
+                  amount,
+                  scope,
+                  customQuantity,
+                  mode,
+                );
+                closeModal();
+              }}
+            >
+              Remove Amount
+            </button>
+            <button
+              type="button"
+              className="danger-action"
+              disabled={selectedCounterCount === 0}
+              aria-label={`Remove all ${counter} counters from ${group.label}`}
+              onClick={() => {
+                removeCounters(
+                  group.id,
+                  counter,
+                  selectedCounterCount,
+                  scope,
+                  customQuantity,
+                  mode,
+                );
+                closeModal();
+              }}
+            >
+              Remove All
+            </button>
+          </div>
         </section>
         <section>
           <h3>Statuses</h3>
@@ -907,6 +985,66 @@ function ManagePermanentSheet({ groupId }: { groupId?: string }) {
             Remove One Neutrally
           </button>
         </section>
+      </div>
+    </div>
+  );
+}
+
+function LandPlaySheet() {
+  const planner = useFieldStore((state) => state.field.preTurnPlanner);
+  const adjustLandPlayMark = useFieldStore((state) => state.adjustLandPlayMark);
+  const closeModal = useFieldStore((state) => state.closeModal);
+  const status = getLandPlayTurnStatus(planner);
+  return (
+    <div className="land-play-sheet">
+      <h2 id="modal-title">Land Play</h2>
+      <div
+        className={
+          status.complete ? "land-play-status complete" : "land-play-status"
+        }
+        role="status"
+        aria-label={status.accessibilityLabel}
+      >
+        {status.complete ? (
+          <Check aria-hidden="true" />
+        ) : (
+          <span aria-hidden="true">{status.marked}</span>
+        )}
+        <div>
+          <strong>
+            {status.expected === 1
+              ? status.complete
+                ? "Marked played"
+                : "Not marked yet"
+              : `${status.marked} of ${status.expected} marked`}
+          </strong>
+          <small>This is a memory aid, not a legality check.</small>
+        </div>
+      </div>
+      <div className="modal-actions land-play-actions">
+        {!status.complete && (
+          <button
+            type="button"
+            className="primary-action"
+            onClick={() => {
+              adjustLandPlayMark(1);
+              closeModal();
+            }}
+          >
+            Mark Land Played
+          </button>
+        )}
+        {status.marked > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              adjustLandPlayMark(-1);
+              closeModal();
+            }}
+          >
+            Mark One Not Played
+          </button>
+        )}
       </div>
     </div>
   );
@@ -1753,6 +1891,16 @@ function SettingsSheet() {
               }
             />
             Background watchers
+          </label>
+          <label className="inline-check">
+            <input
+              type="checkbox"
+              checked={field.settings.gameplayReminders}
+              onChange={(event) =>
+                updateSettings({ gameplayReminders: event.target.checked })
+              }
+            />
+            Gameplay Reminders
           </label>
         </section>
         <section>

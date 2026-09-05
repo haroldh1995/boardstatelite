@@ -606,6 +606,111 @@ textarea:focus-visible {
   font-weight: 850;
 }
 
+.total-chip.land-play-pending,
+.total-chip.land-play-complete {
+  flex-basis: 82px;
+  min-width: 82px;
+  border-color: rgba(236, 200, 122, 0.48);
+}
+
+.total-chip.land-play-pending {
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 225, 139, 0.08),
+    0 0 12px rgba(236, 200, 122, 0.14);
+}
+
+.total-chip.land-play-complete {
+  border-color: rgba(119, 255, 176, 0.35);
+}
+
+.total-chip.land-play-complete > span:first-child svg,
+.total-chip.land-play-complete .land-play-cue {
+  color: var(--accent-green);
+}
+
+.land-play-cue {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 3px;
+  color: var(--accent-gold);
+  font-size: 0.48rem;
+  font-style: normal;
+  font-weight: 850;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.land-play-cue svg {
+  width: 9px;
+  height: 9px;
+}
+
+.land-play-reminder-active {
+  animation: land-play-reminder-pulse 2.8s ease-in-out infinite;
+}
+
+@keyframes land-play-reminder-pulse {
+  0%,
+  100% {
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 225, 139, 0.08),
+      0 0 8px rgba(236, 200, 122, 0.11);
+  }
+  50% {
+    box-shadow:
+      inset 0 0 0 1px rgba(255, 225, 139, 0.2),
+      0 0 18px rgba(236, 200, 122, 0.3);
+  }
+}
+
+.gameplay-reminder {
+  width: min(720px, 100%);
+  min-height: 42px;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto 34px;
+  align-items: center;
+  gap: 8px;
+  margin: 0 auto 8px;
+  padding: 6px 7px 6px 10px;
+  border: 1px solid rgba(236, 200, 122, 0.35);
+  border-radius: 10px;
+  background: rgba(14, 14, 15, 0.9);
+  color: #fff8df;
+  font-size: 0.76rem;
+}
+
+.gameplay-reminder > svg {
+  width: 18px;
+  height: 18px;
+  color: var(--accent-gold);
+}
+
+.gameplay-reminder button {
+  min-height: 32px;
+  padding: 5px 9px;
+  border-radius: 7px;
+}
+
+.gameplay-reminder-action {
+  border-color: rgba(236, 200, 122, 0.5);
+  color: #fff3c6;
+  font-weight: 800;
+}
+
+.gameplay-reminder-dismiss {
+  width: 32px;
+  padding: 0 !important;
+  border-color: transparent;
+  background: transparent;
+}
+
+.gameplay-reminder-dismiss svg {
+  width: 16px;
+  height: 16px;
+}
+
 .settings-chip {
   flex-basis: 43px;
   min-width: 43px;
@@ -1764,6 +1869,85 @@ textarea:focus-visible {
 .counter-editor-grid {
   display: grid;
   gap: 12px;
+}
+
+.selected-counter-count {
+  margin: 4px 0 8px !important;
+  color: var(--accent-gold) !important;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.counter-removal-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.counter-removal-actions button {
+  min-width: 0;
+  min-height: 42px;
+  padding: 6px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.counter-removal-actions button:disabled {
+  opacity: 0.42;
+}
+
+.land-play-sheet {
+  display: grid;
+  gap: 12px;
+}
+
+.land-play-status {
+  min-height: 70px;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(236, 200, 122, 0.42);
+  border-radius: 8px;
+  background: rgba(17, 14, 8, 0.55);
+}
+
+.land-play-status > svg,
+.land-play-status > span {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  color: var(--accent-gold);
+  font-size: 1.2rem;
+  font-weight: 900;
+}
+
+.land-play-status.complete {
+  border-color: rgba(119, 255, 176, 0.4);
+  background: rgba(7, 47, 31, 0.44);
+}
+
+.land-play-status.complete > svg {
+  color: var(--accent-green);
+}
+
+.land-play-status strong,
+.land-play-status small {
+  display: block;
+}
+
+.land-play-status small {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.land-play-actions button {
+  flex: 1 1 150px;
 }
 
 .zone-composition-sheet {
@@ -3132,6 +3316,19 @@ textarea {
   }
 }
 
+@media (max-width: 360px) {
+  .gameplay-reminder {
+    grid-template-columns: 18px minmax(0, 1fr) auto 30px;
+    gap: 5px;
+    font-size: 0.68rem;
+  }
+
+  .gameplay-reminder button {
+    padding-inline: 6px;
+    font-size: 0.66rem;
+  }
+}
+
 @media (max-width: 640px) {
   .modal-sheet.scryfall-sheet {
     width: 100%;
@@ -3171,5 +3368,9 @@ textarea {
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
+  }
+
+  .land-play-reminder-active {
+    animation: none !important;
   }
 }

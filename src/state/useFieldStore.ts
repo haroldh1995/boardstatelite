@@ -45,7 +45,9 @@ import {
   removePlannedAction,
   reorderPlannedAction,
   resetPreTurnPlanner,
+  resetLandPlayTurn,
   setAvailableLandPlays,
+  setConfirmedLandPlays,
   setPlannedActionStatus,
   setPlannerGroupCollapsed,
   syncPlannerWithAmbientMode,
@@ -221,6 +223,15 @@ interface FieldStore {
     customQuantity: number,
     mode: CounterApplicationMode,
   ) => void;
+  removeCounters: (
+    groupId: string,
+    counter: string,
+    amount: number,
+    scope: StackScope,
+    customQuantity: number,
+    mode: CounterApplicationMode,
+  ) => void;
+  adjustLandPlayMark: (delta: -1 | 1) => void;
   removeGroup: (groupId: string, quantity: number) => void;
   replaceGeneric: (
     groupId: string,
@@ -577,6 +588,84 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
         },
       ],
     });
+  },
+
+  removeCounters(groupId, counter, amount, scope, customQuantity, mode) {
+    const field = get().field;
+    const group = field.groups.find((entry) => entry.id === groupId);
+    if (!group) return;
+    const available = Math.max(0, Math.trunc(group.counters[counter] ?? 0));
+    const normalizedAmount = Math.min(
+      available,
+      Math.max(0, Math.trunc(amount)),
+    );
+    if (normalizedAmount === 0) return;
+    const targetQuantity =
+      scope === "one"
+        ? 1
+        : scope === "custom"
+          ? Math.max(1, Math.min(Math.trunc(customQuantity), group.quantity))
+          : group.quantity;
+    if (mode === "game-action") {
+      get().processConfirmedAthenaEvent(
+        createConfirmedManualAthenaEvent(field, {
+          eventCategory: "counter-removed",
+          quantity: normalizedAmount,
+          subjectGroupIds: [group.id],
+          counterType: counter,
+          knownCharacteristics: group.characteristics,
+          metadata: {
+            label: group.label,
+            targetQuantity,
+            interaction: "counter-removal-game-action",
+          },
+        }),
+      );
+      return;
+    }
+    get().applyReconciliation({
+      source: "manual-correction",
+      level: "quick-correction",
+      confidence: "exact",
+      provenance: "Counter removal correction control",
+      repairs: [
+        {
+          id: makeId("repair-counter-removal"),
+          kind: "set-counter",
+          groupId,
+          counter,
+          value: available - normalizedAmount,
+          quantity: targetQuantity,
+        },
+      ],
+    });
+  },
+
+  adjustLandPlayMark(delta) {
+    const before = get().field;
+    const current = before.preTurnPlanner.availableLandPlays.confirmed;
+    const confirmed = Math.max(0, Math.min(999, current + delta));
+    if (confirmed === current) return;
+    const timestamp = new Date().toISOString();
+    const next = normalizeField({
+      ...before,
+      preTurnPlanner: setConfirmedLandPlays(
+        before.preTurnPlanner,
+        confirmed,
+        timestamp,
+      ),
+    });
+    commitField(
+      confirmed > current ? "Land play marked" : "Land play mark corrected",
+      before,
+      next,
+      [
+        confirmed > current
+          ? "Marked a physical land play for this turn."
+          : "Corrected the land-play marker without changing the battlefield.",
+      ],
+      set,
+    );
   },
 
   removeGroup(groupId, quantity) {
@@ -3385,7 +3474,7 @@ function applyActionStripMutation(
       ? transitionForActionItem(synced, item.kind, timestamp)
       : synced.ambient;
   const plannerStatus = plannerStatusFromActionStripStatus(status);
-  const nextPlanner =
+  const updatedPlanner =
     item.sourceActionId && plannerStatus
       ? setPlannedActionStatus(
           synced.preTurnPlanner,
@@ -3394,6 +3483,10 @@ function applyActionStripMutation(
           timestamp,
         )
       : synced.preTurnPlanner;
+  const nextPlanner =
+    item.kind === "begin-turn" && status === "completed"
+      ? resetLandPlayTurn(updatedPlanner, timestamp)
+      : updatedPlanner;
   const nextStrip = markActionStripPipelineResult(
     setActionStripItemStatus(
       synced.activeTurnActionStrip,

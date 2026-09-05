@@ -28,7 +28,7 @@ export function AthenaDecisionSurface() {
   const [quantity, setQuantity] = useState(0);
   const [distribution, setDistribution] = useState<Record<string, number>>({});
   const [orderIds, setOrderIds] = useState<string[]>([]);
-  const [manualCategory, setManualCategory] = useState("token-created");
+  const [manualCategory, setManualCategory] = useState("");
   const [manualPower, setManualPower] = useState(1);
   const [manualToughness, setManualToughness] = useState(1);
   const [identifyingCandidateId, setIdentifyingCandidateId] = useState<
@@ -44,7 +44,7 @@ export function AthenaDecisionSurface() {
     );
     setDistribution({});
     setOrderIds(request?.candidates.map((candidate) => candidate.id) ?? []);
-    setManualCategory("token-created");
+    setManualCategory("");
     setManualPower(1);
     setManualToughness(1);
     setIdentifyingCandidateId(null);
@@ -147,6 +147,7 @@ export function AthenaDecisionSurface() {
               value={manualCategory}
               onChange={(event) => setManualCategory(event.target.value)}
             >
+              <option value="">Choose result</option>
               <option value="token-created">Create tokens</option>
               <option value="life-gained">Gain life</option>
               <option value="life-lost">Lose life</option>
@@ -193,6 +194,7 @@ export function AthenaDecisionSurface() {
             disabled={
               !Number.isSafeInteger(quantity) ||
               quantity <= 0 ||
+              manualCategory === "" ||
               (manualCategory === "token-created" &&
                 (!Number.isSafeInteger(manualPower) ||
                   !Number.isSafeInteger(manualToughness)))

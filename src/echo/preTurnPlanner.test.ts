@@ -19,11 +19,14 @@ import {
   createDefaultPreTurnPlannerState,
   getPreTurnPlannerAvailability,
   getPreTurnPlannerDiagnostics,
+  getLandPlayTurnStatus,
   plannedActionToAmbientIntent,
   removePlannedAction,
   reorderPlannedAction,
   resetPreTurnPlanner,
+  resetLandPlayTurn,
   setAvailableLandPlays,
+  setConfirmedLandPlays,
   setPlannedActionStatus,
   setPlannerGroupCollapsed,
   syncPlannerWithAmbientMode,
@@ -33,6 +36,39 @@ import {
 const timestamp = "2026-07-21T00:00:00.000Z";
 
 describe("One-Minute Pre-Turn Planner", () => {
+  it("tracks and resets the turn-scoped land-play memory aid", () => {
+    let planner = createDefaultPreTurnPlannerState({ timestamp });
+    expect(getLandPlayTurnStatus(planner)).toMatchObject({
+      marked: 0,
+      expected: 1,
+      complete: false,
+      accessibilityLabel: "Land play: not marked this turn.",
+    });
+    planner = setConfirmedLandPlays(planner, 1, timestamp);
+    expect(getLandPlayTurnStatus(planner)).toMatchObject({
+      marked: 1,
+      complete: true,
+      accessibilityLabel: "Land play: marked complete.",
+    });
+    planner = resetLandPlayTurn(planner, timestamp);
+    expect(getLandPlayTurnStatus(planner)).toMatchObject({
+      marked: 0,
+      expected: 1,
+      complete: false,
+    });
+  });
+
+  it("supports multiple expected land plays without enforcing legality", () => {
+    let planner = createDefaultPreTurnPlannerState({ timestamp });
+    planner = setAvailableLandPlays(planner, 2, timestamp);
+    planner = setConfirmedLandPlays(planner, 1, timestamp);
+    expect(getLandPlayTurnStatus(planner)).toMatchObject({
+      marked: 1,
+      expected: 2,
+      remaining: 1,
+      complete: false,
+    });
+  });
   it("creates an empty local planner without battlefield side effects", () => {
     const field = createDefaultField();
     const planner = createDefaultPreTurnPlannerState({

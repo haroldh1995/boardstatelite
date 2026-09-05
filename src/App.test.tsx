@@ -18,6 +18,9 @@ import {
 import { MicrophoneStatusIndicator } from "./components/MicrophoneStatusIndicator";
 import { AthenaDecisionSurface } from "./components/AthenaDecisionSurface";
 import { Battlefield } from "./components/Battlefield";
+import { TotalsStrip } from "./components/TotalsStrip";
+import { ModalRoot } from "./components/ModalRoot";
+import { GameplayReminderBanner } from "./components/GameplayReminderBanner";
 import { useFieldStore } from "./state/useFieldStore";
 import {
   animPakal,
@@ -103,6 +106,104 @@ describe("Baord State Lite app shell", () => {
     useFieldStore.getState().setTrackingEnabled(anthem().id, true, "all", 1);
     expect(recipient().pt.currentPower).toBe(3);
   }, 20_000);
+
+  it("exposes precise counter removal controls for the selected counter type", async () => {
+    const user = userEvent.setup();
+    const creature = createGenericGroup({
+      kind: "Creature",
+      label: "Counter test creature",
+      power: 2,
+      toughness: 2,
+    });
+    creature.counters = { "+1/+1": 7, Shield: 2 };
+    useFieldStore.setState({
+      field: normalizeField({ ...createDefaultField(), groups: [creature] }),
+      modal: { kind: "managePermanent", groupId: creature.id },
+      startupVisible: false,
+      hydrated: true,
+    });
+    render(<ModalRoot />);
+
+    const amount = screen.getByRole("spinbutton", { name: "Amount" });
+    await user.clear(amount);
+    await user.type(amount, "3");
+    await user.click(
+      screen.getByRole("button", {
+        name: /remove 3 \+1\/\+1 counters from counter test creature/i,
+      }),
+    );
+    expect(useFieldStore.getState().field.groups[0].counters).toMatchObject({
+      "+1/+1": 4,
+      Shield: 2,
+    });
+
+    act(() => {
+      useFieldStore.getState().openModal({
+        kind: "managePermanent",
+        groupId: useFieldStore.getState().field.groups[0].id,
+      });
+    });
+    await user.click(
+      screen.getByRole("button", {
+        name: /remove all \+1\/\+1 counters from counter test creature/i,
+      }),
+    );
+    expect(
+      useFieldStore.getState().field.groups[0].counters["+1/+1"],
+    ).toBeUndefined();
+    expect(useFieldStore.getState().field.groups[0].counters.Shield).toBe(2);
+  });
+
+  it("shows accessible land-play status and allows a manual mark", async () => {
+    const user = userEvent.setup();
+    useFieldStore.setState({
+      field: createDefaultField(),
+      modal: null,
+      startupVisible: false,
+      hydrated: true,
+    });
+    render(
+      <>
+        <TotalsStrip />
+        <ModalRoot />
+      </>,
+    );
+    const pending = screen.getByRole("button", {
+      name: /lands: \d+.*land play: not marked this turn/i,
+    });
+    await user.click(pending);
+    await user.click(screen.getByRole("button", { name: "Mark Land Played" }));
+    expect(
+      screen.getByRole("button", {
+        name: /lands: \d+.*land play: marked complete/i,
+      }),
+    ).toBeInTheDocument();
+    expect(useFieldStore.getState().field.groups).toHaveLength(
+      createDefaultField().groups.length,
+    );
+  });
+
+  it("keeps gameplay reminders optional, contextual, and dismissible", async () => {
+    const user = userEvent.setup();
+    const base = createDefaultField();
+    useFieldStore.setState({
+      field: normalizeField({
+        ...base,
+        ambient: { ...base.ambient, currentMode: "activeTurn" },
+        settings: { ...base.settings, gameplayReminders: true },
+      }),
+      startupVisible: false,
+      hydrated: true,
+    });
+    render(<GameplayReminderBanner />);
+    expect(screen.getByTestId("gameplay-reminder")).toHaveTextContent(
+      "Land play not marked yet.",
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Dismiss gameplay reminder" }),
+    );
+    expect(screen.queryByTestId("gameplay-reminder")).not.toBeInTheDocument();
+  });
 
   it("commits confirmed Athena events and automatic bookkeeping through one store boundary", () => {
     const field = fieldWith([

@@ -1,4 +1,5 @@
 import type { AthenaEventCategory } from "../athena/dependencyGraphTypes";
+import { classifySupportedEffectOutcomes } from "./effectOutcomes";
 
 export const ATHENA_TRIGGER_RESOLUTION_DEFINITION_VERSION = 1;
 
@@ -305,6 +306,57 @@ export function getAthenaTriggerResolutionDefinition(
 
 export function getAthenaTriggerResolutionDefinitions(): AthenaTriggerResolutionDefinition[] {
   return DEFINITIONS.map(copyDefinition);
+}
+
+export function getStructuredEffectResolutionDefinition(
+  sourceLabel: string,
+  oracleText: string,
+  observedEvent: AthenaEventCategory,
+): AthenaTriggerResolutionDefinition | null {
+  const classified = classifySupportedEffectOutcomes(oracleText);
+  if (classified.status !== "supported") return null;
+  const actions = classified.outcomes.map((outcome, index) => {
+    if (outcome.kind === "life") {
+      const gain = outcome.mode === "gain";
+      return {
+        id: `structured-life-${index}`,
+        kind: gain ? ("gain-life" as const) : ("lose-life" as const),
+        target: "player-controller" as const,
+        quantity: { kind: "fixed-per-trigger" as const, value: outcome.amount },
+        eventCategory: gain ? ("life-gained" as const) : ("life-lost" as const),
+      };
+    }
+    return {
+      id: `structured-token-${index}`,
+      kind: "create-token" as const,
+      target: "player-controller" as const,
+      quantity: { kind: "fixed-per-trigger" as const, value: outcome.quantity },
+      token: {
+        name: outcome.name,
+        power: outcome.power,
+        toughness: outcome.toughness,
+        cardTypes: [...outcome.cardTypes],
+        subtypes: [...outcome.subtypes],
+        colors: [...outcome.colors],
+        tapped: outcome.tapped,
+        attacking: outcome.attacking,
+        copySourceWhenLandThresholdAtLeast: null,
+      },
+      eventCategory: "token-created" as const,
+    };
+  });
+  return {
+    id: `structured:${normalize(sourceLabel)}`,
+    version: ATHENA_TRIGGER_RESOLUTION_DEFINITION_VERSION,
+    labels: [sourceLabel],
+    observedEvents: [observedEvent],
+    mandatory: true,
+    locallySupported: true,
+    requiresAuthority: false,
+    requiresManualResolution: false,
+    actions,
+    semanticLabel: `${sourceLabel} effect`,
+  };
 }
 
 function copyDefinition(

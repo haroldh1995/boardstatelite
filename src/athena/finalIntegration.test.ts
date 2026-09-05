@@ -83,6 +83,86 @@ describe("ATHENA-15 final gameplay integration", () => {
     ).toMatchObject({ quantity: 1 });
   });
 
+  it("removes precise counter quantities through canonical state and undo/redo", () => {
+    const creature = withCounters(genericCreature(), {
+      "+1/+1": 7,
+      Shield: 2,
+    });
+    useFieldStore.setState({ field: fieldWith([creature]) });
+
+    useFieldStore
+      .getState()
+      .removeCounters(creature.id, "+1/+1", 1, "all", 1, "game-action");
+    expect(useFieldStore.getState().field.groups[0].counters).toMatchObject({
+      "+1/+1": 6,
+      Shield: 2,
+    });
+    expect(useFieldStore.getState().field.groups[0].pt.currentPower).toBe(8);
+
+    useFieldStore
+      .getState()
+      .removeCounters(creature.id, "+1/+1", 3, "all", 1, "game-action");
+    expect(useFieldStore.getState().field.groups[0].counters["+1/+1"]).toBe(3);
+
+    useFieldStore
+      .getState()
+      .removeCounters(creature.id, "+1/+1", 99, "all", 1, "game-action");
+    expect(
+      useFieldStore.getState().field.groups[0].counters["+1/+1"],
+    ).toBeUndefined();
+    expect(useFieldStore.getState().field.groups[0].counters.Shield).toBe(2);
+
+    useFieldStore.getState().undo();
+    expect(useFieldStore.getState().field.groups[0].counters["+1/+1"]).toBe(3);
+    useFieldStore.getState().redo();
+    expect(
+      useFieldStore.getState().field.groups[0].counters["+1/+1"],
+    ).toBeUndefined();
+  });
+
+  it("removes counters as Correction Only without generating gameplay", () => {
+    const creature = withCounters(genericCreature(), { Charge: 4 });
+    useFieldStore.setState({ field: fieldWith([creature]) });
+
+    useFieldStore
+      .getState()
+      .removeCounters(creature.id, "Charge", 2, "all", 1, "correction");
+
+    const current = useFieldStore.getState().field;
+    expect(current.groups[0].counters.Charge).toBe(2);
+    expect(current.athena.liveTurn.processedCanonicalEventIds).toEqual([]);
+    expect(current.athena.reconciliation.recent.at(-1)).toMatchObject({
+      gameplayEventsGenerated: 0,
+      triggersGenerated: 0,
+    });
+  });
+
+  it("marks a physical land play without adding a card and supports correction", () => {
+    const field = fieldWith([]);
+    useFieldStore.setState({ field });
+    useFieldStore.getState().adjustLandPlayMark(1);
+    expect(useFieldStore.getState().field.groups).toEqual([]);
+    expect(
+      useFieldStore.getState().field.preTurnPlanner.availableLandPlays
+        .confirmed,
+    ).toBe(1);
+    useFieldStore.getState().adjustLandPlayMark(-1);
+    expect(
+      useFieldStore.getState().field.preTurnPlanner.availableLandPlays
+        .confirmed,
+    ).toBe(0);
+    useFieldStore.getState().undo();
+    expect(
+      useFieldStore.getState().field.preTurnPlanner.availableLandPlays
+        .confirmed,
+    ).toBe(1);
+    useFieldStore.getState().redo();
+    expect(
+      useFieldStore.getState().field.preTurnPlanner.availableLandPlays
+        .confirmed,
+    ).toBe(0);
+  });
+
   it("routes an unplanned land through landfall bookkeeping and planner divergence", () => {
     const hydra = withCounters(
       tracked(

@@ -11,6 +11,7 @@ import { calculateTotals } from "../domain/field";
 import {
   ATHENA_TRIGGER_RESOLUTION_DEFINITION_VERSION,
   getAthenaTriggerResolutionDefinition,
+  getStructuredEffectResolutionDefinition,
   type AthenaResolutionAction,
   type AthenaResolutionQuantity,
   type AthenaTriggerResolutionDefinition,
@@ -1746,7 +1747,18 @@ function definitionForTrigger(
   );
   if (known) return { definition: known, custom: false };
   const custom = customDefinitionForTrigger(trigger, field);
-  return custom ? { definition: custom, custom: true } : null;
+  if (custom) return { definition: custom, custom: true };
+  const source = trigger.source.sourceGroupId
+    ? field.groups.find((group) => group.id === trigger.source.sourceGroupId)
+    : null;
+  const structured = source?.identity
+    ? getStructuredEffectResolutionDefinition(
+        trigger.source.label,
+        source.identity.oracleText,
+        trigger.observedEventCategory,
+      )
+    : null;
+  return structured ? { definition: structured, custom: false } : null;
 }
 
 function customDefinitionForTrigger(

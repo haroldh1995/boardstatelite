@@ -296,6 +296,156 @@ describe("ATHENA-08 trigger resolution eligibility", () => {
   });
 });
 
+describe("structured effect outcome resolution", () => {
+  function creatureTokenEntry(field: FieldState, eventId: string) {
+    return createAthenaForecastInput(
+      {
+        eventId,
+        eventCategory: "token-created",
+        eventSource: "canonical-event",
+        authoritySource: "confirmed-canonical-session-result",
+        timestamp,
+        quantity: 1,
+        knownCharacteristics: {
+          cardTypes: ["Creature"],
+          subtypes: ["Soldier"],
+          colors: ["W"],
+          supertypes: [],
+          manaValue: 0,
+          isToken: true,
+          isCreature: true,
+          isLegendary: false,
+        },
+        tokenDefinition: {
+          id: "token:soldier:1/1",
+          name: "Soldier",
+          power: 1,
+          toughness: 1,
+          characteristics: {
+            cardTypes: ["Creature"],
+            supertypes: [],
+            subtypes: ["Soldier"],
+            colors: ["W"],
+            manaValue: 0,
+            isToken: true,
+            isCreature: true,
+            isLegendary: false,
+            knownFields: [
+              "cardTypes",
+              "supertypes",
+              "subtypes",
+              "colors",
+              "manaValue",
+              "isToken",
+              "isCreature",
+              "isLegendary",
+            ],
+          },
+        },
+        metadata: { confirmed: true },
+      },
+      createForecastEnvironment(field),
+    );
+  }
+
+  it("resolves supported life text as life rather than a fake token", () => {
+    const source = tracked(
+      testCard({
+        name: "Three-Life Observer",
+        typeLine: "Creature - Cleric",
+        oracleText: "Whenever another creature enters, you gain 3 life.",
+        power: "1",
+        toughness: "1",
+      }),
+    );
+    const field = fieldWith([source]);
+    const result = processAthenaConfirmedEventWithBookkeeping({
+      field,
+      event: creatureTokenEntry(field, "structured-life"),
+      queue: queueFor(field),
+      timestamp,
+    });
+    expect(result.validity).toBe("committed");
+    expect(result.resultingField.player.life).toBe(43);
+    expect(
+      result.resultingField.groups.filter((group) => group.label === "Soldier"),
+    ).toHaveLength(1);
+    expect(
+      result.resultingField.groups.some((group) => group.label === "Token"),
+    ).toBe(false);
+  });
+
+  it("resolves supported life loss without creating battlefield state", () => {
+    const source = tracked(
+      testCard({
+        name: "Life-Loss Observer",
+        typeLine: "Enchantment",
+        oracleText: "Whenever another creature enters, you lose 2 life.",
+      }),
+    );
+    const field = fieldWith([source]);
+    const result = processAthenaConfirmedEventWithBookkeeping({
+      field,
+      event: creatureTokenEntry(field, "structured-life-loss"),
+      queue: queueFor(field),
+      timestamp,
+    });
+
+    expect(result.validity).toBe("committed");
+    expect(result.resultingField.player.life).toBe(38);
+    expect(
+      result.resultingField.groups.map((group) => group.label).sort(),
+    ).toEqual(["Life-Loss Observer", "Soldier"]);
+  });
+
+  it("resolves supported multi-part effects into token and life events", () => {
+    const source = tracked(
+      testCard({
+        name: "Treasure-Life Observer",
+        typeLine: "Enchantment",
+        oracleText:
+          "Whenever a creature enters, create a Treasure token. You gain 1 life.",
+      }),
+    );
+    const field = fieldWith([source]);
+    const result = processAthenaConfirmedEventWithBookkeeping({
+      field,
+      event: creatureTokenEntry(field, "structured-multi"),
+      queue: queueFor(field),
+      timestamp,
+    });
+    expect(result.validity).toBe("committed");
+    expect(result.resultingField.player.life).toBe(41);
+    expect(
+      result.resultingField.groups.find((group) => group.label === "Treasure")
+        ?.quantity,
+    ).toBe(1);
+  });
+
+  it("leaves unsupported outcomes manual without creating a placeholder", () => {
+    const source = tracked(
+      testCard({
+        name: "Unknown Observer",
+        typeLine: "Enchantment",
+        oracleText: "Whenever a creature enters, scry 1.",
+        supportStatus: "partially-automated",
+      }),
+    );
+    const field = fieldWith([source]);
+    const result = processAthenaConfirmedEventWithBookkeeping({
+      field,
+      event: creatureTokenEntry(field, "structured-unknown"),
+      queue: queueFor(field),
+      timestamp,
+    });
+    expect(result.validity).toBe("committed");
+    expect(
+      result.resultingField.groups.map((group) => group.label).sort(),
+    ).toEqual(["Soldier", "Unknown Observer"]);
+    expect(result.resultingField.player.life).toBe(40);
+  });
+});
+
 describe("ATHENA-08 automatic bookkeeping", () => {
   it.each([1, 6, 100])(
     "resolves Soul Warden x%i through one grouped life event",

@@ -348,6 +348,105 @@ export function recordConfirmedLandPlay(
   );
 }
 
+export interface LandPlayTurnStatus {
+  marked: number;
+  expected: number;
+  remaining: number;
+  complete: boolean;
+  accessibilityLabel: string;
+}
+
+export function getLandPlayTurnStatus(
+  planner: PreTurnPlannerState,
+): LandPlayTurnStatus {
+  const marked = boundedInteger(
+    planner.availableLandPlays.confirmed,
+    0,
+    999,
+    0,
+  );
+  const expected = Math.max(
+    1,
+    boundedInteger(planner.availableLandPlays.planned, 0, 999, 0),
+    marked + boundedInteger(planner.availableLandPlays.remaining, 0, 999, 0),
+  );
+  const remaining = Math.max(0, expected - marked);
+  const complete = remaining === 0;
+  return {
+    marked,
+    expected,
+    remaining,
+    complete,
+    accessibilityLabel: complete
+      ? expected === 1
+        ? "Land play: marked complete."
+        : `Land plays: ${marked} of ${expected} marked complete.`
+      : expected === 1
+        ? "Land play: not marked this turn."
+        : `Land plays: ${marked} of ${expected} marked this turn.`,
+  };
+}
+
+export function setConfirmedLandPlays(
+  planner: PreTurnPlannerState,
+  confirmed: number,
+  timestamp = new Date().toISOString(),
+): PreTurnPlannerState {
+  const current = getLandPlayTurnStatus(planner);
+  const nextConfirmed = boundedInteger(confirmed, 0, 999, 0);
+  const expected = Math.max(current.expected, nextConfirmed, 1);
+  return normalizePreTurnPlannerState(
+    {
+      ...planner,
+      updatedAt: timestamp,
+      intentVersion: planner.intentVersion + 1,
+      availableLandPlays: {
+        ...planner.availableLandPlays,
+        planned: expected,
+        confirmed: nextConfirmed,
+        remaining: Math.max(0, expected - nextConfirmed),
+        updatedAt: timestamp,
+        source: "manual-planner",
+      },
+    },
+    {
+      fallbackTimestamp: timestamp,
+      sessionId: planner.sessionId,
+      ambientMode: planner.lifecycle.lastAmbientMode,
+    },
+  );
+}
+
+export function resetLandPlayTurn(
+  planner: PreTurnPlannerState,
+  timestamp = new Date().toISOString(),
+): PreTurnPlannerState {
+  const expected = Math.max(
+    1,
+    planner.availableLandPlays.planned,
+    planner.availableLandPlays.confirmed + planner.availableLandPlays.remaining,
+  );
+  return normalizePreTurnPlannerState(
+    {
+      ...planner,
+      updatedAt: timestamp,
+      intentVersion: planner.intentVersion + 1,
+      availableLandPlays: {
+        ...planner.availableLandPlays,
+        planned: expected,
+        confirmed: 0,
+        remaining: expected,
+        updatedAt: timestamp,
+      },
+    },
+    {
+      fallbackTimestamp: timestamp,
+      sessionId: planner.sessionId,
+      ambientMode: planner.lifecycle.lastAmbientMode,
+    },
+  );
+}
+
 export function recordPlannedActionExecution(
   planner: PreTurnPlannerState,
   actionId: string,

@@ -71,6 +71,7 @@ export type ModalKind =
   | "settings"
   | "planner"
   | "catchUp"
+  | "landPlay"
   | "exactTotal"
   | "zoneComposition"
   | "cardIdentification"
@@ -258,6 +259,7 @@ export interface SettingsState {
   animationSpeed: "reduced" | "normal" | "fast";
   reducedMotion: boolean;
   backgroundWatchers: boolean;
+  gameplayReminders: boolean;
   optionalEffects: "always" | "never" | "ask";
   triggerOrdering: "auto" | "ask-when-needed";
   themeAccent: "verdant" | "sapphire" | "violet";

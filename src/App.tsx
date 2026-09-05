@@ -9,6 +9,7 @@ import { MicrophoneStatusIndicator } from "./components/MicrophoneStatusIndicato
 import { ModalRoot } from "./components/ModalRoot";
 import { SmartSuggestionsTray } from "./components/SmartSuggestionsTray";
 import { TotalsStrip } from "./components/TotalsStrip";
+import { GameplayReminderBanner } from "./components/GameplayReminderBanner";
 import { isReferenceFixtureMode } from "./dev/referenceMode";
 import { useFieldStore } from "./state/useFieldStore";
 import "./App.css";
@@ -136,6 +137,7 @@ function App() {
         <>
           <LifeTracker />
           <TotalsStrip />
+          <GameplayReminderBanner />
           <MicrophoneStatusIndicator />
           {catchUpSuggested && (
             <aside

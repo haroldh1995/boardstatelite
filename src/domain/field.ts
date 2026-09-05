@@ -310,6 +310,7 @@ export function createDefaultSettings(): SettingsState {
     animationSpeed: "normal",
     reducedMotion: false,
     backgroundWatchers: true,
+    gameplayReminders: false,
     optionalEffects: "ask",
     triggerOrdering: "ask-when-needed",
     themeAccent: "verdant",
@@ -329,6 +330,7 @@ export function normalizeSettings(value: unknown): SettingsState {
   return {
     ...defaults,
     ...candidate,
+    gameplayReminders: candidate.gameplayReminders === true,
     voice: normalizeEchoVoiceSettings(candidate.voice),
     personalGameplay: normalizePersonalGameplaySettings(
       candidate.personalGameplay,
