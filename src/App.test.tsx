@@ -124,6 +124,17 @@ describe("Baord State Lite app shell", () => {
     });
     render(<ModalRoot />);
 
+    await user.click(
+      screen.getByRole("button", { name: /remove one \+1\/\+1 counter/i }),
+    );
+    expect(useFieldStore.getState().field.groups[0].counters).toMatchObject({
+      "+1/+1": 6,
+      Shield: 2,
+    });
+
+    await user.click(
+      screen.getByRole("button", { name: /advanced \/ correct card state/i }),
+    );
     const amount = screen.getByRole("spinbutton", { name: "Amount" });
     await user.clear(amount);
     await user.type(amount, "3");
@@ -133,7 +144,7 @@ describe("Baord State Lite app shell", () => {
       }),
     );
     expect(useFieldStore.getState().field.groups[0].counters).toMatchObject({
-      "+1/+1": 4,
+      "+1/+1": 3,
       Shield: 2,
     });
 
@@ -143,6 +154,9 @@ describe("Baord State Lite app shell", () => {
         groupId: useFieldStore.getState().field.groups[0].id,
       });
     });
+    await user.click(
+      screen.getByRole("button", { name: /advanced \/ correct card state/i }),
+    );
     await user.click(
       screen.getByRole("button", {
         name: /remove all \+1\/\+1 counters from counter test creature/i,
@@ -608,8 +622,10 @@ describe("Baord State Lite app shell", () => {
     await user.click(
       await screen.findByRole("button", { name: /continue to field/i }),
     );
-    await user.click(screen.getByRole("button", { name: /^tools$/i }));
-    await user.click(screen.getByRole("button", { name: /catch me up/i }));
+    await user.click(screen.getByRole("button", { name: /^user tools$/i }));
+    await user.click(
+      screen.getByRole("button", { name: /battlefield correction/i }),
+    );
 
     expect(
       screen.getByText(
@@ -654,12 +670,7 @@ describe("Baord State Lite app shell", () => {
       await screen.findByRole("button", { name: /continue to field/i }),
     );
 
-    for (const counterName of [
-      "Poison",
-      "Energy",
-      "CMD Damage",
-      "Experience",
-    ]) {
+    for (const counterName of ["Poison", "Energy", "Experience"]) {
       await user.click(
         screen.getByRole("button", {
           name: new RegExp(`${counterName}: 0\\. Tap to edit`, "i"),
@@ -670,6 +681,14 @@ describe("Baord State Lite app shell", () => {
       ).toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: /close/i }));
     }
+
+    await user.click(
+      screen.getByRole("button", { name: /cmd damage: 0\. tap to edit/i }),
+    );
+    expect(
+      screen.getByRole("heading", { name: /commander damage/i }),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /close/i }));
 
     await user.click(
       screen.getByRole("button", { name: /poison: 0\. tap to edit/i }),
@@ -769,10 +788,8 @@ describe("Baord State Lite app shell", () => {
     await user.click(
       await screen.findByRole("button", { name: /continue to field/i }),
     );
-    await user.click(screen.getByRole("button", { name: /^tools$/i }));
-    await user.click(
-      screen.getByRole("button", { name: /open pre-turn planner/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /^user tools$/i }));
+    await user.click(screen.getByRole("button", { name: /plan next turn/i }));
 
     expect(
       screen.getByRole("heading", { name: /one-minute pre-turn planner/i }),
@@ -813,7 +830,7 @@ describe("Baord State Lite app shell", () => {
     await user.click(
       await screen.findByRole("button", { name: /continue to field/i }),
     );
-    await user.click(screen.getByRole("button", { name: /^tools$/i }));
+    await user.click(screen.getByRole("button", { name: /open settings/i }));
 
     expect(
       screen.getByRole("heading", { name: /voice & microphone/i }),
@@ -927,7 +944,7 @@ describe("Baord State Lite app shell", () => {
     await user.click(
       await screen.findByRole("button", { name: /continue to field/i }),
     );
-    await user.click(screen.getByRole("button", { name: /^tools$/i }));
+    await user.click(screen.getByRole("button", { name: /open settings/i }));
 
     expect(
       screen.getByRole("heading", { name: /personalization/i }),
@@ -967,10 +984,8 @@ describe("Baord State Lite app shell", () => {
     await user.click(
       await screen.findByRole("button", { name: /continue to field/i }),
     );
-    await user.click(screen.getByRole("button", { name: /^tools$/i }));
-    await user.click(
-      screen.getByRole("button", { name: /open pre-turn planner/i }),
-    );
+    await user.click(screen.getByRole("button", { name: /^user tools$/i }));
+    await user.click(screen.getByRole("button", { name: /plan next turn/i }));
     await user.type(screen.getByLabelText(/plan title/i), "Forest");
     await user.click(
       screen.getByRole("button", { name: /add planned action/i }),

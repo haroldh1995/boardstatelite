@@ -11,10 +11,12 @@ export type AthenaStaticTargetKind =
   | "self"
   | "controlled-creatures"
   | "other-controlled-creatures"
-  | "attached-host";
+  | "attached-host"
+  | "selected";
 
 export interface AthenaStaticTargetFilter {
   kind: AthenaStaticTargetKind;
+  selectedGroupId?: string | null;
   tokenState: "any" | "token" | "nontoken";
   cardType: string | null;
   subtype: string | null;
@@ -37,6 +39,7 @@ export interface AthenaStaticEffectDefinition {
   id: string;
   abilityId: string;
   cardNames: string[];
+  sourceGroupIds?: string[];
   category: AthenaStaticEffectCategory;
   operation: "add" | "set-base";
   target: AthenaStaticTargetFilter;
@@ -338,11 +341,15 @@ export function normalizeStaticCardName(name: string): string {
 export function getAthenaStaticEffectDefinitionsForCard(
   name: string | null | undefined,
   definitions: readonly AthenaStaticEffectDefinition[] = ATHENA_STATIC_EFFECT_DEFINITIONS,
+  groupId?: string,
 ): AthenaStaticEffectDefinition[] {
-  if (!name) return [];
-  const normalized = normalizeStaticCardName(name);
+  const normalized = name ? normalizeStaticCardName(name) : null;
   return definitions
-    .filter((entry) => entry.cardNames.includes(normalized))
+    .filter(
+      (entry) =>
+        (normalized ? entry.cardNames.includes(normalized) : false) ||
+        (groupId ? entry.sourceGroupIds?.includes(groupId) : false),
+    )
     .map(cloneDefinition)
     .sort((a, b) => a.id.localeCompare(b.id));
 }
@@ -357,6 +364,9 @@ function cloneDefinition(
   return {
     ...value,
     cardNames: [...value.cardNames],
+    sourceGroupIds: value.sourceGroupIds
+      ? [...value.sourceGroupIds]
+      : undefined,
     target: { ...value.target },
     power: {
       ...value.power,

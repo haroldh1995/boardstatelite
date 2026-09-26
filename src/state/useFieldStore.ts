@@ -191,6 +191,42 @@ import type {
   ZoneCompositionCommandResult,
   ZoneCompositionCorrectionInput,
 } from "../domain/zoneCompositionTypes";
+import {
+  applyManualPowerToughnessEffects,
+  createManualStaticEffect,
+  type ManualEffectInput,
+} from "../domain/manualEffects";
+import { ATHENA_STATIC_EFFECT_DEFINITIONS } from "../domain/staticEffects";
+import {
+  addExternalSource,
+  progressDungeon,
+  recordPlanarDieResult,
+  removeExternalSource,
+  setCurrentPlane,
+  setCurrentScheme,
+  type ExternalSourceObject,
+} from "../domain/externalGameState";
+import {
+  flipCoins,
+  recordRandomizerResult,
+  rollDice,
+  type RandomizerResult,
+} from "../domain/randomizer";
+import { platformRandomNumberSource } from "../platform/randomness";
+import {
+  addCommanderDamageEntry,
+  adjustCommanderDamageEntry,
+  totalCommanderDamage,
+} from "../domain/commanderDamage";
+import {
+  advanceTurnPhase,
+  endTurn,
+  resolveTriggerMemory,
+  setTurnPhase,
+  startTurn,
+  watchTriggerCandidates,
+} from "../turn";
+import type { TriggerMemoryStatus, TurnQuickPhase } from "../turn/types";
 
 const HISTORY_LIMIT = 80;
 let activeAthenaTriggerQueue: AthenaPendingTriggerQueue | null = null;
@@ -232,6 +268,14 @@ interface FieldStore {
     mode: CounterApplicationMode,
   ) => void;
   adjustLandPlayMark: (delta: -1 | 1) => void;
+  startTurn: () => void;
+  endTurn: () => void;
+  setTurnPhase: (phase: TurnQuickPhase) => void;
+  advanceTurnPhase: () => void;
+  resolveTurnTrigger: (
+    id: string,
+    status: Exclude<TriggerMemoryStatus, "pending">,
+  ) => void;
   removeGroup: (groupId: string, quantity: number) => void;
   replaceGeneric: (
     groupId: string,
@@ -271,6 +315,45 @@ interface FieldStore {
     groupId: string,
     power: number | null,
     toughness: number | null,
+  ) => void;
+  addManualStaticEffect: (input: ManualEffectInput) => void;
+  setManualStaticEffectEnabled: (id: string, enabled: boolean) => void;
+  removeManualStaticEffect: (id: string) => void;
+  addExternalSource: (
+    input: Omit<ExternalSourceObject, "id" | "active">,
+  ) => void;
+  removeExternalSource: (id: string) => void;
+  setExternalHolder: (
+    kind: "initiative" | "monarch",
+    participantId: string | null,
+  ) => void;
+  setDayNight: (value: "off" | "day" | "night") => void;
+  setCitysBlessing: (participantId: string, active: boolean) => void;
+  setArchenemyParticipant: (participantId: string | null) => void;
+  progressDungeon: (input: {
+    dungeonId: string;
+    dungeonName: string;
+    roomId: string;
+    roomName: string;
+    completed?: boolean;
+  }) => void;
+  setPlane: (name: string) => void;
+  setScheme: (name: string, ongoing: boolean) => void;
+  rollPlanarDie: () => void;
+  runRandomizer: (input: {
+    kind: "dice" | "coin";
+    count: number;
+    sides?: number;
+    source?: RandomizerResult["source"];
+  }) => void;
+  addCommanderDamageSource: (
+    playerLabel: string,
+    commanderLabel: string,
+  ) => void;
+  adjustCommanderDamage: (
+    id: string,
+    delta: number,
+    mode: "combat" | "damage-only",
   ) => void;
   setRelevantTotal: (
     key: RelevantTotalKey,
@@ -668,6 +751,112 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
     );
   },
 
+  startTurn() {
+    const before = get().field;
+    const timestamp = new Date().toISOString();
+    const next = normalizeField({
+      ...before,
+      turnContext: startTurn(before.turnContext, timestamp),
+      preTurnPlanner: resetLandPlayTurn(before.preTurnPlanner, timestamp),
+      externalGameState: {
+        ...before.externalGameState,
+        planechase: {
+          ...before.externalGameState.planechase,
+          planarRollsThisTurn: 0,
+        },
+        updatedAt: timestamp,
+      },
+    });
+    commitField(
+      "Start turn",
+      before,
+      next,
+      ["Started a new turn and reset turn-scoped memory."],
+      set,
+    );
+  },
+
+  endTurn() {
+    const before = get().field;
+    if (before.turnContext.status === "between-turns") return;
+    const timestamp = new Date().toISOString();
+    const next = normalizeField({
+      ...before,
+      turnContext: endTurn(before.turnContext, timestamp),
+      manualEffects: {
+        ...before.manualEffects,
+        effects: before.manualEffects.effects.filter(
+          (effect) => effect.duration !== "until-end-of-turn",
+        ),
+      },
+    });
+    commitField(
+      "End turn",
+      before,
+      next,
+      ["Turn ended. Start Turn begins the next turn boundary."],
+      set,
+    );
+  },
+
+  setTurnPhase(phase) {
+    const before = get().field;
+    const next = normalizeField({
+      ...before,
+      turnContext: setTurnPhase(before.turnContext, phase),
+    });
+    commitField(
+      "Set turn phase",
+      before,
+      next,
+      ["Turn phase corrected without creating skipped-step triggers."],
+      set,
+      null,
+      false,
+      [],
+    );
+  },
+
+  advanceTurnPhase() {
+    const before = get().field;
+    const next = normalizeField({
+      ...before,
+      turnContext: advanceTurnPhase(before.turnContext),
+    });
+    commitField(
+      "Advance turn phase",
+      before,
+      next,
+      ["Advanced the compact turn phase."],
+      set,
+      null,
+      false,
+      [],
+    );
+  },
+
+  resolveTurnTrigger(id, status) {
+    const before = get().field;
+    const next = normalizeField({
+      ...before,
+      turnContext: resolveTriggerMemory(before.turnContext, id, status),
+    });
+    commitField(
+      "Update turn memory",
+      before,
+      next,
+      [
+        status === "declined"
+          ? "Optional trigger declined."
+          : "Trigger memory updated.",
+      ],
+      set,
+      null,
+      false,
+      [],
+    );
+  },
+
   removeGroup(groupId, quantity) {
     const group = get().field.groups.find((entry) => entry.id === groupId);
     if (!group) return;
@@ -891,6 +1080,371 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
         },
       ],
     });
+  },
+
+  addManualStaticEffect(input) {
+    const before = get().field;
+    const effect = createManualStaticEffect(input);
+    const next = normalizeField({
+      ...before,
+      manualEffects: {
+        ...before.manualEffects,
+        effects: [...before.manualEffects.effects, effect],
+      },
+    });
+    commitField(
+      "Add static effect",
+      before,
+      next,
+      [`Added ${effect.name} from ${effect.source.label}.`],
+      set,
+    );
+  },
+
+  setManualStaticEffectEnabled(id, enabled) {
+    const before = get().field;
+    const next = normalizeField({
+      ...before,
+      manualEffects: {
+        ...before.manualEffects,
+        effects: before.manualEffects.effects.map((effect) =>
+          effect.id === id ? { ...effect, enabled } : effect,
+        ),
+      },
+    });
+    commitField(
+      enabled ? "Enable static effect" : "Disable static effect",
+      before,
+      next,
+      [enabled ? "Static effect enabled." : "Static effect disabled."],
+      set,
+    );
+  },
+
+  removeManualStaticEffect(id) {
+    const before = get().field;
+    const effect = before.manualEffects.effects.find(
+      (entry) => entry.id === id,
+    );
+    if (!effect) return;
+    const next = normalizeField({
+      ...before,
+      manualEffects: {
+        ...before.manualEffects,
+        effects: before.manualEffects.effects.filter(
+          (entry) => entry.id !== id,
+        ),
+      },
+    });
+    commitField(
+      "Remove static effect",
+      before,
+      next,
+      [`Removed ${effect.name}. Derived state recalculated.`],
+      set,
+    );
+  },
+
+  addExternalSource(input) {
+    const before = get().field;
+    const next = normalizeField({
+      ...before,
+      externalGameState: addExternalSource(before.externalGameState, input),
+    });
+    commitField(
+      "Add external game state",
+      before,
+      next,
+      [`Added ${input.name} as ${input.kind.replaceAll("-", " ")}.`],
+      set,
+    );
+  },
+
+  removeExternalSource(id) {
+    const before = get().field;
+    const source = before.externalGameState.sources.find(
+      (entry) => entry.id === id,
+    );
+    if (!source) return;
+    const next = normalizeField({
+      ...before,
+      externalGameState: removeExternalSource(before.externalGameState, id),
+    });
+    commitField(
+      "Remove external game state",
+      before,
+      next,
+      [
+        `Removed ${source.name}. Source-dependent effects are no longer active.`,
+      ],
+      set,
+    );
+  },
+
+  setExternalHolder(kind, participantId) {
+    const before = get().field;
+    const timestamp = new Date().toISOString();
+    const next = normalizeField({
+      ...before,
+      externalGameState: {
+        ...before.externalGameState,
+        [kind === "initiative" ? "initiativeHolderId" : "monarchHolderId"]:
+          participantId,
+        updatedAt: timestamp,
+      },
+    });
+    commitField(
+      kind === "initiative" ? "Update Initiative" : "Update Monarch",
+      before,
+      next,
+      [`${kind === "initiative" ? "Initiative" : "Monarch"} holder updated.`],
+      set,
+    );
+  },
+
+  setDayNight(value) {
+    const before = get().field;
+    const next = normalizeField({
+      ...before,
+      externalGameState: {
+        ...before.externalGameState,
+        dayNight: value,
+        updatedAt: new Date().toISOString(),
+      },
+    });
+    commitField(
+      "Update day and night",
+      before,
+      next,
+      [value === "off" ? "Day and Night tracking cleared." : `It is ${value}.`],
+      set,
+    );
+  },
+
+  setCitysBlessing(participantId, active) {
+    const before = get().field;
+    const current = before.externalGameState.citysBlessingParticipantIds;
+    const nextIds = active
+      ? [...new Set([...current, participantId])]
+      : current.filter((id) => id !== participantId);
+    const next = normalizeField({
+      ...before,
+      externalGameState: {
+        ...before.externalGameState,
+        citysBlessingParticipantIds: nextIds,
+        updatedAt: new Date().toISOString(),
+      },
+    });
+    commitField(
+      active ? "Gain the City's Blessing" : "Correct the City's Blessing",
+      before,
+      next,
+      [active ? "City's Blessing recorded." : "City's Blessing removed."],
+      set,
+    );
+  },
+
+  setArchenemyParticipant(participantId) {
+    const before = get().field;
+    const next = normalizeField({
+      ...before,
+      externalGameState: {
+        ...before.externalGameState,
+        archenemy: {
+          ...before.externalGameState.archenemy,
+          enabled: participantId !== null,
+          archenemyParticipantId: participantId,
+        },
+        updatedAt: new Date().toISOString(),
+      },
+    });
+    commitField(
+      "Update Archenemy role",
+      before,
+      next,
+      [participantId ? "Archenemy role recorded." : "Archenemy role cleared."],
+      set,
+    );
+  },
+
+  progressDungeon(input) {
+    const before = get().field;
+    const next = normalizeField({
+      ...before,
+      externalGameState: progressDungeon(before.externalGameState, input),
+    });
+    commitField(
+      "Advance dungeon",
+      before,
+      next,
+      [`Advanced ${input.dungeonName} to ${input.roomName}.`],
+      set,
+    );
+  },
+
+  setPlane(name) {
+    const before = get().field;
+    const next = normalizeField({
+      ...before,
+      externalGameState: setCurrentPlane(before.externalGameState, {
+        name,
+        imageUrl: null,
+        public: true,
+        sourceCardName: null,
+      }),
+    });
+    commitField(
+      "Set current Plane",
+      before,
+      next,
+      [`${name} is the current Plane.`],
+      set,
+    );
+  },
+
+  setScheme(name, ongoing) {
+    const before = get().field;
+    const next = normalizeField({
+      ...before,
+      externalGameState: setCurrentScheme(before.externalGameState, {
+        name,
+        imageUrl: null,
+        public: true,
+        sourceCardName: null,
+        ongoing,
+      }),
+    });
+    commitField(
+      "Set Scheme in motion",
+      before,
+      next,
+      [`Set ${name} in motion.`],
+      set,
+    );
+  },
+
+  rollPlanarDie() {
+    const before = get().field;
+    const value = platformRandomNumberSource.integer(1, 6);
+    const result = value === 1 ? "planeswalk" : value === 2 ? "chaos" : "blank";
+    const next = normalizeField({
+      ...before,
+      externalGameState: recordPlanarDieResult(
+        before.externalGameState,
+        result,
+      ),
+    });
+    commitField(
+      "Roll planar die",
+      before,
+      next,
+      [
+        `Planar die: ${result === "blank" ? "Blank" : result === "chaos" ? "Chaos" : "Planeswalk"}.`,
+      ],
+      set,
+    );
+  },
+
+  runRandomizer(input) {
+    const before = get().field;
+    const result =
+      input.kind === "dice"
+        ? rollDice(input.count, input.sides ?? 6, platformRandomNumberSource, {
+            source: input.source,
+          })
+        : flipCoins(input.count, platformRandomNumberSource, {
+            source: input.source,
+          });
+    const next = normalizeField({
+      ...before,
+      randomizer: recordRandomizerResult(before.randomizer, result),
+    });
+    const summary =
+      result.kind === "dice"
+        ? `Rolled ${result.count}D${result.sides}: ${result.values.join(", ")} (${result.total}).`
+        : `Flipped ${result.count === 1 ? result.values[0] : result.values.join(", ")}.`;
+    commitField("Randomizer result", before, next, [summary], set);
+  },
+
+  addCommanderDamageSource(playerLabel, commanderLabel) {
+    const before = get().field;
+    const next = normalizeField({
+      ...before,
+      commanderDamage: addCommanderDamageEntry(before.commanderDamage, {
+        playerLabel,
+        commanderLabel,
+      }),
+    });
+    commitField(
+      "Add commander damage source",
+      before,
+      next,
+      [`Added ${commanderLabel} for ${playerLabel}.`],
+      set,
+    );
+  },
+
+  adjustCommanderDamage(id, delta, mode) {
+    const before = get().field;
+    const entry = before.commanderDamage.entries.find(
+      (candidate) => candidate.id === id,
+    );
+    if (!entry) return;
+    const boundedDelta = Math.max(-entry.damage, Math.trunc(delta));
+    if (boundedDelta === 0) return;
+    const commanderDamage = adjustCommanderDamageEntry(
+      before.commanderDamage,
+      id,
+      boundedDelta,
+    );
+    const lifeDelta = mode === "combat" ? -boundedDelta : 0;
+    const player = {
+      ...before.player,
+      life: Math.max(0, before.player.life + lifeDelta),
+      counters: {
+        ...before.player.counters,
+        commanderDamage: totalCommanderDamage(commanderDamage),
+      },
+    };
+    const timestamp = new Date().toISOString();
+    const event: GameEvent = {
+      id: makeId("event"),
+      type: "damage-dealt",
+      sourceId: entry.commanderCardId,
+      controller: "opponent",
+      owner: "opponent",
+      quantity: Math.abs(boundedDelta),
+      batchId: makeId("commander-damage-batch"),
+      groupIds: [],
+      damage: true,
+      lifeLoss: mode === "combat" && boundedDelta > 0,
+      combatDamage: mode === "combat",
+      commanderDamage: true,
+      metadata: {
+        commanderDamageEntryId: id,
+        commanderLabel: entry.commanderLabel,
+        playerLabel: entry.playerLabel,
+        correctionOnly: mode === "damage-only",
+        recordedAt: timestamp,
+      },
+    };
+    const next = normalizeField({ ...before, player, commanderDamage });
+    commitField(
+      mode === "combat"
+        ? "Record commander damage"
+        : "Correct commander damage",
+      before,
+      next,
+      [
+        mode === "combat"
+          ? `${entry.commanderLabel}: ${boundedDelta > 0 ? "+" : ""}${boundedDelta} commander damage; life ${lifeDelta > 0 ? "+" : ""}${lifeDelta}.`
+          : `${entry.commanderLabel} commander damage corrected without changing life.`,
+      ],
+      set,
+      null,
+      true,
+      mode === "combat" && boundedDelta > 0 ? [event] : [],
+    );
   },
 
   setRelevantTotal(key, value, mode = "correction") {
@@ -1147,8 +1701,12 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
       );
       return { ...result, resultingField: decisionField };
     }
-    const resultingFieldWithDecision = withNextAthenaTriggerDecision(
+    const resultingFieldWithMemory = withAthenaTriggerWatchers(
       result.resultingField,
+      result.queue,
+    );
+    const resultingFieldWithDecision = withNextAthenaTriggerDecision(
+      resultingFieldWithMemory,
       result.queue,
       event.timestamp,
     );
@@ -2967,8 +3525,13 @@ function withDerivedField(field: FieldState): FieldState {
   const derived = applyAthenaDerivedStateToField(field, {
     timestamp: field.updatedAt,
     reason: "canonical-field-change",
+    definitions: ATHENA_STATIC_EFFECT_DEFINITIONS,
   });
-  const planned = revalidateAthenaTurnIntent(derived.field, field.updatedAt);
+  const withManualEffects = applyManualPowerToughnessEffects(derived.field);
+  const planned = revalidateAthenaTurnIntent(
+    withManualEffects,
+    field.updatedAt,
+  );
   const decided = revalidateAthenaDecisions(planned, field.updatedAt);
   return coordinateAthenaLiveTurnField(decided, {
     signal: "reconcile",
@@ -3321,15 +3884,18 @@ function processActionStripItem(
           throw new Error(preparedExecution.reason);
         }
         const orchestratedField = preparedExecution.pipeline
-          ? recordAthenaLiveTurnPipeline(preparedExecution.field, {
-              queue: preparedExecution.pipeline.queue,
-              canonicalEvents: preparedExecution.canonicalEvents,
-              actionId: item.id,
-              preparedActionId: item.preparedActionId,
-              actionKind: item.kind,
-              confirmationReceiptId: preparedExecution.confirmationReceiptId,
-              timestamp,
-            })
+          ? withAthenaTriggerWatchers(
+              recordAthenaLiveTurnPipeline(preparedExecution.field, {
+                queue: preparedExecution.pipeline.queue,
+                canonicalEvents: preparedExecution.canonicalEvents,
+                actionId: item.id,
+                preparedActionId: item.preparedActionId,
+                actionKind: item.kind,
+                confirmationReceiptId: preparedExecution.confirmationReceiptId,
+                timestamp,
+              }),
+              preparedExecution.pipeline.queue,
+            )
           : preparedExecution.field;
         return {
           field: orchestratedField,
@@ -3433,6 +3999,35 @@ function isPreparedGameplayItem(
 
 function uniqueStrings(values: string[]): string[] {
   return [...new Set(values)].sort((left, right) => left.localeCompare(right));
+}
+
+function withAthenaTriggerWatchers(
+  field: FieldState,
+  queue: AthenaPendingTriggerQueueSnapshot,
+): FieldState {
+  const candidates = queue.entries.map((entry) => ({
+    id: entry.id,
+    sourceId: entry.source.sourceGroupId,
+    sourceLabel: entry.source.label,
+    label: entry.semanticDescription,
+    optional: entry.optional,
+    oncePerTurnKey:
+      typeof entry.diagnosticMetadata.oncePerTurnKey === "string"
+        ? entry.diagnosticMetadata.oncePerTurnKey
+        : null,
+    status:
+      entry.queueState === "resolved"
+        ? ("resolved" as const)
+        : entry.queueState === "declined"
+          ? ("declined" as const)
+          : ("pending" as const),
+    observedAt: entry.createdAt,
+    public: true,
+  }));
+  return {
+    ...field,
+    turnContext: watchTriggerCandidates(field.turnContext, candidates),
+  };
 }
 
 function applyActionStripMutation(

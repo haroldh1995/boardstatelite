@@ -1,8 +1,16 @@
-import { EyeOff, Grip, RotateCcw, Shield, ShieldOff } from "lucide-react";
+import {
+  EyeOff,
+  Grip,
+  RotateCcw,
+  Shield,
+  ShieldOff,
+  Sparkles,
+} from "lucide-react";
 import { useRef, useState } from "react";
 import { activeAthenaDecision } from "../athena/decisionEngine";
 import type { PermanentGroup, SupportStatus } from "../domain/types";
 import { useFieldStore } from "../state/useFieldStore";
+import { effectsProvidedBySource } from "../domain/manualEffects";
 
 interface PermanentCardProps {
   group: PermanentGroup;
@@ -27,6 +35,8 @@ export function PermanentCard({
   const answerAthenaDecision = useFieldStore(
     (state) => state.answerAthenaDecision,
   );
+  const manualEffects = useFieldStore((state) => state.field.manualEffects);
+  const providedEffects = effectsProvidedBySource(manualEffects, group.id);
   const [gesture, setGesture] = useState<"idle" | "waiting" | "hold">("idle");
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef<number | null>(null);
@@ -179,6 +189,15 @@ export function PermanentCard({
           {group.statuses.transformed && (
             <span className="transform-badge" aria-label="Transformed">
               <RotateCcw />
+            </span>
+          )}
+          {providedEffects.length > 0 && (
+            <span
+              className="effect-source-badge"
+              aria-label={`${providedEffects.length} active effect${providedEffects.length === 1 ? "" : "s"} provided by this card`}
+              title={providedEffects.map((effect) => effect.name).join(", ")}
+            >
+              <Sparkles />
             </span>
           )}
           {group.characteristics.isCreature && (

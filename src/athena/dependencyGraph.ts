@@ -1789,6 +1789,7 @@ function definitionsForObject(
   for (const staticDefinition of getAthenaStaticEffectDefinitionsForCard(
     object.identityName,
     builder.staticDefinitions,
+    object.groupId,
   )) {
     const availability = staticDefinitionAvailability(object, staticDefinition);
     definitions.push({

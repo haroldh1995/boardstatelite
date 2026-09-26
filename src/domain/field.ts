@@ -116,6 +116,24 @@ import type {
 } from "./types";
 import type { SharedSessionMetadata } from "../sharedSession/types";
 import type { HubIntegrationState } from "../hub/types";
+import { createDefaultArgusState, normalizeArgusState } from "../argus";
+import { createDefaultTurnContext, normalizeTurnContext } from "../turn";
+import {
+  createDefaultManualEffectState,
+  normalizeManualEffectState,
+} from "./manualEffects";
+import {
+  createDefaultExternalGameState,
+  normalizeExternalGameState,
+} from "./externalGameState";
+import {
+  createDefaultRandomizerState,
+  normalizeRandomizerState,
+} from "./randomizer";
+import {
+  createDefaultCommanderDamageState,
+  normalizeCommanderDamageState,
+} from "./commanderDamage";
 
 export const TOTAL_LABELS: Record<BaseRelevantTotalKey, string> = {
   lands: "Lands",
@@ -217,6 +235,12 @@ export function createDefaultField(): FieldState {
     personalGameplay: createDefaultPersonalGameplayState(),
     ambientOrchestrator: createDefaultAmbientOrchestratorState(),
     athena: createDefaultAthenaState(),
+    argus: createDefaultArgusState(),
+    turnContext: createDefaultTurnContext(now),
+    manualEffects: createDefaultManualEffectState(),
+    externalGameState: createDefaultExternalGameState(now),
+    randomizer: createDefaultRandomizerState(),
+    commanderDamage: createDefaultCommanderDamageState(),
     name: "Baord State Lite Field",
     createdAt: now,
     updatedAt: now,
@@ -316,6 +340,7 @@ export function createDefaultSettings(): SettingsState {
     themeAccent: "verdant",
     sound: false,
     haptics: true,
+    fullScreenLife: false,
     voice: createDefaultEchoVoiceSettings(),
     personalGameplay: createDefaultPersonalGameplaySettings(),
     ambientOrchestrator: createDefaultAmbientOrchestratorSettings(),
@@ -331,6 +356,7 @@ export function normalizeSettings(value: unknown): SettingsState {
     ...defaults,
     ...candidate,
     gameplayReminders: candidate.gameplayReminders === true,
+    fullScreenLife: candidate.fullScreenLife === true,
     voice: normalizeEchoVoiceSettings(candidate.voice),
     personalGameplay: normalizePersonalGameplaySettings(
       candidate.personalGameplay,
@@ -520,6 +546,17 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
     participantId: multiplayer.registry.localParticipantId,
     turnId: preTurnPlanner.turnId,
   });
+  const argus = normalizeArgusState(candidate.argus);
+  const turnContext = normalizeTurnContext(candidate.turnContext, updatedAt);
+  const manualEffects = normalizeManualEffectState(candidate.manualEffects);
+  const externalGameState = normalizeExternalGameState(
+    candidate.externalGameState,
+    updatedAt,
+  );
+  const randomizer = normalizeRandomizerState(candidate.randomizer);
+  const commanderDamage = normalizeCommanderDamageState(
+    candidate.commanderDamage,
+  );
   return {
     ...defaults,
     ...candidate,
@@ -543,6 +580,12 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
     personalGameplay,
     ambientOrchestrator,
     athena,
+    argus,
+    turnContext,
+    manualEffects,
+    externalGameState,
+    randomizer,
+    commanderDamage,
     name: sanitizeText(candidate.name, "Imported Baord State Lite Field"),
     player: {
       ...defaults.player,
@@ -845,6 +888,15 @@ export function normalizeField(field: FieldState): FieldState {
     participantId: multiplayer.registry.localParticipantId,
     turnId: preTurnPlanner.turnId,
   });
+  const argus = normalizeArgusState(field.argus);
+  const turnContext = normalizeTurnContext(field.turnContext, updatedAt);
+  const manualEffects = normalizeManualEffectState(field.manualEffects);
+  const externalGameState = normalizeExternalGameState(
+    field.externalGameState,
+    updatedAt,
+  );
+  const randomizer = normalizeRandomizerState(field.randomizer);
+  const commanderDamage = normalizeCommanderDamageState(field.commanderDamage);
   const zoneCompositions = normalizeZoneCompositionCollection(
     field.zoneCompositions,
     groups,
@@ -871,6 +923,12 @@ export function normalizeField(field: FieldState): FieldState {
     personalGameplay,
     ambientOrchestrator,
     athena,
+    argus,
+    turnContext,
+    manualEffects,
+    externalGameState,
+    randomizer,
+    commanderDamage,
     groups,
     zoneCompositions,
     settings,

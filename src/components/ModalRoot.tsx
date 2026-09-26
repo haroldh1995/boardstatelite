@@ -31,6 +31,17 @@ import { useFieldStore } from "../state/useFieldStore";
 import { PreTurnPlannerSheet } from "./PreTurnPlannerSheet";
 import { ScryfallSearch } from "./ScryfallSearch";
 import { VoiceSettingsPanel } from "./VoiceSettingsPanel";
+import { UserToolsSheet } from "./UserToolsSheet";
+import { StaticEffectsSheet } from "./StaticEffectsSheet";
+import { ExternalGameStateSheet } from "./ExternalGameStateSheet";
+import { RandomizerSheet } from "./RandomizerSheet";
+import { CommanderDamageSheet } from "./CommanderDamageSheet";
+import { TurnMemorySheet } from "./TurnMemorySheet";
+import {
+  effectsProvidedBySource,
+  manualKeywordState,
+  manualPowerToughnessContributions,
+} from "../domain/manualEffects";
 
 export function ModalRoot() {
   const modal = useFieldStore((state) => state.modal);
@@ -130,6 +141,7 @@ function ModalContent({ modal }: { modal: ModalState }) {
           initialTab={
             (modal.payload as { tab?: "card" | "generic" })?.tab ?? "card"
           }
+          returnTo={(modal.payload as { returnTo?: "staticEffects" })?.returnTo}
         />
       );
     case "cardIdentification":
@@ -142,6 +154,8 @@ function ModalContent({ modal }: { modal: ModalState }) {
       return <PlayerCountersSheet />;
     case "managePermanent":
       return <ManagePermanentSheet groupId={modal.groupId} />;
+    case "managePermanentAdvanced":
+      return <AdvancedPermanentCorrectionSheet groupId={modal.groupId} />;
     case "trackingConfirm":
       return (
         <TrackingConfirmSheet
@@ -163,6 +177,22 @@ function ModalContent({ modal }: { modal: ModalState }) {
       return <DetailsSheet />;
     case "settings":
       return <SettingsSheet />;
+    case "userTools":
+      return <UserToolsSheet />;
+    case "staticEffects":
+      return <StaticEffectsSheet />;
+    case "externalGameState":
+      return <ExternalGameStateSheet />;
+    case "randomizer":
+      return (
+        <RandomizerSheet
+          mode={(modal.payload as { mode?: "dice" | "coin" })?.mode ?? "dice"}
+        />
+      );
+    case "commanderDamage":
+      return <CommanderDamageSheet />;
+    case "turnMemory":
+      return <TurnMemorySheet />;
     case "planner":
       return <PreTurnPlannerSheet />;
     case "catchUp":
@@ -268,9 +298,11 @@ function StartupWarning() {
 function AddSheet({
   correctionOnly = false,
   initialTab = "card",
+  returnTo,
 }: {
   correctionOnly?: boolean;
   initialTab?: "card" | "generic";
+  returnTo?: "staticEffects";
 }) {
   const addGeneric = useFieldStore((state) => state.addGeneric);
   const confirmScryfallCardAction = useFieldStore(
@@ -280,6 +312,7 @@ function AddSheet({
     (state) => state.applyReconciliation,
   );
   const closeModal = useFieldStore((state) => state.closeModal);
+  const openModal = useFieldStore((state) => state.openModal);
   const [tab, setTab] = useState<"card" | "generic">(initialTab);
   const [genericKind, setGenericKind] =
     useState<Parameters<typeof addGeneric>[0]["kind"]>("Creature");
@@ -287,6 +320,13 @@ function AddSheet({
   const [label, setLabel] = useState("");
   const [power, setPower] = useState(1);
   const [toughness, setToughness] = useState(1);
+  const finish = () => {
+    if (returnTo === "staticEffects") {
+      openModal({ kind: "staticEffects" });
+      return;
+    }
+    closeModal();
+  };
 
   return (
     <div>
@@ -345,7 +385,7 @@ function AddSheet({
                           },
                         ],
                       });
-                      closeModal();
+                      finish();
                     },
                   },
                 ]
@@ -359,7 +399,7 @@ function AddSheet({
                         card,
                         action: "cast",
                       });
-                      if (result.valid) closeModal();
+                      if (result.valid) finish();
                       return result;
                     },
                   },
@@ -388,7 +428,7 @@ function AddSheet({
                         card,
                         action: "add",
                       });
-                      if (result.valid) closeModal();
+                      if (result.valid) finish();
                       return result;
                     },
                   },
@@ -441,7 +481,7 @@ function AddSheet({
             } else {
               addGeneric(generic);
             }
-            closeModal();
+            finish();
           }}
         >
           <label>
@@ -672,6 +712,194 @@ function PlayerCountersSheet() {
 
 function ManagePermanentSheet({ groupId }: { groupId?: string }) {
   const group = useGroup(groupId);
+  const field = useFieldStore((state) => state.field);
+  const applyCounters = useFieldStore((state) => state.applyCounters);
+  const removeCounters = useFieldStore((state) => state.removeCounters);
+  const openModal = useFieldStore((state) => state.openModal);
+  const [counterSelection, setCounterSelection] = useState("+1/+1");
+  const [customCounter, setCustomCounter] = useState("");
+  const counterOptions = useMemo(
+    () => [
+      ...COUNTER_OPTIONS,
+      ...Object.keys(group?.counters ?? {}).filter(
+        (option) => !COUNTER_OPTIONS.includes(option),
+      ),
+    ],
+    [group?.counters],
+  );
+  if (!group) return <p>Permanent not found.</p>;
+  const counter =
+    counterSelection === "__custom__" ? customCounter.trim() : counterSelection;
+  const count = counter ? Math.max(0, group.counters[counter] ?? 0) : 0;
+  const canToggleTracking = Boolean(group.identity) && !group.isGeneric;
+  const trackingEnabled = group.trackingEnabled !== false;
+  const providedEffects = effectsProvidedBySource(
+    field.manualEffects,
+    group.id,
+  );
+  const appliedEffects = manualPowerToughnessContributions(field, group);
+  const keywordState = manualKeywordState(field, group);
+  return (
+    <div className="permanent-manager-simple">
+      <h2 id="modal-title">{group.label}</h2>
+      <section className="permanent-automation-summary">
+        <h3>Automation</h3>
+        <p>
+          {trackingEnabled ? "Tracked" : "Not Tracked"}
+          {group.identity
+            ? ` · ${supportStatusLabel(group.identity.supportStatus)}`
+            : " · No card abilities"}
+        </p>
+        {canToggleTracking && (
+          <button
+            type="button"
+            className={trackingEnabled ? "danger-action" : "primary-action"}
+            onClick={() =>
+              openModal({
+                kind: "trackingConfirm",
+                groupId: group.id,
+                payload: { trackingEnabled: !trackingEnabled },
+              })
+            }
+          >
+            {trackingEnabled ? "Stop Tracking Card" : "Resume Tracking Card"}
+          </button>
+        )}
+      </section>
+      <section>
+        <h3>Counters</h3>
+        <label>
+          Counter Type
+          <select
+            value={counterSelection}
+            onChange={(event) => setCounterSelection(event.target.value)}
+          >
+            {counterOptions.map((option) => (
+              <option key={option}>{option}</option>
+            ))}
+            <option value="__custom__">Custom Counter</option>
+          </select>
+        </label>
+        {counterSelection === "__custom__" && (
+          <label>
+            Counter name
+            <input
+              value={customCounter}
+              onChange={(event) => setCustomCounter(event.target.value)}
+              placeholder="Counter name"
+            />
+          </label>
+        )}
+        <div
+          className="direct-adjust counter-direct-adjust"
+          role="group"
+          aria-label={`${counter || "Custom"} counter quantity`}
+        >
+          <button
+            type="button"
+            disabled={!counter || count === 0}
+            onClick={() =>
+              removeCounters(
+                group.id,
+                counter,
+                1,
+                "all",
+                group.quantity,
+                "game-action",
+              )
+            }
+            aria-label={`Remove one ${counter || "custom"} counter`}
+          >
+            <Minus />
+          </button>
+          <strong>{count}</strong>
+          <button
+            type="button"
+            disabled={!counter}
+            onClick={() =>
+              applyCounters(
+                group.id,
+                counter,
+                1,
+                "all",
+                group.quantity,
+                "game-action",
+              )
+            }
+            aria-label={`Add one ${counter || "custom"} counter`}
+          >
+            <Plus />
+          </button>
+        </div>
+      </section>
+      {providedEffects.length > 0 && (
+        <section className="source-effect-summary">
+          <h3>Active Effects</h3>
+          {providedEffects.map((effect) => (
+            <p key={effect.id}>
+              <strong>{effect.name}</strong>
+              <span>Provided by this card</span>
+            </p>
+          ))}
+        </section>
+      )}
+      {group.characteristics.isCreature && (
+        <section className="derived-state-explanation">
+          <h3>Current Power / Toughness</h3>
+          <strong>
+            {group.pt.currentPower ?? "-"} / {group.pt.currentToughness ?? "-"}
+          </strong>
+          <p>
+            Printed: {group.pt.basePower ?? "-"} /{" "}
+            {group.pt.baseToughness ?? "-"}
+          </p>
+          {(group.counters["+1/+1"] ?? 0) > 0 && (
+            <p>
+              +1/+1 counters: +{group.counters["+1/+1"]}/+
+              {group.counters["+1/+1"]}
+            </p>
+          )}
+          {(group.counters["-1/-1"] ?? 0) > 0 && (
+            <p>
+              -1/-1 counters: -{group.counters["-1/-1"]}/-
+              {group.counters["-1/-1"]}
+            </p>
+          )}
+          {appliedEffects.map((effect) =>
+            effect.modification.kind === "power-toughness" ? (
+              <p key={effect.id}>
+                {effect.source.label}: {signed(effect.modification.power)}/
+                {signed(effect.modification.toughness)}
+              </p>
+            ) : null,
+          )}
+          {keywordState.granted.length > 0 && (
+            <p>Granted: {keywordState.granted.join(", ")}</p>
+          )}
+          {keywordState.removed.length > 0 && (
+            <p>Removed: {keywordState.removed.join(", ")}</p>
+          )}
+        </section>
+      )}
+      <button
+        type="button"
+        className="advanced-correction-link"
+        onClick={() =>
+          openModal({ kind: "managePermanentAdvanced", groupId: group.id })
+        }
+      >
+        Advanced / Correct Card State
+      </button>
+    </div>
+  );
+}
+
+function signed(value: number): string {
+  return value >= 0 ? `+${value}` : `${value}`;
+}
+
+function AdvancedPermanentCorrectionSheet({ groupId }: { groupId?: string }) {
+  const group = useGroup(groupId);
   const applyCounters = useFieldStore((state) => state.applyCounters);
   const removeCounters = useFieldStore((state) => state.removeCounters);
   const toggleStatus = useFieldStore((state) => state.toggleStatus);
@@ -705,7 +933,7 @@ function ManagePermanentSheet({ groupId }: { groupId?: string }) {
   const trackingEnabled = group.trackingEnabled !== false;
   return (
     <div>
-      <h2 id="modal-title">{group.label}</h2>
+      <h2 id="modal-title">Correct {group.label}</h2>
       <div className="sheet-columns">
         <section>
           <h3>Automation</h3>
@@ -899,7 +1127,7 @@ function ManagePermanentSheet({ groupId }: { groupId?: string }) {
                 className={group.statuses[status] ? "selected" : ""}
                 onClick={() => toggleStatus(group.id, status)}
               >
-                {status}
+                {humanizeStatus(status)}
               </button>
             ))}
           </div>
@@ -1791,7 +2019,6 @@ function NumericCorrectionRow({
 
 function SettingsSheet() {
   const field = useFieldStore((state) => state.field);
-  const openModal = useFieldStore((state) => state.openModal);
   const updateSettings = useFieldStore((state) => state.updateSettings);
   const resetField = useFieldStore((state) => state.resetField);
   const acceptSmartSuggestion = useFieldStore(
@@ -1817,24 +2044,10 @@ function SettingsSheet() {
   );
   return (
     <div>
-      <h2 id="modal-title">Settings</h2>
+      <h2 id="modal-title">Options</h2>
       <div className="sheet-columns">
         <section>
-          <h3>Field</h3>
-          <button
-            type="button"
-            className="primary-action"
-            onClick={() => openModal({ kind: "catchUp" })}
-          >
-            Catch Me Up
-          </button>
-          <button
-            type="button"
-            className="primary-action"
-            onClick={() => openModal({ kind: "planner" })}
-          >
-            Open Pre-Turn Planner
-          </button>
+          <h3>Gameplay</h3>
           <label>
             Card size
             <select
@@ -1901,6 +2114,16 @@ function SettingsSheet() {
               }
             />
             Gameplay Reminders
+          </label>
+          <label className="inline-check">
+            <input
+              type="checkbox"
+              checked={field.settings.fullScreenLife}
+              onChange={(event) =>
+                updateSettings({ fullScreenLife: event.target.checked })
+              }
+            />
+            Full-Screen Life
           </label>
         </section>
         <section>
@@ -2176,6 +2399,19 @@ function SettingsSheet() {
       </div>
     </div>
   );
+}
+
+function supportStatusLabel(status: string): string {
+  if (status === "fully-automated") return "Fully automated";
+  if (status === "partially-automated") return "Partially automated";
+  if (status === "quantity-tracking-only") return "Quantity tracking only";
+  return "Manual support";
+}
+
+function humanizeStatus(status: string): string {
+  return status
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/^./, (value) => value.toUpperCase());
 }
 
 function ExactTotalSheet({ total }: { total: RelevantTotal }) {

@@ -57,10 +57,10 @@ export function BottomDock() {
       <button
         type="button"
         className="dock-side-button"
-        onClick={() => openModal({ kind: "settings" })}
+        onClick={() => openModal({ kind: "userTools" })}
       >
         <List />
-        <span>Tools</span>
+        <span>User Tools</span>
       </button>
     </nav>
   );

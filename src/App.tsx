@@ -10,6 +10,8 @@ import { ModalRoot } from "./components/ModalRoot";
 import { SmartSuggestionsTray } from "./components/SmartSuggestionsTray";
 import { TotalsStrip } from "./components/TotalsStrip";
 import { GameplayReminderBanner } from "./components/GameplayReminderBanner";
+import { TurnContextBar } from "./components/TurnContextBar";
+import { FullScreenLife } from "./components/FullScreenLife";
 import { isReferenceFixtureMode } from "./dev/referenceMode";
 import { useFieldStore } from "./state/useFieldStore";
 import "./App.css";
@@ -45,6 +47,9 @@ function App() {
   );
   const dismissCatchUpSuggestion = useFieldStore(
     (state) => state.dismissCatchUpSuggestion,
+  );
+  const fullScreenLife = useFieldStore(
+    (state) => state.field.settings.fullScreenLife,
   );
   const referenceMode = isReferenceFixtureMode();
   const automaticallyPresentedCardIds = useRef(new Set<string>());
@@ -111,7 +116,13 @@ function App() {
 
   return (
     <div
-      className={referenceMode ? "app-shell reference-fixture" : "app-shell"}
+      className={[
+        "app-shell",
+        referenceMode ? "reference-fixture" : "",
+        fullScreenLife ? "full-life-active" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
     >
       <header className="app-header" aria-label="Baord State Lite">
         <div>
@@ -135,10 +146,17 @@ function App() {
         <main className="loading-screen">Loading saved field...</main>
       ) : (
         <>
-          <LifeTracker />
-          <TotalsStrip />
-          <GameplayReminderBanner />
-          <MicrophoneStatusIndicator />
+          {fullScreenLife ? (
+            <FullScreenLife />
+          ) : (
+            <>
+              <LifeTracker />
+              <TurnContextBar />
+              <TotalsStrip />
+              <GameplayReminderBanner />
+              <MicrophoneStatusIndicator />
+            </>
+          )}
           {catchUpSuggested && (
             <aside
               className="recovery-toast"
@@ -177,11 +195,15 @@ function App() {
                 </button>
               </aside>
             )}
-          <SmartSuggestionsTray />
-          <ActiveTurnActionStrip />
-          <AthenaDecisionSurface />
-          <Battlefield />
-          <BottomDock />
+          {!fullScreenLife && (
+            <>
+              <SmartSuggestionsTray />
+              <ActiveTurnActionStrip />
+              <AthenaDecisionSurface />
+              <Battlefield />
+              <BottomDock />
+            </>
+          )}
           <ModalRoot />
           <div className="sr-only" aria-live="polite" aria-atomic="true">
             {announcements}

@@ -18,6 +18,7 @@ import {
   createSessionExportEnvelope,
   sharedSessionManager,
 } from "./index";
+import { createPublicGameplaySnapshot } from "./serializer";
 
 describe("canonical shared sessions", () => {
   it("creates local-only session metadata for new Lite fields", () => {
@@ -190,5 +191,57 @@ describe("canonical shared sessions", () => {
       status: "localOnly",
     });
     expect(sharedSessionManager.synchronize().ok).toBe(false);
+  });
+
+  it("projects public gameplay data without private manual effects", () => {
+    const field = createDefaultField();
+    field.manualEffects.effects = [
+      {
+        id: "public-effect",
+        name: "Public effect",
+        enabled: true,
+        source: {
+          kind: "custom-table-effect",
+          id: null,
+          label: "Table",
+          controller: "shared",
+        },
+        target: "controlled-creatures",
+        targetGroupId: null,
+        subtype: null,
+        color: null,
+        modification: { kind: "power-toughness", power: 1, toughness: 1 },
+        duration: "until-removed",
+        origin: "user-tools-manual",
+        visibility: "public",
+        createdAt: field.updatedAt,
+      },
+      {
+        id: "private-effect",
+        name: "Private note",
+        enabled: true,
+        source: {
+          kind: "custom-table-effect",
+          id: null,
+          label: "Private",
+          controller: "you",
+        },
+        target: "controlled-creatures",
+        targetGroupId: null,
+        subtype: null,
+        color: null,
+        modification: { kind: "grant-keyword", keyword: "Flying" },
+        duration: "until-removed",
+        origin: "user-tools-manual",
+        visibility: "private",
+        createdAt: field.updatedAt,
+      },
+    ];
+    const snapshot = createPublicGameplaySnapshot(field);
+    expect(snapshot.manualEffects.map((effect) => effect.id)).toEqual([
+      "public-effect",
+    ]);
+    expect("argus" in snapshot).toBe(false);
+    expect("preTurnPlanner" in snapshot).toBe(false);
   });
 });

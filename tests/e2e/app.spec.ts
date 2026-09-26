@@ -105,8 +105,8 @@ test("Catch Me Up repairs current state without replaying gameplay", async ({
   await page.goto("/");
   await continuePastStartup(page);
 
-  await page.getByRole("button", { name: /^Tools$/ }).click();
-  await page.getByRole("button", { name: "Catch Me Up" }).click();
+  await page.getByRole("button", { name: /^User Tools$/ }).click();
+  await page.getByRole("button", { name: /Battlefield Correction/i }).click();
   await expect(
     page.getByText(
       "Correct current battlefield state without generating gameplay triggers.",
@@ -122,7 +122,7 @@ test("Catch Me Up repairs current state without replaying gameplay", async ({
   await expect(
     page.getByRole("button", { name: /28 tap to set life total/i }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Lands: 9" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Lands: 9\./i })).toBeVisible();
   await expect(page.locator(".modal-overlay")).toHaveCount(0);
 
   await page.reload();
@@ -130,7 +130,7 @@ test("Catch Me Up repairs current state without replaying gameplay", async ({
   await expect(
     page.getByRole("button", { name: /28 tap to set life total/i }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Lands: 9" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Lands: 9\./i })).toBeVisible();
 });
 
 test("Catch Me Up progressively reveals a large tracked battlefield", async ({
@@ -139,8 +139,8 @@ test("Catch Me Up progressively reveals a large tracked battlefield", async ({
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/?fixture=reference", { waitUntil: "load" });
 
-  await page.getByRole("button", { name: "Open settings" }).click();
-  await page.getByRole("button", { name: "Catch Me Up" }).click();
+  await page.getByRole("button", { name: /^User Tools$/ }).click();
+  await page.getByRole("button", { name: /Battlefield Correction/i }).click();
   await expect(page.locator(".catch-up-object")).toHaveCount(20);
   await page.getByRole("button", { name: "Show 2 More" }).click();
   await expect(page.locator(".catch-up-object")).toHaveCount(22);
@@ -199,8 +199,8 @@ test("pre-turn planner creates editable plans without mutating the battlefield",
     page.getByRole("button", { name: /40 tap to set life total/i }),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: /^Tools$/ }).click();
-  await page.getByRole("button", { name: /Open Pre-Turn Planner/i }).click();
+  await page.getByRole("button", { name: /^User Tools$/ }).click();
+  await page.getByRole("button", { name: /Plan Next Turn/i }).click();
   await expect(
     page.getByRole("heading", { name: /One-Minute Pre-Turn Planner/i }),
   ).toBeVisible();
@@ -247,8 +247,8 @@ test("prepared Forest confirms once and Available Land Plays stays editable", as
   await page.goto("/");
   await continuePastStartup(page);
 
-  await page.getByRole("button", { name: /^Tools$/ }).click();
-  await page.getByRole("button", { name: /Open Pre-Turn Planner/i }).click();
+  await page.getByRole("button", { name: /^User Tools$/ }).click();
+  await page.getByRole("button", { name: /Plan Next Turn/i }).click();
   const landSurvey = page.getByRole("region", {
     name: /How many lands do you plan to play next turn/i,
   });
@@ -294,7 +294,7 @@ test("voice settings remain opt-in and do not expose unfinished controls", async
   await page.goto("/");
   await continuePastStartup(page);
 
-  await page.getByRole("button", { name: /^Tools$/ }).click();
+  await page.getByRole("button", { name: "Open settings" }).click();
   await expect(
     page.getByRole("heading", { name: /Voice & Microphone/i }),
   ).toBeVisible();

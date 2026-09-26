@@ -5,6 +5,7 @@ import {
   ChevronUp,
   Crown,
   Minus,
+  Maximize2,
   Plus,
   Radiation,
   Shield,
@@ -12,8 +13,9 @@ import {
   Sparkles,
   Zap,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useFieldStore } from "../state/useFieldStore";
+import { HoldAdjustButton } from "./HoldAdjustButton";
 
 export function LifeTracker() {
   const player = useFieldStore((state) => state.field.player);
@@ -21,8 +23,10 @@ export function LifeTracker() {
   const openModal = useFieldStore((state) => state.openModal);
   const undo = useFieldStore((state) => state.undo);
   const redo = useFieldStore((state) => state.redo);
+  const updateSettings = useFieldStore((state) => state.updateSettings);
   const [increment, setIncrement] = useState(1);
   const [expanded, setExpanded] = useState(false);
+  const [pendingDelta, setPendingDelta] = useState(0);
 
   return (
     <section
@@ -59,38 +63,55 @@ export function LifeTracker() {
         />
       </div>
 
-      <HoldButton
+      <HoldAdjustButton
         label={`Lose ${increment} life`}
         className="life-adjust"
-        onStep={() => adjustLife(-increment, "loss")}
+        step={-increment}
+        onPreview={setPendingDelta}
+        onCommit={(delta) => adjustLife(delta, "loss")}
       >
         <Minus />
-      </HoldButton>
+      </HoldAdjustButton>
 
       <button
         type="button"
         className="life-total"
         onClick={() => openModal({ kind: "life" })}
-        aria-label={`${player.life} tap to set life total`}
+        aria-label={`${Math.max(0, player.life + pendingDelta)} tap to set life total`}
       >
-        <strong>{player.life}</strong>
-        <span>Tap to set life total</span>
+        <strong>{Math.max(0, player.life + pendingDelta)}</strong>
+        <span>
+          {pendingDelta === 0
+            ? "Tap to set life total"
+            : `${pendingDelta > 0 ? "+" : ""}${pendingDelta}`}
+        </span>
       </button>
 
-      <HoldButton
+      <button
+        type="button"
+        className="life-fullscreen"
+        aria-label="Open full-screen life"
+        onClick={() => updateSettings({ fullScreenLife: true })}
+      >
+        <Maximize2 />
+      </button>
+
+      <HoldAdjustButton
         label={`Gain ${increment} life`}
         className="life-adjust"
-        onStep={() => adjustLife(increment, "gain")}
+        step={increment}
+        onPreview={setPendingDelta}
+        onCommit={(delta) => adjustLife(delta, "gain")}
       >
         <Plus />
-      </HoldButton>
+      </HoldAdjustButton>
 
       <div className="counter-column counter-column-right">
         <PlayerCounter
           icon={<Shield />}
           label="CMD Damage"
           value={player.counters.commanderDamage}
-          onOpen={() => openModal({ kind: "playerCounters" })}
+          onOpen={() => openModal({ kind: "commanderDamage" })}
         />
         <PlayerCounter
           icon={<Sparkles />}
@@ -166,57 +187,6 @@ function PlayerCounter({
         <strong>{value}</strong>
       </span>
       <ChevronRight aria-hidden="true" className="counter-chevron" />
-    </button>
-  );
-}
-
-function HoldButton({
-  label,
-  className,
-  onStep,
-  children,
-}: {
-  label: string;
-  className: string;
-  onStep: () => void;
-  children: React.ReactNode;
-}) {
-  const intervalRef = useRef<number | null>(null);
-  const delayRef = useRef<number | null>(null);
-
-  useEffect(
-    () => () => {
-      if (intervalRef.current) window.clearInterval(intervalRef.current);
-      if (delayRef.current) window.clearTimeout(delayRef.current);
-    },
-    [],
-  );
-
-  function start() {
-    onStep();
-    delayRef.current = window.setTimeout(() => {
-      intervalRef.current = window.setInterval(onStep, 120);
-    }, 420);
-  }
-
-  function stop() {
-    if (intervalRef.current) window.clearInterval(intervalRef.current);
-    if (delayRef.current) window.clearTimeout(delayRef.current);
-    intervalRef.current = null;
-    delayRef.current = null;
-  }
-
-  return (
-    <button
-      type="button"
-      className={className}
-      aria-label={label}
-      onPointerDown={start}
-      onPointerUp={stop}
-      onPointerLeave={stop}
-      onPointerCancel={stop}
-    >
-      {children}
     </button>
   );
 }

@@ -1,5 +1,7 @@
 # Baord State Lite
 
+Architecture reference: [Next-Generation Lite Architecture](docs/NEXT_GENERATION_LITE_ARCHITECTURE.md)
+
 Baord State Lite is a mobile-first Magic: The Gathering companion app for tracking a personal battlefield without becoming a full digital battlefield simulator.
 
 The app tracks your life total, player counters, relevant battlefield objects, generic placeholders, counters, statuses, tokens, selected real-card abilities, and supported trigger/replacement chains. Cards added through Scryfall are treated as active tracked permanents, so users should add only cards whose abilities they want automated. Other permanents should be represented by generic placeholders. If a real card is already on the field but its abilities should be ignored temporarily, long-press it and choose Stop Tracking Card.

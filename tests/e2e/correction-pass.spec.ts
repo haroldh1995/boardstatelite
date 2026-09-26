@@ -8,7 +8,14 @@ test("permanent management removes an exact counter amount and all remaining cou
   const anim = page.locator('article[aria-label^="Anim Pakal"]').first();
 
   await longPress(page, anim);
-  await expect(page.getByText("+1/+1: 8", { exact: true })).toBeVisible();
+  const counterQuantity = page.getByLabel("+1/+1 counter quantity");
+  await expect(counterQuantity.getByText("8", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Remove one +1/+1 counter" }).click();
+  await expect(counterQuantity.getByText("7", { exact: true })).toBeVisible();
+  await page
+    .getByRole("button", { name: "Advanced / Correct Card State" })
+    .click();
+  await expect(page.getByText("+1/+1: 7", { exact: true })).toBeVisible();
   await page.getByLabel("Amount", { exact: true }).fill("3");
   await page
     .getByRole("button", {
@@ -17,11 +24,17 @@ test("permanent management removes an exact counter amount and all remaining cou
     .click();
   await expect(anim).toHaveAttribute(
     "aria-label",
-    /current power 8 and toughness 9/i,
+    /current power 7 and toughness 8/i,
   );
 
   await longPress(page, anim);
-  await expect(page.getByText("+1/+1: 5", { exact: true })).toBeVisible();
+  await expect(
+    page.getByLabel("+1/+1 counter quantity").getByText("4", { exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Advanced / Correct Card State" })
+    .click();
+  await expect(page.getByText("+1/+1: 4", { exact: true })).toBeVisible();
   await page
     .getByRole("button", {
       name: "Remove all +1/+1 counters from Anim Pakal, Thousandth Moon",
@@ -57,7 +70,9 @@ test("land-play status is visible, manually correctable, and reminder assistance
 
   await page.getByRole("button", { name: "Open settings" }).click();
   await page.getByLabel("Gameplay Reminders").check();
-  await page.getByRole("button", { name: "Open Pre-Turn Planner" }).click();
+  await page.getByRole("button", { name: "Close" }).click();
+  await page.getByRole("button", { name: /^User Tools$/ }).click();
+  await page.getByRole("button", { name: /Plan Next Turn/i }).click();
   await page.getByLabel("Plan title").fill("Reminder check");
   await page.getByRole("button", { name: "Add Planned Action" }).click();
   await page.keyboard.press("Escape");
@@ -86,10 +101,18 @@ async function continuePastStartup(page: Page) {
   const startupDialog = page.getByRole("dialog", {
     name: /Only add cards whose abilities should be tracked/i,
   });
-  if (await startupDialog.isVisible().catch(() => false)) {
+  try {
+    await startupDialog.waitFor({ state: "visible", timeout: 3_000 });
     await startupDialog
       .getByRole("button", { name: "Continue to Field" })
       .click();
+  } catch {
+    const continueButton = page.getByRole("button", {
+      name: "Continue to Field",
+    });
+    if (await continueButton.isVisible().catch(() => false)) {
+      await continueButton.click();
+    }
   }
   await expect(page.locator(".modal-overlay")).toHaveCount(0);
 }

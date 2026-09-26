@@ -33,6 +33,12 @@ import type {
   ZoneCategoryRelevantTotalKey,
   ZoneCompositionCollectionState,
 } from "./zoneCompositionTypes";
+import type { ArgusState } from "../argus/types";
+import type { TurnContextState } from "../turn/types";
+import type { ManualEffectState } from "./manualEffects";
+import type { ExternalGameState } from "./externalGameState";
+import type { RandomizerState } from "./randomizer";
+import type { CommanderDamageState } from "./commanderDamage";
 
 export type Zone =
   | "battlefield"
@@ -76,7 +82,14 @@ export type ModalKind =
   | "zoneComposition"
   | "cardIdentification"
   | "triggerOrder"
-  | "customEffect";
+  | "customEffect"
+  | "managePermanentAdvanced"
+  | "userTools"
+  | "staticEffects"
+  | "externalGameState"
+  | "randomizer"
+  | "commanderDamage"
+  | "turnMemory";
 
 export type CounterName =
   | "+1/+1"
@@ -265,6 +278,7 @@ export interface SettingsState {
   themeAccent: "verdant" | "sapphire" | "violet";
   sound: boolean;
   haptics: boolean;
+  fullScreenLife: boolean;
   voice: EchoVoiceSettings;
   personalGameplay: EchoPersonalGameplaySettings;
   ambientOrchestrator: EchoAmbientOrchestratorSettings;
@@ -338,6 +352,12 @@ export interface FieldState {
   personalGameplay: EchoPersonalGameplayState;
   ambientOrchestrator: EchoAmbientOrchestratorState;
   athena: AthenaState;
+  argus: ArgusState;
+  turnContext: TurnContextState;
+  manualEffects: ManualEffectState;
+  externalGameState: ExternalGameState;
+  randomizer: RandomizerState;
+  commanderDamage: CommanderDamageState;
   name: string;
   createdAt: string;
   updatedAt: string;

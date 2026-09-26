@@ -288,6 +288,7 @@ function buildDerivedBattlefieldState(
     const sourceDefinitions = getAthenaStaticEffectDefinitionsForCard(
       source.identity?.name,
       definitions,
+      source.id,
     );
     for (const definition of sourceDefinitions) {
       const relationship = environment.relationshipsByDefinition.get(
@@ -1085,6 +1086,8 @@ function targetsForDefinition(
   let candidates: PermanentGroup[];
   if (target.kind === "self") {
     candidates = [source];
+  } else if (target.kind === "selected") {
+    candidates = groups.filter((group) => group.id === target.selectedGroupId);
   } else if (target.kind === "attached-host") {
     candidates = groups.filter((group) => group.id === source.attachedTo);
   } else {
@@ -1512,6 +1515,9 @@ function cloneDefinitions(
   return definitions.map((definition) => ({
     ...definition,
     cardNames: [...definition.cardNames],
+    sourceGroupIds: definition.sourceGroupIds
+      ? [...definition.sourceGroupIds]
+      : undefined,
     target: { ...definition.target },
     power: {
       ...definition.power,

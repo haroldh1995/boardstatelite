@@ -114,6 +114,44 @@ export function serializeSessionExport(field: FieldState): string {
   return serializeStable(createSessionExportEnvelope(field), 2);
 }
 
+export function createPublicGameplaySnapshot(field: FieldState) {
+  return {
+    sessionId: field.session.id,
+    updatedAt: field.updatedAt,
+    groups: field.groups.filter(
+      (group) => group.session?.visibility !== "private",
+    ),
+    manualEffects: field.manualEffects.effects.filter(
+      (effect) => effect.visibility === "public",
+    ),
+    externalSources: field.externalGameState.sources.filter(
+      (source) => source.public,
+    ),
+    externalGameState: {
+      initiativeHolderId: field.externalGameState.initiativeHolderId,
+      monarchHolderId: field.externalGameState.monarchHolderId,
+      dayNight: field.externalGameState.dayNight,
+      citysBlessingParticipantIds:
+        field.externalGameState.citysBlessingParticipantIds,
+      dungeon: field.externalGameState.dungeon,
+      planechase: field.externalGameState.planechase,
+      archenemy: field.externalGameState.archenemy,
+    },
+    commanderDamage: field.commanderDamage.entries,
+    randomizerResults: field.randomizer.history.filter(
+      (result) => result.public,
+    ),
+    turn: {
+      status: field.turnContext.status,
+      turnNumber: field.turnContext.turnNumber,
+      phase: field.turnContext.quickPhase,
+      publicTriggerMemory: field.turnContext.triggerMemory.filter(
+        (entry) => entry.public,
+      ),
+    },
+  };
+}
+
 export function unwrapSessionImport(value: unknown): {
   field: unknown;
   session: unknown;
