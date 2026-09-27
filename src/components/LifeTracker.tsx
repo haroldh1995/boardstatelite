@@ -16,6 +16,7 @@ import {
 import { useState } from "react";
 import { useFieldStore } from "../state/useFieldStore";
 import { HoldAdjustButton } from "./HoldAdjustButton";
+import { useGroupedNumericAdjustment } from "./useGroupedNumericAdjustment";
 
 export function LifeTracker() {
   const player = useFieldStore((state) => state.field.player);
@@ -26,7 +27,11 @@ export function LifeTracker() {
   const updateSettings = useFieldStore((state) => state.updateSettings);
   const [increment, setIncrement] = useState(1);
   const [expanded, setExpanded] = useState(false);
-  const [pendingDelta, setPendingDelta] = useState(0);
+  const lifeAdjustment = useGroupedNumericAdjustment({
+    value: player.life,
+    minimum: 0,
+    onCommit: (delta) => adjustLife(delta, delta >= 0 ? "gain" : "loss"),
+  });
 
   return (
     <section
@@ -67,8 +72,7 @@ export function LifeTracker() {
         label={`Lose ${increment} life`}
         className="life-adjust"
         step={-increment}
-        onPreview={setPendingDelta}
-        onCommit={(delta) => adjustLife(delta, "loss")}
+        onStep={lifeAdjustment.adjust}
       >
         <Minus />
       </HoldAdjustButton>
@@ -77,13 +81,13 @@ export function LifeTracker() {
         type="button"
         className="life-total"
         onClick={() => openModal({ kind: "life" })}
-        aria-label={`${Math.max(0, player.life + pendingDelta)} tap to set life total`}
+        aria-label={`${lifeAdjustment.displayedValue} tap to set life total`}
       >
-        <strong>{Math.max(0, player.life + pendingDelta)}</strong>
+        <strong>{lifeAdjustment.displayedValue}</strong>
         <span>
-          {pendingDelta === 0
+          {lifeAdjustment.displayedDelta === 0
             ? "Tap to set life total"
-            : `${pendingDelta > 0 ? "+" : ""}${pendingDelta}`}
+            : `${lifeAdjustment.displayedDelta > 0 ? "+" : ""}${lifeAdjustment.displayedDelta}`}
         </span>
       </button>
 
@@ -100,8 +104,7 @@ export function LifeTracker() {
         label={`Gain ${increment} life`}
         className="life-adjust"
         step={increment}
-        onPreview={setPendingDelta}
-        onCommit={(delta) => adjustLife(delta, "gain")}
+        onStep={lifeAdjustment.adjust}
       >
         <Plus />
       </HoldAdjustButton>
@@ -147,10 +150,22 @@ export function LifeTracker() {
             {value}
           </button>
         ))}
-        <button type="button" onClick={undo}>
+        <button
+          type="button"
+          onClick={() => {
+            lifeAdjustment.finish();
+            undo();
+          }}
+        >
           Undo
         </button>
-        <button type="button" onClick={redo}>
+        <button
+          type="button"
+          onClick={() => {
+            lifeAdjustment.finish();
+            redo();
+          }}
+        >
           Redo
         </button>
         <span className="status-flags" aria-label="Player status flags">

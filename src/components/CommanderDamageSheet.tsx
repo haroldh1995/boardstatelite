@@ -1,7 +1,9 @@
 import { AlertTriangle, Minus, Plus, Shield, UserPlus } from "lucide-react";
 import { useState } from "react";
+import type { CommanderDamageEntry } from "../domain/commanderDamage";
 import { useFieldStore } from "../state/useFieldStore";
 import { HoldAdjustButton } from "./HoldAdjustButton";
+import { useGroupedNumericAdjustment } from "./useGroupedNumericAdjustment";
 
 export function CommanderDamageSheet() {
   const state = useFieldStore((store) => store.field.commanderDamage);
@@ -36,51 +38,12 @@ export function CommanderDamageSheet() {
       </p>
       <div className="commander-damage-list">
         {state.entries.map((entry) => (
-          <article
+          <CommanderDamageRow
             key={entry.id}
-            className={
-              entry.damage >= 21
-                ? "commander-damage-row lethal-threshold"
-                : "commander-damage-row"
-            }
-          >
-            <span className="commander-avatar" aria-hidden="true">
-              {entry.imageUrl ? (
-                <img src={entry.imageUrl} alt="" />
-              ) : (
-                <Shield />
-              )}
-            </span>
-            <span className="commander-damage-copy">
-              <small>{entry.playerLabel}</small>
-              <strong>{entry.commanderLabel}</strong>
-              {entry.damage >= 21 && (
-                <em>
-                  <AlertTriangle /> 21 threshold reached
-                </em>
-              )}
-            </span>
-            <div
-              className="direct-adjust"
-              aria-label={`${entry.commanderLabel} damage ${entry.damage}`}
-            >
-              <HoldAdjustButton
-                label={`Decrease damage from ${entry.commanderLabel}`}
-                step={-1}
-                onCommit={(delta) => adjust(entry.id, delta, "damage-only")}
-              >
-                <Minus />
-              </HoldAdjustButton>
-              <strong>{entry.damage}</strong>
-              <HoldAdjustButton
-                label={`Increase damage from ${entry.commanderLabel}`}
-                step={1}
-                onCommit={(delta) => adjust(entry.id, delta, mode)}
-              >
-                <Plus />
-              </HoldAdjustButton>
-            </div>
-          </article>
+            entry={entry}
+            mode={mode}
+            onAdjust={adjust}
+          />
         ))}
       </div>
       <section className="add-commander-source">
@@ -110,5 +73,70 @@ export function CommanderDamageSheet() {
         </button>
       </section>
     </div>
+  );
+}
+
+function CommanderDamageRow({
+  entry,
+  mode,
+  onAdjust,
+}: {
+  entry: CommanderDamageEntry;
+  mode: "combat" | "damage-only";
+  onAdjust: (id: string, delta: number, mode: "combat" | "damage-only") => void;
+}) {
+  const adjustment = useGroupedNumericAdjustment({
+    value: entry.damage,
+    minimum: 0,
+    maximum: 999,
+    onCommit: (delta) =>
+      onAdjust(entry.id, delta, delta > 0 ? mode : "damage-only"),
+  });
+  return (
+    <article
+      className={
+        adjustment.displayedValue >= 21
+          ? "commander-damage-row lethal-threshold"
+          : "commander-damage-row"
+      }
+    >
+      <span className="commander-avatar" aria-hidden="true">
+        {entry.imageUrl ? <img src={entry.imageUrl} alt="" /> : <Shield />}
+      </span>
+      <span className="commander-damage-copy">
+        <small>{entry.playerLabel}</small>
+        <strong>{entry.commanderLabel}</strong>
+        {adjustment.displayedValue >= 21 && (
+          <em>
+            <AlertTriangle /> 21 threshold reached
+          </em>
+        )}
+      </span>
+      <div
+        className="direct-adjust"
+        aria-label={`${entry.commanderLabel} damage ${adjustment.displayedValue}`}
+      >
+        <HoldAdjustButton
+          label={`Decrease damage from ${entry.commanderLabel}`}
+          step={-1}
+          onStep={adjustment.adjust}
+        >
+          <Minus />
+        </HoldAdjustButton>
+        <strong>{adjustment.displayedValue}</strong>
+        <HoldAdjustButton
+          label={`Increase damage from ${entry.commanderLabel}`}
+          step={1}
+          onStep={adjustment.adjust}
+        >
+          <Plus />
+        </HoldAdjustButton>
+      </div>
+      <span className="life-transaction-delta" aria-live="polite">
+        {adjustment.displayedDelta === 0
+          ? ""
+          : `${adjustment.displayedDelta > 0 ? "+" : ""}${adjustment.displayedDelta}`}
+      </span>
+    </article>
   );
 }

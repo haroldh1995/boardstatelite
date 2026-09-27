@@ -1,17 +1,42 @@
 import { supportStatusForCard } from "../domain/cards";
+import {
+  buildCardSearchPlan,
+  createDefaultCardSearchFilters,
+  deduplicateCardSearchResults,
+  hasActiveCardSearchFilters,
+  hasSufficientCardSearchResults,
+  rankCardSearchResults,
+  type CardSearchFilters,
+  type CardSearchRequest,
+} from "../domain/cardSearch";
 import type { CardFaceIdentity, CardIdentity } from "../domain/types";
-import { fetchJson, isNetworkOnline } from "../platform/network";
+import {
+  fetchJson,
+  isNetworkOnline,
+  type PortableJsonResponse,
+} from "../platform/network";
+import { monotonicNowMs, sleepMs } from "../platform/runtime";
 import { cacheCard, cacheSearch, getCachedCard, getCachedSearch } from "./db";
 
 const SCRYFALL_SEARCH_URL = "https://api.scryfall.com/cards/search";
 const SCRYFALL_CARDS_URL = "https://api.scryfall.com/cards";
 const CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 14;
+const SCRYFALL_REQUEST_SPACING_MS = 110;
 const pendingSearches = new Map<string, Promise<CardIdentity[]>>();
+let lastScryfallRequestAt = Number.NEGATIVE_INFINITY;
+let scryfallRequestQueue = Promise.resolve();
 
 export interface ScryfallSearchPage {
   cards: CardIdentity[];
   nextPage: string | null;
   fromCache: boolean;
+}
+
+export interface ScryfallSearchOptions {
+  signal?: AbortSignal;
+  pageUrl?: string | null;
+  filters?: CardSearchFilters;
+  ignoredConceptIds?: readonly string[];
 }
 
 export async function searchScryfall(
@@ -20,43 +45,12 @@ export async function searchScryfall(
 ): Promise<CardIdentity[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
-
-  const cached = await getCachedSearch(trimmed, CACHE_TTL_MS);
-  if (cached?.length) return cached;
-
   const key = trimmed.toLowerCase();
   const pending = pendingSearches.get(key);
   if (pending) return pending;
 
-  if (!isNetworkOnline()) {
-    return cached ?? [];
-  }
-
-  const params = new URLSearchParams({
-    q: trimmed,
-    unique: "prints",
-    order: "name",
-    include_extras: "true",
-  });
-
-  const request = fetchJson(`${SCRYFALL_SEARCH_URL}?${params.toString()}`, {
-    signal: options.signal,
-    headers: {
-      Accept: "application/json",
-    },
-  })
-    .then(async (response) => {
-      if (!response.ok) return cached ?? [];
-      const payload = (await response.json()) as { data?: unknown[] };
-      const cards = (payload.data ?? [])
-        .map((entry) => mapScryfallCard(entry as Record<string, unknown>))
-        .filter((card) => card.name);
-      const ranked = rankScryfallResults(trimmed, cards);
-      await cacheSearch(trimmed, ranked);
-      await Promise.all(ranked.slice(0, 12).map(cacheCard));
-      return ranked;
-    })
-    .catch(() => cached ?? [])
+  const request = searchScryfallPage(trimmed, options)
+    .then((page) => page.cards)
     .finally(() => {
       pendingSearches.delete(key);
     });
@@ -67,67 +61,69 @@ export async function searchScryfall(
 
 export async function searchScryfallPage(
   query: string,
-  options: { signal?: AbortSignal; pageUrl?: string | null } = {},
+  options: ScryfallSearchOptions = {},
 ): Promise<ScryfallSearchPage> {
   const trimmed = query.trim();
-  if (!trimmed) return { cards: [], nextPage: null, fromCache: false };
-  if (!options.pageUrl) {
-    const cached = await getCachedSearch(trimmed, CACHE_TTL_MS);
-    if (cached?.length && !isNetworkOnline()) {
-      return {
-        cards: rankScryfallResults(trimmed, cached),
-        nextPage: null,
-        fromCache: true,
-      };
-    }
-  }
-  if (!isNetworkOnline()) {
-    return { cards: [], nextPage: null, fromCache: true };
-  }
-  const url = options.pageUrl ?? searchUrl(trimmed);
-  try {
-    const response = await fetchJson(url, {
-      signal: options.signal,
-      headers: { Accept: "application/json" },
-    });
-    if (!response.ok) return { cards: [], nextPage: null, fromCache: false };
-    const payload = (await response.json()) as {
-      data?: unknown[];
-      has_more?: boolean;
-      next_page?: string;
-    };
-    const cards = rankScryfallResults(
-      trimmed,
-      (payload.data ?? [])
-        .map((entry) => mapScryfallCard(entry as Record<string, unknown>))
-        .filter((card) => card.name),
-    );
-    if (!options.pageUrl) {
-      await cacheSearch(trimmed, cards);
-      await Promise.all(cards.slice(0, 12).map(cacheCard));
-    }
-    return {
-      cards,
-      nextPage:
-        payload.has_more && typeof payload.next_page === "string"
-          ? payload.next_page
-          : null,
-      fromCache: false,
-    };
-  } catch {
+  const filters = options.filters ?? createDefaultCardSearchFilters();
+  if (!trimmed && !hasActiveCardSearchFilters(filters)) {
     return { cards: [], nextPage: null, fromCache: false };
   }
+  const request: CardSearchRequest = {
+    query: trimmed,
+    filters,
+    ignoredConceptIds: options.ignoredConceptIds,
+  };
+  const cacheKey = searchCacheKey(request);
+  const cached = !options.pageUrl
+    ? await getCachedSearch(cacheKey, CACHE_TTL_MS)
+    : null;
+  if (!isNetworkOnline()) {
+    return {
+      cards: cached ? rankCardSearchResults(request, cached) : [],
+      nextPage: null,
+      fromCache: true,
+    };
+  }
+  if (options.pageUrl) {
+    const page = await fetchSearchPage(options.pageUrl, options.signal);
+    return {
+      cards: rankCardSearchResults(request, page.cards),
+      nextPage: page.nextPage,
+      fromCache: false,
+    };
+  }
+
+  const merged: CardIdentity[] = [];
+  let nextPage: string | null = null;
+  for (const stage of buildCardSearchPlan(request)) {
+    if (options.signal?.aborted) break;
+    const page = await fetchSearchPage(searchUrl(stage.query), options.signal);
+    if (!nextPage && page.cards.length > 0) nextPage = page.nextPage;
+    merged.push(...page.cards);
+    const candidates = rankCardSearchResults(
+      request,
+      deduplicateCardSearchResults(merged),
+    );
+    if (hasSufficientCardSearchResults(request, candidates)) break;
+  }
+  const cards = rankCardSearchResults(
+    request,
+    deduplicateCardSearchResults(merged.length > 0 ? merged : (cached ?? [])),
+  );
+  if (cards.length > 0) {
+    await cacheSearch(cacheKey, cards);
+    await Promise.all(cards.slice(0, 12).map(cacheCard));
+  }
+  return { cards, nextPage, fromCache: merged.length === 0 && Boolean(cached) };
 }
 
 export function rankScryfallResults(
   query: string,
   cards: readonly CardIdentity[],
+  filters: CardSearchFilters = createDefaultCardSearchFilters(),
+  ignoredConceptIds: readonly string[] = [],
 ): CardIdentity[] {
-  const normalized = normalizeSearchText(query);
-  return cards
-    .map((card, index) => ({ card, index, rank: rankCard(card, normalized) }))
-    .sort((left, right) => left.rank - right.rank || left.index - right.index)
-    .map((entry) => entry.card);
+  return rankCardSearchResults({ query, filters, ignoredConceptIds }, cards);
 }
 
 export async function fetchScryfallCard(
@@ -138,7 +134,7 @@ export async function fetchScryfallCard(
   if (!isNetworkOnline()) return null;
 
   try {
-    const response = await fetchJson(
+    const response = await fetchScryfallJson(
       `${SCRYFALL_CARDS_URL}/${encodeURIComponent(cardId)}`,
     );
     if (!response.ok) return null;
@@ -182,7 +178,11 @@ export function mapScryfallCard(raw: Record<string, unknown>): CardIdentity {
     imageSmall: cardImageUris.small || faceImageUris.small,
     scryfallUri: stringValue(raw.scryfall_uri),
     setCode: stringValue(raw.set),
+    setName: stringValue(raw.set_name),
     collectorNumber: stringValue(raw.collector_number),
+    rarity: stringValue(raw.rarity),
+    artist: stringValue(raw.artist),
+    releasedAt: stringValue(raw.released_at),
     colors,
     colorIdentity: stringArray(raw.color_identity),
     keywords: stringArray(raw.keywords),
@@ -197,9 +197,9 @@ export function mapScryfallCard(raw: Record<string, unknown>): CardIdentity {
   return identity;
 }
 
-function searchUrl(query: string): string {
+function searchUrl(providerQuery: string): string {
   const params = new URLSearchParams({
-    q: scryfallQuery(query),
+    q: providerQuery,
     unique: "prints",
     order: "name",
     include_extras: "true",
@@ -207,38 +207,64 @@ function searchUrl(query: string): string {
   return `${SCRYFALL_SEARCH_URL}?${params.toString()}`;
 }
 
-function scryfallQuery(query: string): string {
-  if (query.includes(":")) return query;
-  const escaped = query.replace(/["\\]/g, " ").trim();
-  if (!escaped) return query;
-  const quoted = `"${escaped}"`;
-  return `(name:${quoted} or oracle:${quoted} or flavor:${quoted})`;
-}
-
-function rankCard(card: CardIdentity, query: string): number {
-  if (!query) return 8;
-  const name = normalizeSearchText(card.name);
-  if (name === query) return 0;
-  if (name.startsWith(query)) return 1;
-  if (name.includes(query)) return 2;
-  const oracle = normalizeSearchText(card.oracleText);
-  if (oracle.includes(query)) return 3;
-  if (
-    card.keywords.some((keyword) =>
-      normalizeSearchText(keyword).includes(query),
-    )
-  ) {
-    return 4;
+async function fetchSearchPage(
+  url: string,
+  signal?: AbortSignal,
+): Promise<{ cards: CardIdentity[]; nextPage: string | null }> {
+  try {
+    const response = await fetchScryfallJson(url, {
+      signal,
+      headers: { Accept: "application/json;q=0.9,*/*;q=0.8" },
+    });
+    if (!response.ok) return { cards: [], nextPage: null };
+    const payload = (await response.json()) as {
+      data?: unknown[];
+      has_more?: boolean;
+      next_page?: string;
+    };
+    return {
+      cards: (payload.data ?? [])
+        .map((entry) => mapScryfallCard(entry as Record<string, unknown>))
+        .filter((card) => card.name),
+      nextPage:
+        payload.has_more && typeof payload.next_page === "string"
+          ? payload.next_page
+          : null,
+    };
+  } catch {
+    return { cards: [], nextPage: null };
   }
-  if (normalizeSearchText(card.flavorText ?? "").includes(query)) return 5;
-  const metadata = normalizeSearchText(
-    `${card.typeLine} ${card.setCode ?? ""} ${card.collectorNumber ?? ""}`,
-  );
-  return metadata.includes(query) ? 6 : 7;
 }
 
-function normalizeSearchText(value: string): string {
-  return value.trim().toLocaleLowerCase().replace(/\s+/g, " ");
+function fetchScryfallJson(
+  url: string,
+  init?: RequestInit,
+): Promise<PortableJsonResponse> {
+  const request = scryfallRequestQueue.then(async () => {
+    const wait = Math.max(
+      0,
+      SCRYFALL_REQUEST_SPACING_MS - (monotonicNowMs() - lastScryfallRequestAt),
+    );
+    if (wait > 0) await sleepMs(wait);
+    if (init?.signal?.aborted) {
+      return { ok: false, status: 0, json: async () => null };
+    }
+    lastScryfallRequestAt = monotonicNowMs();
+    return fetchJson(url, init);
+  });
+  scryfallRequestQueue = request.then(
+    () => undefined,
+    () => undefined,
+  );
+  return request;
+}
+
+function searchCacheKey(request: CardSearchRequest): string {
+  return JSON.stringify({
+    query: request.query.trim().toLowerCase(),
+    filters: request.filters,
+    ignoredConceptIds: [...(request.ignoredConceptIds ?? [])].sort(),
+  });
 }
 
 function mapFace(face: Record<string, unknown>): CardFaceIdentity {

@@ -19,13 +19,27 @@ test("turn context and full-screen life remain fast at phone width", async ({
     page.getByRole("main", { name: "Full-screen life mode" }),
   ).toBeVisible();
   await expect(page.getByText("40", { exact: true })).toBeVisible();
-  await page
-    .getByRole("button", { name: /Gain life. Press and hold/i })
-    .click();
-  await expect(page.getByText("41", { exact: true })).toBeVisible();
+  const loseLife = page.getByRole("button", {
+    name: /Lose life. Press and hold/i,
+  });
+  const gainLife = page.getByRole("button", {
+    name: /Gain life. Press and hold/i,
+  });
+  for (let index = 0; index < 5; index += 1) await loseLife.click();
+  await expect(page.getByText("35", { exact: true })).toBeVisible();
+  await expect(page.getByText("-5", { exact: true })).toBeVisible();
+  await gainLife.click();
+  await gainLife.click();
+  await expect(page.getByText("37", { exact: true })).toBeVisible();
+  await expect(page.getByText("-3", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Return to battlefield" }).click();
   await expect(
-    page.getByRole("button", { name: /41 tap to set life total/i }),
+    page.getByRole("button", { name: /37 tap to set life total/i }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Expand life controls" }).click();
+  await page.getByRole("button", { name: /^Undo$/ }).click();
+  await expect(
+    page.getByRole("button", { name: /40 tap to set life total/i }),
   ).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });

@@ -1,20 +1,23 @@
 import { Minimize2, Minus, Plus, Shield } from "lucide-react";
-import { useState } from "react";
 import { useFieldStore } from "../state/useFieldStore";
 import { getLandPlayTurnStatus } from "../echo/preTurnPlanner";
 import { summarizeTurnMemory } from "../turn";
 import { HoldAdjustButton } from "./HoldAdjustButton";
 import { TurnContextBar } from "./TurnContextBar";
+import { useGroupedNumericAdjustment } from "./useGroupedNumericAdjustment";
 
 export function FullScreenLife() {
   const field = useFieldStore((state) => state.field);
   const adjustLife = useFieldStore((state) => state.adjustLife);
   const updateSettings = useFieldStore((state) => state.updateSettings);
   const openModal = useFieldStore((state) => state.openModal);
-  const [pendingDelta, setPendingDelta] = useState(0);
+  const lifeAdjustment = useGroupedNumericAdjustment({
+    value: field.player.life,
+    minimum: 0,
+    onCommit: (delta) => adjustLife(delta, delta >= 0 ? "gain" : "loss"),
+  });
   const land = getLandPlayTurnStatus(field.preTurnPlanner);
   const memory = summarizeTurnMemory(field.turnContext);
-  const displayedLife = Math.max(0, field.player.life + pendingDelta);
   return (
     <main className="full-screen-life" aria-label="Full-screen life mode">
       <div className="full-life-toolbar">
@@ -30,26 +33,24 @@ export function FullScreenLife() {
       </div>
       <div className="full-life-center">
         <span className="full-life-label">Life</span>
-        <strong>{displayedLife}</strong>
+        <strong>{lifeAdjustment.displayedValue}</strong>
         <span className="life-transaction-delta" aria-live="polite">
-          {pendingDelta === 0
+          {lifeAdjustment.displayedDelta === 0
             ? ""
-            : `${pendingDelta > 0 ? "+" : ""}${pendingDelta}`}
+            : `${lifeAdjustment.displayedDelta > 0 ? "+" : ""}${lifeAdjustment.displayedDelta}`}
         </span>
         <div className="full-life-adjusters">
           <HoldAdjustButton
             label="Lose life. Press and hold for continuous adjustment."
             step={-1}
-            onPreview={setPendingDelta}
-            onCommit={(delta) => adjustLife(delta, "loss")}
+            onStep={lifeAdjustment.adjust}
           >
             <Minus />
           </HoldAdjustButton>
           <HoldAdjustButton
             label="Gain life. Press and hold for continuous adjustment."
             step={1}
-            onPreview={setPendingDelta}
-            onCommit={(delta) => adjustLife(delta, "gain")}
+            onStep={lifeAdjustment.adjust}
           >
             <Plus />
           </HoldAdjustButton>

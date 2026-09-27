@@ -163,7 +163,11 @@ export interface CardIdentity {
   imageArt: string;
   scryfallUri?: string;
   setCode?: string;
+  setName?: string;
   collectorNumber?: string;
+  rarity?: string;
+  artist?: string;
+  releasedAt?: string;
   colors: string[];
   colorIdentity: string[];
   keywords: string[];

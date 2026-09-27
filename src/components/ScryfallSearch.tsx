@@ -1,7 +1,13 @@
-import { Search, WifiOff, X } from "lucide-react";
+import { Search, SlidersHorizontal, WifiOff, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  createDefaultCardSearchFilters,
+  hasActiveCardSearchFilters,
+  interpretCardSearch,
+} from "../domain/cardSearch";
 import type { CardIdentity } from "../domain/types";
 import { rankScryfallResults, searchScryfallPage } from "../services/scryfall";
+import { CardSearchFiltersPanel } from "./CardSearchFiltersPanel";
 
 export interface ScryfallSearchAction {
   id: string;
@@ -32,6 +38,9 @@ export function ScryfallSearch({
   initialQuery = "",
 }: ScryfallSearchProps) {
   const [query, setQuery] = useState(initialQuery);
+  const [filters, setFilters] = useState(createDefaultCardSearchFilters);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [ignoredConceptIds, setIgnoredConceptIds] = useState<string[]>([]);
   const [results, setResults] = useState<CardIdentity[]>([]);
   const [selected, setSelected] = useState<CardIdentity | null>(null);
   const [mode, setMode] = useState<"search" | "preview">("search");
@@ -47,8 +56,15 @@ export function ScryfallSearch({
   );
   const abortRef = useRef<AbortController | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const queryRef = useRef(query);
+  const requestKeyRef = useRef("");
   const loadingMoreRef = useRef(false);
+  const requestKey = `${query}\n${JSON.stringify(filters)}\n${ignoredConceptIds.join("|")}`;
+  const searchActive =
+    query.trim().length >= 2 || hasActiveCardSearchFilters(filters);
+  const interpretation = useMemo(
+    () => interpretCardSearch({ query, filters, ignoredConceptIds }),
+    [filters, ignoredConceptIds, query],
+  );
 
   const availableActions = useMemo<ScryfallSearchAction[]>(() => {
     if (actions?.length) return actions;
@@ -74,9 +90,9 @@ export function ScryfallSearch({
   }, []);
 
   useEffect(() => {
-    queryRef.current = query;
+    requestKeyRef.current = requestKey;
     setConfirmationError(null);
-    if (query.trim().length < 2) {
+    if (!searchActive) {
       abortRef.current?.abort();
       setResults([]);
       setNextPage(null);
@@ -87,14 +103,17 @@ export function ScryfallSearch({
     const controller = new AbortController();
     abortRef.current = controller;
     const requestedQuery = query;
+    const requestedKey = requestKey;
     const timeout = window.setTimeout(() => {
       setLoading(true);
       setResults([]);
       setNextPage(null);
       void searchScryfallPage(requestedQuery, {
         signal: controller.signal,
+        filters,
+        ignoredConceptIds,
       }).then((page) => {
-        if (controller.signal.aborted || queryRef.current !== requestedQuery)
+        if (controller.signal.aborted || requestKeyRef.current !== requestedKey)
           return;
         setResults(page.cards);
         setNextPage(page.nextPage);
@@ -105,7 +124,7 @@ export function ScryfallSearch({
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [query]);
+  }, [filters, ignoredConceptIds, query, requestKey, searchActive]);
 
   const visibleResults = useMemo(() => {
     const seen = new Set<string>();
@@ -127,25 +146,33 @@ export function ScryfallSearch({
   async function loadMore() {
     if (!nextPage || loadingMoreRef.current || loading) return;
     const requestedQuery = query;
+    const requestedKey = requestKey;
     const controller = abortRef.current;
     loadingMoreRef.current = true;
     setLoadingMore(true);
     const page = await searchScryfallPage(requestedQuery, {
       signal: controller?.signal,
       pageUrl: nextPage,
+      filters,
+      ignoredConceptIds,
     });
-    if (controller?.signal.aborted || queryRef.current !== requestedQuery) {
+    if (controller?.signal.aborted || requestKeyRef.current !== requestedKey) {
       loadingMoreRef.current = false;
       setLoadingMore(false);
       return;
     }
     setResults((current) =>
-      rankScryfallResults(requestedQuery, [
-        ...current,
-        ...page.cards.filter(
-          (card) => !current.some((entry) => entry.cardId === card.cardId),
-        ),
-      ]),
+      rankScryfallResults(
+        requestedQuery,
+        [
+          ...current,
+          ...page.cards.filter(
+            (card) => !current.some((entry) => entry.cardId === card.cardId),
+          ),
+        ],
+        filters,
+        ignoredConceptIds,
+      ),
     );
     setNextPage(page.nextPage);
     loadingMoreRef.current = false;
@@ -155,6 +182,7 @@ export function ScryfallSearch({
   function clearSearch() {
     abortRef.current?.abort();
     setQuery("");
+    setIgnoredConceptIds([]);
     setResults([]);
     setSelected(null);
     setMode("search");
@@ -179,6 +207,7 @@ export function ScryfallSearch({
           }}
           onChange={(event) => {
             setQuery(event.target.value);
+            setIgnoredConceptIds([]);
             setMode("search");
           }}
           placeholder="Search Scryfall cards"
@@ -195,6 +224,49 @@ export function ScryfallSearch({
           </button>
         )}
       </label>
+      <div className="search-intelligence-row">
+        <button
+          type="button"
+          className={
+            advancedOpen ? "search-advanced selected" : "search-advanced"
+          }
+          aria-expanded={advancedOpen}
+          onClick={() => setAdvancedOpen((value) => !value)}
+        >
+          <SlidersHorizontal aria-hidden="true" /> Advanced Search
+        </button>
+        {hasActiveCardSearchFilters(filters) && (
+          <span className="search-filter-active">Filters active</span>
+        )}
+      </div>
+      {interpretation.concepts.length > 0 && (
+        <div
+          className="search-interpretation"
+          aria-label="Search interpretation"
+        >
+          {interpretation.concepts.map((concept) => (
+            <button
+              type="button"
+              key={concept.id}
+              aria-label={`Remove ${concept.label} interpretation`}
+              onClick={() =>
+                setIgnoredConceptIds((current) => [...current, concept.id])
+              }
+            >
+              {concept.label} <X aria-hidden="true" />
+            </button>
+          ))}
+        </div>
+      )}
+      {advancedOpen && (
+        <CardSearchFiltersPanel
+          filters={filters}
+          onChange={(value) => {
+            setFilters(value);
+            setMode("search");
+          }}
+        />
+      )}
       {offline && (
         <p className="offline-note">
           <WifiOff /> Offline: showing previously cached card data when
@@ -218,11 +290,9 @@ export function ScryfallSearch({
           }}
         >
           {loading && <p className="muted">Searching Scryfall...</p>}
-          {!loading &&
-            visibleResults.length === 0 &&
-            query.trim().length >= 2 && (
-              <p className="muted">No cached or online results found.</p>
-            )}
+          {!loading && visibleResults.length === 0 && searchActive && (
+            <p className="muted">No cached or online results found.</p>
+          )}
           {visibleResults.map((card) => (
             <button
               type="button"

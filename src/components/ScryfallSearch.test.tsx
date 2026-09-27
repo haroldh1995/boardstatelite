@@ -157,4 +157,89 @@ describe("shared Scryfall search and preview", () => {
       screen.getByRole("listbox", { name: "Scryfall search results" }),
     ).toBeInTheDocument();
   });
+
+  it("shows removable natural-language concepts and shared advanced filters", async () => {
+    const user = userEvent.setup();
+    render(
+      <ScryfallSearch
+        label="Choose a card"
+        actionLabel="Use This Card"
+        onConfirm={() => undefined}
+      />,
+    );
+    const search = screen.getByPlaceholderText("Search Scryfall cards");
+    await user.type(search, "mountain land");
+    expect(
+      screen.getByRole("button", { name: "Remove Mountain interpretation" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Remove Land interpretation" }),
+    ).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Advanced Search" }));
+    expect(
+      screen.getByRole("region", { name: "Advanced card filters" }),
+    ).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Artifact" }));
+    await waitFor(() =>
+      expect(searchPageMock).toHaveBeenLastCalledWith(
+        "mountain land",
+        expect.objectContaining({
+          filters: expect.objectContaining({ cardTypes: ["Artifact"] }),
+        }),
+      ),
+    );
+    await user.click(screen.getByRole("button", { name: "Clear Filters" }));
+    expect(screen.queryByText("Filters active")).not.toBeInTheDocument();
+    expect(search).toHaveValue("mountain land");
+  });
+
+  it("does not allow an older search response to replace a newer query", async () => {
+    const user = userEvent.setup();
+    const resolvers: Array<(value: unknown) => void> = [];
+    searchPageMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvers.push(resolve);
+        }),
+    );
+    render(
+      <ScryfallSearch
+        label="Choose a card"
+        actionLabel="Use This Card"
+        onConfirm={() => undefined}
+      />,
+    );
+    const search = screen.getByPlaceholderText("Search Scryfall cards");
+    await user.type(search, "older");
+    await waitFor(() => expect(resolvers).toHaveLength(1));
+    await user.clear(search);
+    await user.type(search, "newer");
+    await waitFor(() => expect(resolvers).toHaveLength(2));
+    resolvers[1]?.({
+      cards: [
+        testCard({
+          name: "Newer Result",
+          typeLine: "Creature",
+          oracleText: "",
+        }),
+      ],
+      nextPage: null,
+      fromCache: false,
+    });
+    expect(await screen.findByText("Newer Result")).toBeVisible();
+    resolvers[0]?.({
+      cards: [
+        testCard({
+          name: "Older Result",
+          typeLine: "Creature",
+          oracleText: "",
+        }),
+      ],
+      nextPage: null,
+      fromCache: false,
+    });
+    await waitFor(() =>
+      expect(screen.queryByText("Older Result")).not.toBeInTheDocument(),
+    );
+  });
 });

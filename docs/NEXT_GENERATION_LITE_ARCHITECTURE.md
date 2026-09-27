@@ -103,6 +103,33 @@ an already-generated result. A result has one stable ID, source, timestamp, and
 public/private marker so shared-session adapters distribute one canonical result
 rather than generating independently on each client.
 
+## Grouped Direct Adjustments
+
+`src/domain/numericAdjustment.ts` defines the portable transaction semantics
+used by life and commander-damage controls. Rapid taps and press-and-hold input
+append to one active delta. Reversing direction changes the net delta from the
+transaction's starting value. Presentation commits that net delta once after a
+short inactivity window, so history, triggers, and Undo see one deliberate
+transaction rather than one event per repeated input. Full-Screen Life and the
+normal tracker use the same grouping behavior.
+
+## Card Search Engine
+
+`src/domain/cardSearch.ts` owns provider-neutral interpretation, structured
+filters, typo tolerance, progressive fallback planning, deduplication, and
+relevance ranking. Structural card properties substantially outrank incidental
+Oracle or flavor text. Search interpretation remains advisory and appears as
+removable chips rather than a confirmation step.
+
+`src/services/scryfall.ts` is the Scryfall provider adapter. It translates the
+portable request into staged provider queries, stops broadening after enough
+strong candidates exist, caches merged results, and maps provider metadata back
+to `CardIdentity`. A portable serialized rate gate keeps provider traffic below
+Scryfall's published request ceiling. React search surfaces only own debounce, cancellation,
+preview, pagination, filter presentation, and stale-response protection. All
+card-selection workflows therefore reuse one engine without embedding Scryfall
+syntax or ranking constants in views.
+
 ## Shared Visibility
 
 Public permanents, counters, source/effect relationships, external public game
@@ -114,7 +141,8 @@ state is serialized through the existing canonical field/session envelope.
 ## Platform Boundaries
 
 Domain and state-machine modules do not depend on the DOM, browser persistence,
-camera APIs, speech APIs, or CSS. Web-only behavior remains in React components
-and platform adapters. SwiftUI and Android implementations can reproduce the
-same contracts with native capture, randomness, persistence, audio, haptics,
-animation, and lifecycle adapters.
+camera APIs, speech APIs, or CSS. This includes numeric adjustment transactions
+and card-search interpretation/ranking. Web-only behavior remains in React
+components and platform adapters. SwiftUI and Android implementations can
+reproduce the same contracts with native capture, randomness, persistence,
+audio, haptics, animation, and lifecycle adapters.

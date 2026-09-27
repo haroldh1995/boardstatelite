@@ -108,6 +108,30 @@ test.describe("Scryfall card entry handoff", () => {
       page.locator('article[aria-label^="Hag of Noxious Nightmares"]'),
     ).toHaveCount(1);
   });
+
+  test("natural interpretations and advanced filters remain mobile friendly", async ({
+    page,
+  }) => {
+    await openPicker(page, 390);
+    const search = page.getByPlaceholder("Search Scryfall cards");
+    await search.fill("mountain land");
+    await expect(
+      page.getByRole("button", { name: "Remove Mountain interpretation" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Remove Land interpretation" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Advanced Search" }).click();
+    await expect(
+      page.getByRole("region", { name: "Advanced card filters" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Artifact", exact: true }).click();
+    await expect(page.getByText("Filters active")).toBeVisible();
+    await page.getByRole("button", { name: "Clear Filters" }).click();
+    await expect(page.getByText("Filters active")).toHaveCount(0);
+    await expect(search).toHaveValue("mountain land");
+    await expectNoHorizontalOverflow(page);
+  });
 });
 
 async function openPicker(page: Page, width: number) {
@@ -122,4 +146,12 @@ async function openPicker(page: Page, width: number) {
   await page.goto("/?fixture=reference", { waitUntil: "load" });
   await page.getByRole("button", { name: /^Add$/ }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
+}
+
+async function expectNoHorizontalOverflow(page: Page) {
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth + 1,
+    ),
+  ).toBe(true);
 }

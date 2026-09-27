@@ -101,8 +101,62 @@ describe("Scryfall search service", () => {
       color_identity: [],
       keywords: [],
       layout: "normal",
+      set: "tst",
+      set_name: "Test Set",
+      rarity: "rare",
+      artist: "Test Artist",
+      released_at: "2026-01-01",
     });
     expect(card.flavorText).toBe("Noxious air filled the vault.");
     expect(card.typeLine).toBe("Artifact");
+    expect(card.setName).toBe("Test Set");
+    expect(card.rarity).toBe("rare");
+    expect(card.artist).toBe("Test Artist");
+    expect(card.releasedAt).toBe("2026-01-01");
+  });
+
+  it("progressively broadens natural search through provider syntax", async () => {
+    const requestedUrls: string[] = [];
+    configureNetworkPort({
+      isOnline: () => true,
+      fetchJson: async (url) => {
+        requestedUrls.push(url);
+        const decoded = decodeURIComponent(url);
+        const structured =
+          decoded.includes('t:"Mountain"') && decoded.includes('t:"Land"');
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            data: structured
+              ? [
+                  {
+                    id: "mountain",
+                    oracle_id: "mountain-oracle",
+                    name: "Mountain",
+                    type_line: "Basic Land - Mountain",
+                    oracle_text: "{T}: Add {R}.",
+                    cmc: 0,
+                    colors: [],
+                    color_identity: ["R"],
+                    keywords: [],
+                    layout: "normal",
+                    card_faces: [],
+                  },
+                ]
+              : [],
+            has_more: false,
+          }),
+        };
+      },
+    });
+    const page = await searchScryfallPage("mountain land");
+    expect(page.cards[0]?.name).toBe("Mountain");
+    expect(
+      requestedUrls.some((url) => {
+        const decoded = decodeURIComponent(url);
+        return decoded.includes('t:"Mountain"') && decoded.includes('t:"Land"');
+      }),
+    ).toBe(true);
   });
 });

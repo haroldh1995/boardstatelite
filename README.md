@@ -6,6 +6,12 @@ Baord State Lite is a mobile-first Magic: The Gathering companion app for tracki
 
 The app tracks your life total, player counters, relevant battlefield objects, generic placeholders, counters, statuses, tokens, selected real-card abilities, and supported trigger/replacement chains. Cards added through Scryfall are treated as active tracked permanents, so users should add only cards whose abilities they want automated. Other permanents should be represented by generic placeholders. If a real card is already on the field but its abilities should be ignored temporarily, long-press it and choose Stop Tracking Card.
 
+Life and commander-damage controls group rapid taps or a press-and-hold into one
+net transaction, including direction changes, so one deliberate adjustment is
+one undoable gameplay event. The shared card picker supports natural Magic
+queries, removable interpretation chips, typo-tolerant progressive fallback,
+and optional advanced filters without requiring Scryfall syntax.
+
 ## Current Automated Card Logic
 
 - Anim Pakal, Thousandth Moon initiating attack trigger.

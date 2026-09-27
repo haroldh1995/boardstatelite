@@ -31,7 +31,7 @@ This audit describes the current Baord State Lite implementation before ecosyste
 - `src/components/PermanentCard.tsx`: card visuals, gestures, overlays, support indicators, Not Tracked and depower visuals.
 - `src/components/BottomDock.tsx`: Add, ACTIVATE FIELD, Transform All hold behavior, Tools.
 - `src/components/ModalRoot.tsx`: shared modal/sheet system, startup warning, add/search, preview, counters, removal, tracking confirmation, transform, settings, exact totals, summaries, import/export.
-- `src/components/ScryfallSearch.tsx`: shared paged Scryfall search, mobile search/preview states, printing selection, contextual CAST/ADD actions, and offline note.
+- `src/components/ScryfallSearch.tsx`: shared paged card search, natural-query interpretation chips, advanced filters, mobile search/preview states, printing selection, contextual CAST/ADD actions, and offline note.
 
 ## Domain And State Organization
 
@@ -346,11 +346,27 @@ Current renderer behavior:
 
 The renderer supports instant, animated, reduced-motion, silent, and future replay modes. It prepares replay markers and judge notes for future use but does not implement replay playback or judge workflows.
 
-## Scryfall Integration
+## Card Search And Scryfall Integration
 
 - Search endpoint: `https://api.scryfall.com/cards/search`.
 - Fetch endpoint: `https://api.scryfall.com/cards/<id>`.
-- Search triggers after 2+ typed characters with 220 ms debounce.
+- `src/domain/cardSearch.ts` provides portable natural-language interpretation,
+  typo tolerance, structured filtering, progressive fallback planning,
+  deduplication, and centralized result ranking.
+- Search triggers after 2+ typed characters, or from active advanced filters,
+  with 220 ms debounce and stale-request cancellation.
+- Natural queries recognize card types, subtypes, supertypes, colors, mana
+  value, and keywords. Removable chips expose that interpretation without
+  blocking the search.
+- Advanced filters cover name, type, subtype, supertype, color, color identity,
+  mana, rules text, P/T, keyword, rarity, set, artist, and Commander identity
+  compatibility.
+- Progressive Scryfall requests begin narrowly, broaden only when needed, then
+  merge and re-rank candidates locally. Structural matches outrank incidental
+  rules/flavor matches.
+- Provider requests share a portable serialized rate gate with at least 110 ms
+  between starts, while aborted stale searches leave the queue without issuing
+  another provider request.
 - Search uses `unique=prints`, `order=name`, and `include_extras=true`.
 - Results stay inside an inner scroll area and selecting a result only previews it.
 - Confirming adds/replaces/transforms.
