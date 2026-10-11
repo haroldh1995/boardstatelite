@@ -1,15 +1,19 @@
-import { Minimize2, Minus, Plus, Shield } from "lucide-react";
+import { Minus, Plus, Shield, Settings, Wrench, Layers } from "lucide-react";
 import { useFieldStore } from "../state/useFieldStore";
 import { getLandPlayTurnStatus } from "../echo/preTurnPlanner";
 import { summarizeTurnMemory } from "../turn";
 import { HoldAdjustButton } from "./HoldAdjustButton";
 import { TurnContextBar } from "./TurnContextBar";
 import { useGroupedNumericAdjustment } from "./useGroupedNumericAdjustment";
+import { BattlefieldLandCount } from "./BattlefieldLandCount";
+import { QuickUndo } from "./QuickUndo";
+import { GameplayReminderBanner } from "./GameplayReminderBanner";
 
 export function FullScreenLife() {
   const field = useFieldStore((state) => state.field);
   const adjustLife = useFieldStore((state) => state.adjustLife);
-  const updateSettings = useFieldStore((state) => state.updateSettings);
+  const startTurn = useFieldStore((state) => state.startTurn);
+  const endTurn = useFieldStore((state) => state.endTurn);
   const openModal = useFieldStore((state) => state.openModal);
   const lifeAdjustment = useGroupedNumericAdjustment({
     value: field.player.life,
@@ -25,15 +29,32 @@ export function FullScreenLife() {
         <button
           type="button"
           className="icon-button"
-          onClick={() => updateSettings({ fullScreenLife: false })}
-          aria-label="Return to battlefield"
+          onClick={() => openModal({ kind: "userTools" })}
+          aria-label="User Tools"
         >
-          <Minimize2 />
+          <Wrench />
+        </button>
+        <button
+          type="button"
+          className="icon-button"
+          onClick={() => openModal({ kind: "settings" })}
+          aria-label="Options"
+        >
+          <Settings />
         </button>
       </div>
       <div className="full-life-center">
         <span className="full-life-label">Life</span>
-        <strong>{lifeAdjustment.displayedValue}</strong>
+        <strong
+          style={{
+            fontSize:
+              String(lifeAdjustment.displayedValue).length > 3
+                ? "4.5rem"
+                : undefined,
+          }}
+        >
+          {lifeAdjustment.displayedValue}
+        </strong>
         <span className="life-transaction-delta" aria-live="polite">
           {lifeAdjustment.displayedDelta === 0
             ? ""
@@ -56,12 +77,40 @@ export function FullScreenLife() {
           </HoldAdjustButton>
         </div>
       </div>
+      <div className="full-life-resources">
+        <BattlefieldLandCount />
+        <button
+          type="button"
+          className="quiet-action"
+          onClick={() => openModal({ kind: "playerCounters" })}
+        >
+          <Layers aria-hidden="true" /> Player Counters
+          {field.player.counters.poison > 0
+            ? ` / Poison ${field.player.counters.poison}`
+            : ""}
+        </button>
+        {!memory.complete && (
+          <button
+            type="button"
+            className="quiet-action"
+            onClick={() => openModal({ kind: "turnMemory" })}
+          >
+            Review {memory.pending + memory.possibleMissed}
+          </button>
+        )}
+        <QuickUndo />
+      </div>
+      <GameplayReminderBanner />
       <div className="full-life-attention">
         <button type="button" onClick={() => openModal({ kind: "landPlay" })}>
-          Land {land.complete ? "OK" : `${land.marked}/${land.expected}`}
+          Land {land.marked}/{land.expected}
+          {land.complete ? " ✓" : ""}
         </button>
-        <button type="button" onClick={() => openModal({ kind: "turnMemory" })}>
-          {memory.compactLabel}
+        <button
+          type="button"
+          onClick={field.turnContext.status === "active" ? endTurn : startTurn}
+        >
+          {field.turnContext.status === "active" ? "End Turn" : "Start Turn"}
         </button>
         <button
           type="button"

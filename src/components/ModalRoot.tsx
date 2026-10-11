@@ -37,6 +37,11 @@ import { ExternalGameStateSheet } from "./ExternalGameStateSheet";
 import { RandomizerSheet } from "./RandomizerSheet";
 import { CommanderDamageSheet } from "./CommanderDamageSheet";
 import { TurnMemorySheet } from "./TurnMemorySheet";
+import { BattlefieldCountsSheet } from "./BattlefieldCountsSheet";
+import { CurrentDeckSheet } from "./CurrentDeckSheet";
+import { NumericAdjuster } from "./NumericAdjuster";
+import { interactions } from "../domain/interactions";
+import { TapAbilitiesSheet } from "./TapAbilitiesSheet";
 import {
   effectsProvidedBySource,
   manualKeywordState,
@@ -179,6 +184,14 @@ function ModalContent({ modal }: { modal: ModalState }) {
       return <SettingsSheet />;
     case "userTools":
       return <UserToolsSheet />;
+    case "battlefieldCounts":
+      return <BattlefieldCountsSheet />;
+    case "currentDeck":
+      return <CurrentDeckSheet />;
+    case "newGame":
+      return <NewGameSheet />;
+    case "tapAbilities":
+      return <TapAbilitiesSheet groupId={modal.groupId} />;
     case "staticEffects":
       return <StaticEffectsSheet />;
     case "externalGameState":
@@ -357,6 +370,9 @@ function AddSheet({
       </div>
       {tab === "card" ? (
         <ScryfallSearch
+          context={
+            returnTo === "staticEffects" ? "effect-source" : "add-permanent"
+          }
           label={
             correctionOnly
               ? "Identify card already present"
@@ -610,6 +626,7 @@ function CardIdentificationSheet() {
       )}
       <ScryfallSearch
         label="Choose the card entering the battlefield"
+        context="identify"
         actions={actions}
       />
     </div>
@@ -678,32 +695,48 @@ function LifeExactSheet() {
   );
 }
 
+function NewGameSheet() {
+  const reset = useFieldStore((state) => state.resetField);
+  const close = useFieldStore((state) => state.closeModal);
+  return (
+    <div>
+      <h2 id="modal-title">Start New Game?</h2>
+      <p>
+        This will clear the current battlefield and game tracking and reset your
+        life to 40.
+      </p>
+      <div className="button-row">
+        <button type="button" className="quiet-action" onClick={close}>
+          Cancel
+        </button>
+        <button type="button" className="danger-action" onClick={reset}>
+          New Game
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function PlayerCountersSheet() {
   const counters = useFieldStore((state) => state.field.player.counters);
   const setPlayerCounter = useFieldStore((state) => state.setPlayerCounter);
-  const keys = [
-    "poison",
-    "energy",
-    "experience",
-    "rad",
-    "commanderDamage",
-  ] as const;
+  const keys = ["poison", "energy", "experience", "rad"] as const;
   return (
     <div>
       <h2 id="modal-title">Player Counters</h2>
       <div className="counter-editor-grid">
         {keys.map((key) => (
-          <label key={key}>
-            {key}
-            <input
-              type="number"
-              min={0}
-              value={counters[key]}
-              onChange={(event) =>
-                setPlayerCounter(key, Number(event.target.value))
-              }
-            />
-          </label>
+          <NumericAdjuster
+            key={key}
+            label={key === "rad" ? "Rad" : key[0].toUpperCase() + key.slice(1)}
+            value={counters[key]}
+            onCommit={(delta) =>
+              setPlayerCounter(
+                key,
+                useFieldStore.getState().field.player.counters[key] + delta,
+              )
+            }
+          />
         ))}
       </div>
     </div>
@@ -716,6 +749,8 @@ function ManagePermanentSheet({ groupId }: { groupId?: string }) {
   const applyCounters = useFieldStore((state) => state.applyCounters);
   const removeCounters = useFieldStore((state) => state.removeCounters);
   const openModal = useFieldStore((state) => state.openModal);
+  const setTracking = useFieldStore((state) => state.setTrackingEnabled);
+  const reconcile = useFieldStore((state) => state.applyReconciliation);
   const [counterSelection, setCounterSelection] = useState("+1/+1");
   const [customCounter, setCustomCounter] = useState("");
   const counterOptions = useMemo(
@@ -755,11 +790,7 @@ function ManagePermanentSheet({ groupId }: { groupId?: string }) {
             type="button"
             className={trackingEnabled ? "danger-action" : "primary-action"}
             onClick={() =>
-              openModal({
-                kind: "trackingConfirm",
-                groupId: group.id,
-                payload: { trackingEnabled: !trackingEnabled },
-              })
+              setTracking(group.id, !trackingEnabled, "all", group.quantity)
             }
           >
             {trackingEnabled ? "Stop Tracking Card" : "Resume Tracking Card"}
@@ -772,7 +803,10 @@ function ManagePermanentSheet({ groupId }: { groupId?: string }) {
           Counter Type
           <select
             value={counterSelection}
-            onChange={(event) => setCounterSelection(event.target.value)}
+            onChange={(event) => {
+              interactions.end();
+              setCounterSelection(event.target.value);
+            }}
           >
             {counterOptions.map((option) => (
               <option key={option}>{option}</option>
@@ -790,47 +824,33 @@ function ManagePermanentSheet({ groupId }: { groupId?: string }) {
             />
           </label>
         )}
-        <div
-          className="direct-adjust counter-direct-adjust"
-          role="group"
-          aria-label={`${counter || "Custom"} counter quantity`}
-        >
-          <button
-            type="button"
-            disabled={!counter || count === 0}
-            onClick={() =>
-              removeCounters(
-                group.id,
-                counter,
-                1,
-                "all",
-                group.quantity,
-                "game-action",
-              )
-            }
-            aria-label={`Remove one ${counter || "custom"} counter`}
-          >
-            <Minus />
-          </button>
-          <strong>{count}</strong>
-          <button
-            type="button"
-            disabled={!counter}
-            onClick={() =>
-              applyCounters(
-                group.id,
-                counter,
-                1,
-                "all",
-                group.quantity,
-                "game-action",
-              )
-            }
-            aria-label={`Add one ${counter || "custom"} counter`}
-          >
-            <Plus />
-          </button>
-        </div>
+        {counter && (
+          <NumericAdjuster
+            key={`${group.id}:${counter}`}
+            label={`${counter} counters`}
+            value={count}
+            onCommit={(delta) => {
+              if (delta > 0)
+                applyCounters(
+                  group.id,
+                  counter,
+                  delta,
+                  "all",
+                  group.quantity,
+                  "game-action",
+                );
+              else
+                removeCounters(
+                  group.id,
+                  counter,
+                  -delta,
+                  "all",
+                  group.quantity,
+                  "game-action",
+                );
+            }}
+          />
+        )}
       </section>
       {providedEffects.length > 0 && (
         <section className="source-effect-summary">
@@ -842,6 +862,32 @@ function ManagePermanentSheet({ groupId }: { groupId?: string }) {
             </p>
           ))}
         </section>
+      )}
+      {group.characteristics.isToken && (
+        <NumericAdjuster
+          label="Token quantity"
+          value={group.quantity}
+          onCommit={(delta) => {
+            const current = useFieldStore
+              .getState()
+              .field.groups.find((entry) => entry.id === group.id);
+            if (current)
+              reconcile({
+                source: "manual-correction",
+                level: "quick-correction",
+                confidence: "exact",
+                provenance: "Token quantity correction",
+                repairs: [
+                  {
+                    id: makeId("token-quantity"),
+                    kind: "set-group-quantity",
+                    groupId: group.id,
+                    value: Math.max(0, current.quantity + delta),
+                  },
+                ],
+              });
+          }}
+        />
       )}
       {group.characteristics.isCreature && (
         <section className="derived-state-explanation">
@@ -1459,6 +1505,7 @@ function ReplaceGenericSheet({ groupId }: { groupId?: string }) {
       )}
       <ScryfallSearch
         label="Search replacement identity"
+        context="identify"
         actionLabel="Replace Placeholder"
         onConfirm={(card) => {
           replaceGeneric(groupId, card, scope, customQuantity);
@@ -1508,6 +1555,7 @@ function TransformAllSheet() {
       </label>
       <ScryfallSearch
         label="Search transformation target"
+        context="identify"
         actionLabel="Transform All"
         onConfirm={(card) => {
           transformCreatures(card, scope, [], restoreAbilities);
@@ -2020,7 +2068,6 @@ function NumericCorrectionRow({
 function SettingsSheet() {
   const field = useFieldStore((state) => state.field);
   const updateSettings = useFieldStore((state) => state.updateSettings);
-  const resetField = useFieldStore((state) => state.resetField);
   const acceptSmartSuggestion = useFieldStore(
     (state) => state.acceptSmartSuggestion,
   );
@@ -2160,7 +2207,13 @@ function SettingsSheet() {
             Import JSON Backup
           </button>
           {importError && <p className="form-error">{importError}</p>}
-          <button type="button" className="danger-action" onClick={resetField}>
+          <button
+            type="button"
+            className="danger-action"
+            onClick={() =>
+              useFieldStore.getState().openModal({ kind: "newGame" })
+            }
+          >
             Reset App Data
           </button>
         </section>

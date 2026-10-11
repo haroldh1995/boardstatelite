@@ -8,9 +8,12 @@ test("permanent management removes an exact counter amount and all remaining cou
   const anim = page.locator('article[aria-label^="Anim Pakal"]').first();
 
   await longPress(page, anim);
-  const counterQuantity = page.getByLabel("+1/+1 counter quantity");
+  const counterQuantity = page.getByRole("group", {
+    name: "+1/+1 counters",
+    exact: true,
+  });
   await expect(counterQuantity.getByText("8", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Remove one +1/+1 counter" }).click();
+  await page.getByRole("button", { name: "Decrease +1/+1 counters" }).click();
   await expect(counterQuantity.getByText("7", { exact: true })).toBeVisible();
   await page
     .getByRole("button", { name: "Advanced / Correct Card State" })
@@ -29,7 +32,9 @@ test("permanent management removes an exact counter amount and all remaining cou
 
   await longPress(page, anim);
   await expect(
-    page.getByLabel("+1/+1 counter quantity").getByText("4", { exact: true }),
+    page
+      .getByRole("group", { name: "+1/+1 counters", exact: true })
+      .getByText("4", { exact: true }),
   ).toBeVisible();
   await page
     .getByRole("button", { name: "Advanced / Correct Card State" })
@@ -52,15 +57,16 @@ test("land-play status is visible, manually correctable, and reminder assistance
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await continuePastStartup(page);
+  await page.getByRole("button", { name: "Start Turn", exact: true }).click();
 
   const pendingLand = page.getByRole("button", {
-    name: /Lands: \d+\. Land play: not marked this turn/i,
+    name: /Land play: not marked this turn/i,
   });
   await expect(pendingLand).toBeVisible();
   await pendingLand.click();
   await page.getByRole("button", { name: "Mark Land Played" }).click();
   const completedLand = page.getByRole("button", {
-    name: /Lands: \d+\. Land play: marked complete/i,
+    name: /Land play: marked complete/i,
   });
   await expect(completedLand).toBeVisible();
 

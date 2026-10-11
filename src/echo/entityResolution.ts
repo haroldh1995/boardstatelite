@@ -203,7 +203,7 @@ export function normalizeEntityResolutionState(
           (entry): entry is EchoRecentlyResolvedEntity =>
             entry !== null &&
             (!entry.groupId ||
-              !knownGroupIds.size ||
+              options.knownGroupIds === undefined ||
               knownGroupIds.has(entry.groupId)),
         )
         .slice(0, settings.localCacheSize)
@@ -215,7 +215,7 @@ export function normalizeEntityResolutionState(
           (entry): entry is EchoEntityResolutionCandidate =>
             entry !== null &&
             (!entry.groupId ||
-              !knownGroupIds.size ||
+              options.knownGroupIds === undefined ||
               knownGroupIds.has(entry.groupId)),
         )
         .slice(0, settings.localCacheSize)
@@ -531,6 +531,10 @@ function resolveEntityInternal(
   externalCandidates: EchoEntityResolutionCandidate[] = [],
   diagnosticsPatch: Partial<EchoEntityResolutionDiagnostics> = {},
 ): EchoEntityResolutionResult {
+  request = {
+    ...request,
+    deckSnapshot: request.deckSnapshot ?? request.field.sessionDeck?.cards,
+  };
   const settings = normalizeEntityResolutionSettings(request.settings);
   const timestamp = request.timestamp ?? new Date().toISOString();
   const context = createBattlefieldContext(request.field, { timestamp });

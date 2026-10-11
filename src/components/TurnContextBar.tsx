@@ -3,6 +3,7 @@ import { getLandPlayTurnStatus } from "../echo/preTurnPlanner";
 import { quickPhaseLabel, summarizeTurnMemory } from "../turn";
 import type { TurnQuickPhase } from "../turn/types";
 import { useFieldStore } from "../state/useFieldStore";
+import { QuickUndo } from "./QuickUndo";
 
 const PHASES: Array<{ value: TurnQuickPhase; label: string }> = [
   { value: "beginning", label: "Start" },
@@ -41,9 +42,18 @@ export function TurnContextBar({ minimal = false }: { minimal?: boolean }) {
             Review {memory.possibleMissed} possible missed
           </button>
         )}
-        <button type="button" className="primary-action" onClick={startTurn}>
-          Start Turn
-        </button>
+        {!minimal && (
+          <div className="turn-end-actions">
+            <QuickUndo />
+            <button
+              type="button"
+              className="primary-action"
+              onClick={startTurn}
+            >
+              Start Turn
+            </button>
+          </div>
+        )}
       </section>
     );
   }
@@ -89,12 +99,16 @@ export function TurnContextBar({ minimal = false }: { minimal?: boolean }) {
         onClick={() => openModal({ kind: "landPlay" })}
         aria-label={land.accessibilityLabel}
       >
-        Land {land.complete ? "OK" : `${land.marked}/${land.expected}`}
+        Land {land.marked}/{land.expected}
+        {land.complete ? " ✓" : ""}
       </button>
       {!minimal && (
-        <button type="button" className="end-turn-button" onClick={endTurn}>
-          End Turn
-        </button>
+        <div className="turn-end-actions">
+          <QuickUndo />
+          <button type="button" className="end-turn-button" onClick={endTurn}>
+            End Turn
+          </button>
+        </div>
       )}
     </section>
   );

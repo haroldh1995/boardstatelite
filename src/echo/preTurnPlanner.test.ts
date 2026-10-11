@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createGenericGroup } from "../domain/cards";
 import {
   createDefaultField,
   normalizeField,
@@ -89,7 +90,7 @@ describe("One-Minute Pre-Turn Planner", () => {
       actionCount: 0,
       activeActionCount: 0,
     });
-    expect(field.groups).toHaveLength(1);
+    expect(field.groups).toHaveLength(0);
   });
 
   it("adds, edits, reorders, completes, skips, cancels, and clears planned actions", () => {
@@ -244,12 +245,12 @@ describe("One-Minute Pre-Turn Planner", () => {
 
     expect(activeUpdated.availableLandPlays.remaining).toBe(2);
     expect(combatUpdated.availableLandPlays.remaining).toBe(3);
-    expect(field.groups).toHaveLength(1);
-    expect(field.groups[0].quantity).toBe(8);
+    expect(field.groups).toHaveLength(0);
   });
 
   it("prepares future action strip items and Ambient intents without executing them", () => {
     const field = createDefaultField();
+    field.groups = [createGenericGroup({ kind: "Land", quantity: 8 })];
     const group = field.groups[0];
     const planner = addPlannedAction(field.preTurnPlanner, {
       id: "counter-plan",
@@ -307,7 +308,10 @@ describe("One-Minute Pre-Turn Planner", () => {
   });
 
   it("uses the Lite store without changing battlefield undo history or executing actions", () => {
-    const field = createDefaultField();
+    const field = normalizeField({
+      ...createDefaultField(),
+      groups: [createGenericGroup({ kind: "Creature" })],
+    });
     useFieldStore.setState({
       field,
       hydrated: true,

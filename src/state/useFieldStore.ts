@@ -1,4 +1,12 @@
 import { create } from "zustand";
+import { interactions } from "../domain/interactions";
+import { createNewGame } from "../domain/sessionLifecycle";
+import {
+  normalizeDeckSnapshot,
+  type SessionDeckSnapshot,
+} from "../domain/deckSnapshot";
+import { availablePermanentActions } from "../domain/availableActions";
+import { classifySupportedEffectOutcomes } from "../domain/effectOutcomes";
 import {
   createCardGroup,
   createGenericGroup,
@@ -232,6 +240,11 @@ const HISTORY_LIMIT = 80;
 let activeAthenaTriggerQueue: AthenaPendingTriggerQueue | null = null;
 
 interface FieldStore {
+  recordTapAbility: (groupId: string, actionId: string) => void;
+  selectSessionDeck: (snapshot: SessionDeckSnapshot | null) => void;
+  rememberCard: (card: CardIdentity) => void;
+  fullScreenLife: boolean;
+  setLifePresentation: (expanded: boolean) => void;
   field: FieldState;
   hydrated: boolean;
   startupVisible: boolean;
@@ -472,6 +485,175 @@ interface FieldStore {
 }
 
 export const useFieldStore = create<FieldStore>((set, get) => ({
+  recordTapAbility(groupId, actionId) {
+    interactions.end();
+    const before = get().field;
+    let group = before.groups.find((entry) => entry.id === groupId);
+    if (!group) return;
+    const action = availablePermanentActions(group).find(
+      (entry) => entry.id === actionId,
+    );
+    if (!action) return;
+    const split = splitGroupForQuantity(before.groups, group.id, 1);
+    group = split.groups.find((entry) => entry.id === split.targetId)!;
+    let next = { ...before, groups: split.groups };
+    const events: GameEvent[] = [];
+    const drafts: Array<
+      Omit<
+        AthenaForecastInputDraft,
+        | "eventId"
+        | "eventSource"
+        | "authoritySource"
+        | "timestamp"
+        | "confidence"
+      >
+    > = [
+      {
+        eventCategory: "permanent-tapped",
+        quantity: 1,
+        sourceObjectId: group.id,
+        subjectGroupIds: [group.id],
+        metadata: { label: group.label, ability: action.label },
+      },
+    ];
+    if (!action.manualResolution) {
+      for (const outcome of classifySupportedEffectOutcomes(action.effect)
+        .outcomes) {
+        if (outcome.kind === "life")
+          drafts.push({
+            eventCategory:
+              outcome.mode === "gain" ? "life-gained" : "life-lost",
+            quantity: outcome.amount,
+            sourceObjectId: group.id,
+            metadata: { mode: outcome.mode },
+          });
+        else
+          drafts.push({
+            eventCategory: "token-created",
+            quantity: outcome.quantity,
+            sourceObjectId: group.id,
+            tokenDefinition: {
+              id: makeId("ability-token"),
+              name: outcome.name,
+              power: outcome.power,
+              toughness: outcome.toughness,
+              characteristics: {
+                cardTypes: outcome.cardTypes,
+                subtypes: outcome.subtypes,
+                supertypes: [],
+                colors: outcome.colors,
+                manaValue: 0,
+                isToken: true,
+                isCreature: outcome.cardTypes.includes("Creature"),
+                isLegendary: false,
+                knownFields: [
+                  "cardTypes",
+                  "subtypes",
+                  "colors",
+                  "isToken",
+                  "isCreature",
+                ],
+              },
+            },
+            metadata: {
+              label: outcome.name,
+              tapped: outcome.tapped,
+              attacking: outcome.attacking,
+            },
+          });
+      }
+    }
+    const queue = athenaTriggerQueueForField(before, new Date().toISOString());
+    let manual = action.manualResolution;
+    for (const draft of drafts) {
+      const event = createConfirmedManualAthenaEvent(next, draft);
+      const result = processAthenaConfirmedEventWithBookkeeping({
+        field: next,
+        event,
+        queue,
+        timestamp: event.timestamp,
+      });
+      if (result.validity !== "committed") {
+        manual = true;
+        break;
+      }
+      next = result.resultingField;
+      if (result.rootCanonicalEvent) events.push(result.rootCanonicalEvent);
+      events.push(...(result.autoResolution?.generatedCanonicalEvents ?? []));
+    }
+    // Recording a physical activation is never vetoed by an incomplete prediction.
+    next = {
+      ...next,
+      groups: next.groups.map((entry) =>
+        entry.id === split.targetId
+          ? withStackKey({
+              ...entry,
+              statuses: { ...entry.statuses, tapped: true },
+            })
+          : entry,
+      ),
+    };
+    next = withAthenaTriggerWatchers(next, queue.toSnapshot());
+    if (manual)
+      next = {
+        ...next,
+        turnContext: {
+          ...next.turnContext,
+          triggerMemory: [
+            ...next.turnContext.triggerMemory,
+            {
+              id: makeId("ability-review"),
+              sourceId: group.id,
+              sourceLabel: group.label,
+              label: action.effect,
+              optional: false,
+              oncePerTurnKey: null,
+              status: "pending",
+              observedAt: new Date().toISOString(),
+              resolvedAt: null,
+              public: true,
+            },
+          ],
+        },
+      };
+    commitField(
+      `Tapped ${group.label}`,
+      before,
+      next,
+      [action.label],
+      set,
+      null,
+      false,
+      events,
+    );
+    set({ modal: manual ? { kind: "turnMemory" } : null });
+  },
+  selectSessionDeck(snapshot) {
+    interactions.end();
+    const field = {
+      ...get().field,
+      sessionDeck: normalizeDeckSnapshot(snapshot),
+    };
+    set({ field });
+    void saveField(field);
+  },
+  rememberCard(card) {
+    const field = get().field;
+    const next = {
+      ...field,
+      recentCards: [
+        card,
+        ...field.recentCards.filter((entry) => entry.cardId !== card.cardId),
+      ].slice(0, 30),
+    };
+    set({ field: next });
+    void saveField(next);
+  },
+  fullScreenLife: false,
+  setLifePresentation(expanded) {
+    interactions.end();
+    set({ fullScreenLife: expanded });
+  },
   field: createDefaultField(),
   hydrated: false,
   startupVisible: true,
@@ -501,6 +683,7 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
       if (sanitized) {
         set({
           field: withDerivedField(sanitized),
+          fullScreenLife: sanitized.settings.fullScreenLife,
           hydrated: true,
           startupVisible: true,
           modal: { kind: "startup" },
@@ -516,6 +699,7 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
   },
 
   openModal(modal) {
+    interactions.end();
     const field = get().field;
     if (modal.kind === "catchUp") {
       athenaPerformanceMonitor.recordInteraction(
@@ -537,6 +721,7 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
   },
 
   closeModal() {
+    interactions.end();
     set({ modal: null });
   },
 
@@ -752,6 +937,7 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
   },
 
   startTurn() {
+    interactions.end();
     const before = get().field;
     const timestamp = new Date().toISOString();
     const next = normalizeField({
@@ -777,6 +963,7 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
   },
 
   endTurn() {
+    interactions.end();
     const before = get().field;
     if (before.turnContext.status === "between-turns") return;
     const timestamp = new Date().toISOString();
@@ -800,6 +987,7 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
   },
 
   setTurnPhase(phase) {
+    interactions.end();
     const before = get().field;
     const next = normalizeField({
       ...before,
@@ -2588,6 +2776,7 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
   },
 
   updateSettings(settings) {
+    interactions.end();
     const before = get().field;
     const next = normalizeField({
       ...before,
@@ -2603,7 +2792,13 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
               },
       }),
     });
-    commitField("Settings updated", before, next, ["Settings saved."], set);
+    set({
+      field: next,
+      ...(settings.fullScreenLife === undefined
+        ? {}
+        : { fullScreenLife: settings.fullScreenLife }),
+    });
+    void saveField(next);
   },
 
   renameField(name) {
@@ -2622,10 +2817,22 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
   },
 
   resetField() {
+    interactions.end("discard");
+    void echoMicrophoneService.stop("manual-stop", "manual-stop");
     const before = get().field;
-    const next = createDefaultField();
+    const next = withDerivedField(createNewGame(before));
     activeAthenaTriggerQueue = null;
-    commitField("Reset field", before, next, ["Field reset."], set);
+    set({
+      field: next,
+      fullScreenLife: false,
+      undoStack: [],
+      redoStack: [],
+      lastResult: null,
+      modal: { kind: "currentDeck" },
+      startupVisible: false,
+    });
+    syncSubscribedMicrophoneService(next);
+    void saveField(next);
   },
 
   importField(value) {
@@ -2648,10 +2855,16 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
   },
 
   undo() {
+    interactions.end();
     const { undoStack, redoStack } = get();
     const entry = undoStack.at(-1);
     if (!entry) return;
-    const field = withDerivedField(entry.before);
+    const field = withDerivedField({
+      ...entry.before,
+      settings: get().field.settings,
+      sessionDeck: get().field.sessionDeck,
+      recentCards: get().field.recentCards,
+    });
     activeAthenaTriggerQueue = null;
     set({
       field,
@@ -2664,10 +2877,16 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
   },
 
   redo() {
+    interactions.end();
     const { undoStack, redoStack } = get();
     const entry = redoStack[0];
     if (!entry) return;
-    const field = withDerivedField(entry.after);
+    const field = withDerivedField({
+      ...entry.after,
+      settings: get().field.settings,
+      sessionDeck: get().field.sessionDeck,
+      recentCards: get().field.recentCards,
+    });
     activeAthenaTriggerQueue = null;
     set({
       field,

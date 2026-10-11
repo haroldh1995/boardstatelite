@@ -3,8 +3,29 @@ import { getFieldPersistencePort } from "../platform/persistence";
 import { nowMs } from "../platform/runtime";
 import { getKeyValueStorage } from "../platform/storage";
 
-export async function saveField(field: FieldState): Promise<void> {
+let saveQueue = Promise.resolve();
+export function saveField(field: FieldState): Promise<void> {
   const storage = getKeyValueStorage();
+  try {
+    storage.setItem("baord-state-lite:last-field-id", field.id);
+    storage.setItem(
+      "baord-state-lite:last-field-fallback",
+      JSON.stringify(field),
+    );
+  } catch {
+    // A full or unavailable key-value cache must not prevent durable saving.
+    try {
+      storage.removeItem("baord-state-lite:last-field-fallback");
+    } catch {
+      /* Storage may be disabled entirely. */
+    }
+  }
+  const pending = saveQueue.then(() => persistField(field));
+  saveQueue = pending.catch(() => {});
+  return pending;
+}
+
+async function persistField(field: FieldState): Promise<void> {
   const persistence = getFieldPersistencePort();
   try {
     await persistence.saveField({
@@ -12,12 +33,8 @@ export async function saveField(field: FieldState): Promise<void> {
       updatedAt: field.updatedAt,
       field,
     });
-    storage.setItem("baord-state-lite:last-field-id", field.id);
   } catch {
-    storage.setItem(
-      "baord-state-lite:last-field-fallback",
-      JSON.stringify(field),
-    );
+    // The newest synchronous fallback already exists; an older write must not overwrite it.
   }
 }
 
@@ -25,7 +42,22 @@ export async function loadLastField(): Promise<FieldState | null> {
   const storage = getKeyValueStorage();
   const persistence = getFieldPersistencePort();
   try {
-    const lastId = storage.getItem("baord-state-lite:last-field-id");
+    const fallback = storage.getItem("baord-state-lite:last-field-fallback");
+    if (fallback) {
+      const field = JSON.parse(fallback) as FieldState;
+      if (field.id === storage.getItem("baord-state-lite:last-field-id"))
+        return field;
+    }
+  } catch {
+    /* A damaged or inaccessible fallback does not prevent durable-store recovery. */
+  }
+  try {
+    let lastId: string | null = null;
+    try {
+      lastId = storage.getItem("baord-state-lite:last-field-id");
+    } catch {
+      /* Fall back to the durable index. */
+    }
     if (lastId) {
       const record = await persistence.getField(lastId);
       if (record?.field) return record.field;
@@ -33,10 +65,7 @@ export async function loadLastField(): Promise<FieldState | null> {
     const latest = await persistence.getLatestField();
     if (latest?.field) return latest.field;
   } catch {
-    const fallback = storage.getItem("baord-state-lite:last-field-fallback");
-    if (fallback) {
-      return JSON.parse(fallback) as FieldState;
-    }
+    /* No valid local session is available. */
   }
   return null;
 }

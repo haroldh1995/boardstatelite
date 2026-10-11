@@ -1,6 +1,7 @@
 import { List, PlusCircle, TreePine } from "lucide-react";
 import { useRef } from "react";
 import { useFieldStore } from "../state/useFieldStore";
+import { usePressLifetime } from "./usePressLifetime";
 
 export function BottomDock() {
   const activateField = useFieldStore((state) => state.activateField);
@@ -20,6 +21,8 @@ export function BottomDock() {
     if (holdRef.current) window.clearTimeout(holdRef.current);
     holdRef.current = null;
   }
+
+  const press = usePressLifetime(startHold, endHold);
 
   return (
     <nav className="bottom-dock" aria-label="Primary controls">
@@ -41,10 +44,8 @@ export function BottomDock() {
           }
           activateField();
         }}
-        onPointerDown={startHold}
-        onPointerUp={endHold}
-        onPointerLeave={endHold}
-        onPointerCancel={endHold}
+        {...press}
+        onPointerLeave={press.onPointerCancel}
       >
         <span className="activate-sigil" aria-hidden="true">
           <TreePine />

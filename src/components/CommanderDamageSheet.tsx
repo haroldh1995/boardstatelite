@@ -4,6 +4,7 @@ import type { CommanderDamageEntry } from "../domain/commanderDamage";
 import { useFieldStore } from "../state/useFieldStore";
 import { HoldAdjustButton } from "./HoldAdjustButton";
 import { useGroupedNumericAdjustment } from "./useGroupedNumericAdjustment";
+import { interactions } from "../domain/interactions";
 
 export function CommanderDamageSheet() {
   const state = useFieldStore((store) => store.field.commanderDamage);
@@ -19,14 +20,20 @@ export function CommanderDamageSheet() {
         <button
           type="button"
           className={mode === "combat" ? "selected" : ""}
-          onClick={() => setMode("combat")}
+          onClick={() => {
+            interactions.end();
+            setMode("combat");
+          }}
         >
           Record Combat Damage
         </button>
         <button
           type="button"
           className={mode === "damage-only" ? "selected" : ""}
-          onClick={() => setMode("damage-only")}
+          onClick={() => {
+            interactions.end();
+            setMode("damage-only");
+          }}
         >
           Commander Damage Only
         </button>

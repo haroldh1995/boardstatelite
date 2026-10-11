@@ -6,6 +6,9 @@ import {
   ScanLine,
   Sparkles,
   Wrench,
+  ListFilter,
+  RotateCcw,
+  Library,
 } from "lucide-react";
 import { useFieldStore } from "../state/useFieldStore";
 
@@ -19,6 +22,24 @@ export function UserToolsSheet() {
         they do not ask Athena for permission.
       </p>
       <div className="user-tool-grid">
+        <ToolButton
+          icon={<ListFilter />}
+          title="Battlefield Counts"
+          detail="Inspect the current battlefield."
+          onClick={() => openModal({ kind: "battlefieldCounts" })}
+        />
+        <ToolButton
+          icon={<Library />}
+          title="Current Deck"
+          detail="Deck Nexus session association."
+          onClick={() => openModal({ kind: "currentDeck" })}
+        />
+        <ToolButton
+          icon={<RotateCcw />}
+          title="New Game"
+          detail="Start a fresh Commander game."
+          onClick={() => openModal({ kind: "newGame" })}
+        />
         <ToolButton
           icon={<Sparkles />}
           title="Static Effects"

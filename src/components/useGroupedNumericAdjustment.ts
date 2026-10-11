@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { interactions } from "../domain/interactions";
 import {
   appendNumericAdjustment,
   type NumericAdjustmentTransaction,
@@ -30,6 +31,7 @@ export function useGroupedNumericAdjustment({
   const retainTimerRef = useRef<number | null>(null);
   const commitRef = useRef(onCommit);
   commitRef.current = onCommit;
+  const transactionCommitRef = useRef(onCommit);
 
   const clearCommitTimer = useCallback(() => {
     if (commitTimerRef.current !== null) {
@@ -55,7 +57,7 @@ export function useGroupedNumericAdjustment({
       setRetainedDelta(0);
       return;
     }
-    commitRef.current(current.delta);
+    transactionCommitRef.current(current.delta);
     setRetainedDelta(current.delta);
     clearRetainTimer();
     retainTimerRef.current = window.setTimeout(() => {
@@ -67,6 +69,7 @@ export function useGroupedNumericAdjustment({
   const adjust = useCallback(
     (delta: number) => {
       const current = transactionRef.current;
+      if (!current) transactionCommitRef.current = commitRef.current;
       const startValue = current?.startValue ?? value;
       const boundedCurrent = Math.min(
         maximum,
@@ -102,12 +105,30 @@ export function useGroupedNumericAdjustment({
     ],
   );
 
+  const discard = useCallback(() => {
+    clearCommitTimer();
+    clearRetainTimer();
+    transactionRef.current = null;
+    setTransaction(null);
+    setRetainedDelta(0);
+  }, [clearCommitTimer, clearRetainTimer]);
+
+  useEffect(
+    () =>
+      interactions.subscribe((reason) => {
+        if (reason === "discard") discard();
+        else finish();
+      }),
+    [discard, finish],
+  );
+
   useEffect(
     () => () => {
       clearCommitTimer();
       clearRetainTimer();
       const current = transactionRef.current;
-      if (current?.delta) commitRef.current(current.delta);
+      transactionRef.current = null;
+      if (current?.delta) transactionCommitRef.current(current.delta);
     },
     [clearCommitTimer, clearRetainTimer],
   );

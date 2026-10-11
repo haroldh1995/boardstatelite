@@ -22,6 +22,7 @@ import { getVisibleTotals } from "../domain/field";
 import type { RelevantTotalKey } from "../domain/types";
 import { getLandPlayTurnStatus } from "../echo/preTurnPlanner";
 import { useFieldStore } from "../state/useFieldStore";
+import { BattlefieldLandCount } from "./BattlefieldLandCount";
 
 const ICONS: Partial<Record<RelevantTotalKey, React.ReactNode>> = {
   lands: <Mountain />,
@@ -53,11 +54,21 @@ export function TotalsStrip() {
           }
         );
       })
-    : visibleTotals;
+    : visibleTotals.filter((total) =>
+        [
+          "lands",
+          "cardsInHand",
+          "cardsInGraveyard",
+          "cardsInExile",
+          "cardsRemainingInLibrary",
+        ].includes(total.key),
+      );
 
   return (
     <section className="totals-strip" aria-label="Relevant totals">
       {totals.map((total) => {
+        if (total.key === "lands" && !isReferenceFixtureMode())
+          return <BattlefieldLandCount key="lands" />;
         const value = referenceTotalValue(total.key, total.value);
         const isLand = total.key === "lands";
         return (

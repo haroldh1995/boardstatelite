@@ -15,6 +15,8 @@ import { FullScreenLife } from "./components/FullScreenLife";
 import { isReferenceFixtureMode } from "./dev/referenceMode";
 import { useFieldStore } from "./state/useFieldStore";
 import "./App.css";
+import { interactions } from "./domain/interactions";
+import { useLifeMagnification } from "./components/useLifeMagnification";
 
 function App() {
   const initialize = useFieldStore((state) => state.initialize);
@@ -48,8 +50,18 @@ function App() {
   const dismissCatchUpSuggestion = useFieldStore(
     (state) => state.dismissCatchUpSuggestion,
   );
-  const fullScreenLife = useFieldStore(
-    (state) => state.field.settings.fullScreenLife,
+  const fullScreenLife = useFieldStore((state) => state.fullScreenLife);
+  const setLifePresentation = useFieldStore(
+    (state) => state.setLifePresentation,
+  );
+  const reducedMotion = useFieldStore(
+    (state) => state.field.settings.reducedMotion,
+  );
+  const gameplaySurface = useLifeMagnification(
+    Boolean(modalKind),
+    fullScreenLife,
+    setLifePresentation,
+    reducedMotion,
   );
   const referenceMode = isReferenceFixtureMode();
   const automaticallyPresentedCardIds = useRef(new Set<string>());
@@ -87,12 +99,14 @@ function App() {
   useEffect(() => {
     if (!hydrated) return;
     const handleVisibilityChange = () => {
+      if (document.hidden) interactions.end();
       void handleListeningLifecycleEvent({
         type: document.hidden ? "app-backgrounded" : "app-foregrounded",
         timestamp: new Date().toISOString(),
       });
     };
     const handlePageHide = () => {
+      interactions.end();
       void handleListeningLifecycleEvent({
         type: "app-backgrounded",
         timestamp: new Date().toISOString(),
@@ -116,6 +130,7 @@ function App() {
 
   return (
     <div
+      ref={gameplaySurface}
       className={[
         "app-shell",
         referenceMode ? "reference-fixture" : "",
@@ -146,6 +161,13 @@ function App() {
         <main className="loading-screen">Loading saved field...</main>
       ) : (
         <>
+          <button
+            type="button"
+            className="accessible-action"
+            onClick={() => setLifePresentation(!fullScreenLife)}
+          >
+            {fullScreenLife ? "Return to Battlefield" : "Expand Life Tracker"}
+          </button>
           {fullScreenLife ? (
             <FullScreenLife />
           ) : (

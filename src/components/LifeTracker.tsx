@@ -5,7 +5,6 @@ import {
   ChevronUp,
   Crown,
   Minus,
-  Maximize2,
   Plus,
   Radiation,
   Shield,
@@ -13,7 +12,8 @@ import {
   Sparkles,
   Zap,
 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { usePressLifetime } from "./usePressLifetime";
 import { useFieldStore } from "../state/useFieldStore";
 import { HoldAdjustButton } from "./HoldAdjustButton";
 import { useGroupedNumericAdjustment } from "./useGroupedNumericAdjustment";
@@ -24,9 +24,22 @@ export function LifeTracker() {
   const openModal = useFieldStore((state) => state.openModal);
   const undo = useFieldStore((state) => state.undo);
   const redo = useFieldStore((state) => state.redo);
-  const updateSettings = useFieldStore((state) => state.updateSettings);
   const [increment, setIncrement] = useState(1);
   const [expanded, setExpanded] = useState(false);
+  const holdTimeout = useRef<number | null>(null);
+  const press = usePressLifetime(
+    () => {
+      holdTimeout.current = window.setTimeout(
+        () => openModal({ kind: "playerCounters" }),
+        520,
+      );
+    },
+    () => {
+      if (holdTimeout.current !== null)
+        window.clearTimeout(holdTimeout.current);
+      holdTimeout.current = null;
+    },
+  );
   const lifeAdjustment = useGroupedNumericAdjustment({
     value: player.life,
     minimum: 0,
@@ -38,19 +51,10 @@ export function LifeTracker() {
       className="life-panel"
       aria-label="Personal life tracker"
       onContextMenu={(event) => event.preventDefault()}
+      {...press}
       onPointerDown={(event) => {
         if ((event.target as HTMLElement).closest("button")) return;
-        const timeout = window.setTimeout(
-          () => openModal({ kind: "playerCounters" }),
-          520,
-        );
-        const clear = () => window.clearTimeout(timeout);
-        event.currentTarget.addEventListener("pointerup", clear, {
-          once: true,
-        });
-        event.currentTarget.addEventListener("pointerleave", clear, {
-          once: true,
-        });
+        press.onPointerDown(event);
       }}
     >
       <div className="counter-column counter-column-left">
@@ -89,15 +93,6 @@ export function LifeTracker() {
             ? "Tap to set life total"
             : `${lifeAdjustment.displayedDelta > 0 ? "+" : ""}${lifeAdjustment.displayedDelta}`}
         </span>
-      </button>
-
-      <button
-        type="button"
-        className="life-fullscreen"
-        aria-label="Open full-screen life"
-        onClick={() => updateSettings({ fullScreenLife: true })}
-      >
-        <Maximize2 />
       </button>
 
       <HoldAdjustButton

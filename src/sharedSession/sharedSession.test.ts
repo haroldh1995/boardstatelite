@@ -22,7 +22,7 @@ import { createPublicGameplaySnapshot } from "./serializer";
 
 describe("canonical shared sessions", () => {
   it("creates local-only session metadata for new Lite fields", () => {
-    const field = createDefaultField();
+    const field = normalizeField(fieldWith([genericCreature()]));
 
     expect(field.session.id).toMatch(/^BS-SESSION-/);
     expect(field.session.status).toBe("localOnly");
@@ -63,7 +63,9 @@ describe("canonical shared sessions", () => {
   });
 
   it("migrates legacy saves without session metadata into local-only sessions", () => {
-    const legacy = createDefaultField() as unknown as Record<string, unknown>;
+    const legacy = normalizeField(
+      fieldWith([genericCreature()]),
+    ) as unknown as Record<string, unknown>;
     const originalFieldId = legacy.id;
     const legacyGroup = (legacy.groups as Record<string, unknown>[])[0];
     delete legacy.session;

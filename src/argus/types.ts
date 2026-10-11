@@ -37,6 +37,7 @@ export interface ArgusObservation {
     | "planner"
     | "recent-events"
     | "user-correction"
+    | "deck-nexus"
   >;
   objects: ArgusObservedObject[];
   capturedAt: string;

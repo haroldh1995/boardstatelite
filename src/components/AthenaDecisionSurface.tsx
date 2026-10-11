@@ -335,6 +335,7 @@ export function AthenaDecisionSurface() {
         <div className="athena-decision-identify">
           <ScryfallSearch
             label="Identify the untracked zone card"
+            context="identify"
             actionLabel="Use This Card"
             onConfirm={(card) => {
               identifyZoneCard(request.id, identifyingCandidateId, card);

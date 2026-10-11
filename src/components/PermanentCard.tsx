@@ -5,12 +5,15 @@ import {
   Shield,
   ShieldOff,
   Sparkles,
+  Zap,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { activeAthenaDecision } from "../athena/decisionEngine";
 import type { PermanentGroup, SupportStatus } from "../domain/types";
 import { useFieldStore } from "../state/useFieldStore";
 import { effectsProvidedBySource } from "../domain/manualEffects";
+import { interactions } from "../domain/interactions";
+import { availablePermanentActions } from "../domain/availableActions";
 
 interface PermanentCardProps {
   group: PermanentGroup;
@@ -41,6 +44,32 @@ export function PermanentCard({
   const tapCountRef = useRef(0);
   const tapTimerRef = useRef<number | null>(null);
   const holdTimerRef = useRef<number | null>(null);
+  const pointerOrigin = useRef<{ x: number; y: number } | null>(null);
+  const releaseHoldRef = useRef<(() => void) | null>(null);
+  const cancelled = useRef(false);
+  const availableActions = availablePermanentActions(group);
+  function cancelGesture() {
+    cancelled.current = true;
+    if (holdTimerRef.current !== null)
+      window.clearTimeout(holdTimerRef.current);
+    if (tapTimerRef.current !== null) window.clearTimeout(tapTimerRef.current);
+    holdTimerRef.current = null;
+    tapTimerRef.current = null;
+    tapCountRef.current = 0;
+    releaseHoldRef.current?.();
+    setGesture("idle");
+  }
+  useEffect(() => {
+    const unsubscribe = interactions.subscribe(cancelGesture);
+    window.addEventListener("blur", cancelGesture);
+    window.addEventListener("pointercancel", cancelGesture);
+    return () => {
+      cancelGesture();
+      unsubscribe();
+      window.removeEventListener("blur", cancelGesture);
+      window.removeEventListener("pointercancel", cancelGesture);
+    };
+  }, []);
 
   const priorityCounters = Object.entries(group.counters)
     .filter(([, count]) => count > 0)
@@ -67,8 +96,15 @@ export function PermanentCard({
       "zone-card-selection",
     ].includes(activeDecision.type);
 
-  function pointerDown() {
+  function pointerDown(event: React.PointerEvent) {
+    if (event.pointerType === "touch" && event.isPrimary === false) {
+      cancelGesture();
+      return;
+    }
     if (directTargeting) return;
+    releaseHoldRef.current = interactions.ownHold(cancelGesture);
+    cancelled.current = false;
+    pointerOrigin.current = { x: event.clientX, y: event.clientY };
     setGesture("hold");
     holdTimerRef.current = window.setTimeout(() => {
       openModal({ kind: "managePermanent", groupId: group.id });
@@ -77,6 +113,8 @@ export function PermanentCard({
   }
 
   function pointerUp() {
+    releaseHoldRef.current?.();
+    if (cancelled.current) return;
     if (directTargeting && activeDecision && targetCandidate) {
       answerAthenaDecision(activeDecision.id, {
         responseId: `touch:${activeDecision.id}:${group.id}`,
@@ -137,7 +175,16 @@ export function PermanentCard({
       onDrop={() => onDropOn(group.id)}
       onPointerDown={pointerDown}
       onPointerUp={pointerUp}
-      onPointerCancel={() => setGesture("idle")}
+      onPointerCancel={cancelGesture}
+      onPointerLeave={cancelGesture}
+      onPointerMove={(event) => {
+        const start = pointerOrigin.current;
+        if (
+          start &&
+          Math.hypot(event.clientX - start.x, event.clientY - start.y) > 12
+        )
+          cancelGesture();
+      }}
       aria-label={`${group.label}, stack size ${group.quantity}${
         group.characteristics.isCreature
           ? `, current power ${group.pt.currentPower ?? "unknown"} and toughness ${group.pt.currentToughness ?? "unknown"}`
@@ -176,6 +223,22 @@ export function PermanentCard({
             {"\u00d7"}
             {group.quantity}
           </span>
+          {availableActions.length > 0 && (
+            <button
+              type="button"
+              className="tap-ability-indicator"
+              title="Tap abilities"
+              aria-label={`Use tap ability on ${group.label}`}
+              onPointerDown={(event) => event.stopPropagation()}
+              onPointerUp={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                openModal({ kind: "tapAbilities", groupId: group.id });
+              }}
+            >
+              <Zap aria-hidden="true" />
+            </button>
+          )}
           {group.statuses.depowered && (
             <span className="depower-badge" aria-label="Abilities disabled">
               <ShieldOff />

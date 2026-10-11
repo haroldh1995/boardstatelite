@@ -1019,13 +1019,13 @@ function eventForAction(
               power: token.power,
               toughness: token.toughness,
               characteristics: {
-                cardTypes: uniqueStrings([...token.cardTypes, "Creature"]),
+                cardTypes: uniqueStrings(token.cardTypes),
                 supertypes: [],
                 subtypes: [...token.subtypes],
                 colors: [...token.colors],
                 manaValue: 0,
                 isToken: true,
-                isCreature: true,
+                isCreature: token.cardTypes.includes("Creature"),
                 isLegendary: false,
                 knownFields: [
                   "cardTypes",

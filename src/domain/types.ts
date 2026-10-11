@@ -89,7 +89,11 @@ export type ModalKind =
   | "externalGameState"
   | "randomizer"
   | "commanderDamage"
-  | "turnMemory";
+  | "turnMemory"
+  | "battlefieldCounts"
+  | "newGame"
+  | "currentDeck"
+  | "tapAbilities";
 
 export type CounterName =
   | "+1/+1"
@@ -335,6 +339,7 @@ export type ValueExpression =
   | { type: "opponent-value"; key: keyof Omit<OpponentValues, "custom"> };
 
 export interface FieldState {
+  sessionDeck: import("./deckSnapshot").SessionDeckSnapshot | null;
   schemaVersion: 1;
   id: string;
   session: SharedSessionMetadata;

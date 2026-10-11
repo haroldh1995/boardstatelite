@@ -116,6 +116,7 @@ describe("Canonical Ambient Event Pipeline", () => {
 
   it("rejects obviously invalid rule requests without using Lite as authority", () => {
     const field = createDefaultField();
+    field.groups = [genericCreature()];
     const group = field.groups[0];
     const intent = createAmbientIntent({
       kind: "add-counters",

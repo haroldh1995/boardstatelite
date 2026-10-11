@@ -19,6 +19,7 @@ import { MicrophoneStatusIndicator } from "./components/MicrophoneStatusIndicato
 import { AthenaDecisionSurface } from "./components/AthenaDecisionSurface";
 import { Battlefield } from "./components/Battlefield";
 import { TotalsStrip } from "./components/TotalsStrip";
+import { TurnContextBar } from "./components/TurnContextBar";
 import { ModalRoot } from "./components/ModalRoot";
 import { GameplayReminderBanner } from "./components/GameplayReminderBanner";
 import { useFieldStore } from "./state/useFieldStore";
@@ -125,12 +126,14 @@ describe("Baord State Lite app shell", () => {
     render(<ModalRoot />);
 
     await user.click(
-      screen.getByRole("button", { name: /remove one \+1\/\+1 counter/i }),
+      screen.getByRole("button", { name: /decrease \+1\/\+1 counters/i }),
     );
-    expect(useFieldStore.getState().field.groups[0].counters).toMatchObject({
-      "+1/+1": 6,
-      Shield: 2,
-    });
+    await waitFor(() =>
+      expect(useFieldStore.getState().field.groups[0].counters).toMatchObject({
+        "+1/+1": 6,
+        Shield: 2,
+      }),
+    );
 
     await user.click(
       screen.getByRole("button", { name: /advanced \/ correct card state/i }),
@@ -179,17 +182,19 @@ describe("Baord State Lite app shell", () => {
     render(
       <>
         <TotalsStrip />
+        <TurnContextBar />
         <ModalRoot />
       </>,
     );
+    await user.click(screen.getByRole("button", { name: "Start Turn" }));
     const pending = screen.getByRole("button", {
-      name: /lands: \d+.*land play: not marked this turn/i,
+      name: /land play: not marked this turn/i,
     });
     await user.click(pending);
     await user.click(screen.getByRole("button", { name: "Mark Land Played" }));
     expect(
       screen.getByRole("button", {
-        name: /lands: \d+.*land play: marked complete/i,
+        name: /land play: marked complete/i,
       }),
     ).toBeInTheDocument();
     expect(useFieldStore.getState().field.groups).toHaveLength(
@@ -693,9 +698,13 @@ describe("Baord State Lite app shell", () => {
     await user.click(
       screen.getByRole("button", { name: /poison: 0\. tap to edit/i }),
     );
-    const poisonInput = screen.getByLabelText(/^poison$/i);
-    await user.clear(poisonInput);
-    await user.type(poisonInput, "7");
+    const increasePoison = screen.getByRole("button", {
+      name: "Increase Poison",
+    });
+    act(() => {
+      for (let index = 0; index < 7; index++)
+        fireEvent.click(increasePoison, { detail: 0 });
+    });
     await user.click(screen.getByRole("button", { name: /close/i }));
 
     expect(
@@ -812,7 +821,7 @@ describe("Baord State Lite app shell", () => {
     expect(useFieldStore.getState().field.preTurnPlanner.actions).toHaveLength(
       1,
     );
-    expect(useFieldStore.getState().field.groups).toHaveLength(1);
+    expect(useFieldStore.getState().field.groups).toHaveLength(0);
     expect(useFieldStore.getState().undoStack).toHaveLength(0);
 
     await user.click(

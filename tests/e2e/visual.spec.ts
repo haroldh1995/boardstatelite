@@ -171,7 +171,7 @@ test.describe("reference visual fixture", () => {
     const anim = page.locator('article[aria-label^="Anim Pakal"]').first();
     await longPress(page, anim);
     await page.getByRole("button", { name: "Stop Tracking Card" }).click();
-    await page.getByRole("button", { name: "Stop Tracking" }).click();
+    await page.getByRole("button", { name: "Close", exact: true }).click();
     await expect(anim).toHaveAttribute("aria-label", /Not Tracked/);
     await expect(anim).toHaveScreenshot(
       "not-tracked-permanent.png",

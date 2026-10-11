@@ -1,6 +1,7 @@
 import { makeId } from "../domain/cards";
 import { observationRequiresAcceptance } from "../domain/actionSemantics";
 import type { GameEvent } from "../domain/types";
+import { deckContains, type SessionDeckSnapshot } from "../domain/deckSnapshot";
 import {
   ARGUS_STATE_VERSION,
   type ArgusBattlefieldSnapshot,
@@ -45,7 +46,9 @@ export function normalizeArgusState(value: unknown): ArgusState {
 export function recordArgusObservation(
   state: ArgusState,
   observation: ArgusObservation,
+  deck?: SessionDeckSnapshot | null,
 ): ArgusState {
+  if (deck) observation = corroborateArgusWithDeck(observation, deck);
   return {
     ...state,
     observations: [
@@ -59,6 +62,7 @@ export function recordArgusSnapshot(
   state: ArgusState,
   observations: ArgusObservation[],
   timestamp = new Date().toISOString(),
+  deck?: SessionDeckSnapshot | null,
 ): ArgusState {
   const snapshot: ArgusBattlefieldSnapshot = {
     id: makeId("argus-snapshot"),
@@ -69,10 +73,51 @@ export function recordArgusSnapshot(
     ),
   };
   return {
-    ...observations.reduce(recordArgusObservation, state),
+    ...observations.reduce(
+      (current, observation) =>
+        recordArgusObservation(current, observation, deck),
+      state,
+    ),
     previousSnapshot: state.latestSnapshot,
     latestSnapshot: snapshot,
     lastScanAt: timestamp,
+  };
+}
+
+export function corroborateArgusWithDeck(
+  observation: ArgusObservation,
+  deck: SessionDeckSnapshot,
+): ArgusObservation {
+  const agrees = observation.objects.some(
+    (object) => object.identity && deckContains(deck, object.identity),
+  );
+  if (!agrees || observation.sources.includes("deck-nexus")) return observation;
+  const independentEvidence = observation.sources.some(
+    (source) => source === "camera" || source === "echo",
+  );
+  const objects = observation.objects.map((object) => ({
+    ...object,
+    confidence:
+      object.identity &&
+      deckContains(deck, object.identity) &&
+      object.confidence === "uncertain" &&
+      independentEvidence
+        ? ("probable" as const)
+        : object.confidence,
+  }));
+  return {
+    ...observation,
+    sources: [...observation.sources, "deck-nexus"],
+    objects,
+    confidence:
+      observation.confidence === "uncertain" &&
+      independentEvidence &&
+      objects.length > 0 &&
+      objects.every((object) =>
+        ["confirmed", "probable"].includes(object.confidence),
+      )
+        ? "probable"
+        : observation.confidence,
   };
 }
 

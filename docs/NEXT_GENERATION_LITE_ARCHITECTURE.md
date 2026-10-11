@@ -140,6 +140,79 @@ state is serialized through the existing canonical field/session envelope.
 
 ## Platform Boundaries
 
+### Interaction Ownership And Session Boundaries
+
+`domain/interactions.ts` owns one active press at a time. `HoldRepeater` uses an
+injected scheduler and generation invalidation: cancellation invalidates even an
+already queued callback. The web `usePressLifetime` adapter ends ownership on
+release, capture loss, touch cancellation, blur, page hiding, unmount, and
+presentation changes. Native adapters must forward their equivalent lifecycle
+events. Life, commander damage, counters, token quantity and player resources
+share this primitive. Numeric transaction grouping is independent of repetition.
+Committing clears the transaction before invoking gameplay code; New Game discards
+it before replacing the session. Direction changes cancel the previous repeater
+but retain the net transaction delta.
+
+Full-Screen Life is store-owned presentation state, separate from its persistent
+Options preference. The magnification adapter accepts only an unobstructed
+two-finger gesture after an intent threshold. Options, sheets, controls and text
+entry are excluded. A keyboard/screen-reader action provides the same transition.
+Neither transition creates a game event. New Game returns to standard presentation
+without changing the preference used at the next app launch.
+
+`domain/sessionLifecycle.ts` creates a fresh game and retains explicit app/profile
+preferences. New Game clears game, turn, deck association, session recent cards,
+observations, histories and undo state. It does not delete card caches or voice
+enrollment. Start Turn resets only turn-scoped state. Persistence serializes
+durable writes and updates the latest fallback synchronously, preventing an older
+in-flight save from becoming the restored session after New Game.
+
+### Battlefield Intelligence And Available Actions
+
+`domain/battlefieldIndex.ts` derives quantities and contributor IDs exclusively
+from canonical battlefield groups, including stack quantities and current
+characteristics. Basic lands require the Basic supertype. Turn land plays are
+separate planner state and are never decremented when a land leaves. User Tools /
+Battlefield Counts derives a fresh snapshot on open and every canonical group
+change; drill-down references those same groups. Land breakdown is a press-lifetime
+peek, with the complete breakdown also included in its accessible label.
+
+Available tap actions are derived from current identified Oracle abilities,
+tracking state and tap state. One affordance opens the available actions. Recording
+an activation splits one object from a stack if necessary. Deterministically
+supported outcomes flow through the existing Athena event/bookkeeping boundary;
+unmodeled costs and outcomes remain pending manual resolution, never fake tokens.
+Summoning restrictions are advisory, not a veto. The affordance model can host
+additional action kinds without adding multiple artwork badges.
+
+### Deck Nexus Consumption And Privacy
+
+The existing Hub integration manager exposes `DeckNexusPort`. A host supplies
+authenticated `listDecks` and `snapshot` transport implementations. This repository
+does not contain a deployed authenticated Deck Nexus API or its credentials;
+the standalone adapter therefore reports unavailable and offers Play Without Deck.
+It does not read another application's storage or fabricate saved decks.
+
+Transport data is normalized into a detached `SessionDeckSnapshot` and rich
+`DeckCardSnapshot` identities. A session snapshot remains usable offline and is
+changed only by explicit selection/disconnection. Those operations never rewrite
+the battlefield; gameplay undo also preserves the selected deck. New Game clears
+the old association before selection. Saved deck metadata and recent-card history
+are private and are excluded from the public gameplay projection.
+
+`services/cardSearch.ts` composes the existing progressive provider engine with
+portable contextual ranking. My Deck is a local fast path with basic-land access
+and an immediate All Cards alternative. Exact names remain the highest ranking
+tier. Deck presence and relevant session history add positive evidence; absence
+never subtracts confidence or prohibits adding a card. Current provider data wins
+over stale snapshot metadata when merging. Echo reuses its existing deck-candidate
+contract; ARGUS corroboration can raise an uncertain observation to probable but
+does not accept it or manufacture canonical state.
+
+Native camera, speech, magnification and real-device validation remain platform
+adapter responsibilities. The portable contracts and web lifecycle tests do not
+constitute an iOS/Android hardware validation claim.
+
 Domain and state-machine modules do not depend on the DOM, browser persistence,
 camera APIs, speech APIs, or CSS. This includes numeric adjustment transactions
 and card-search interpretation/ranking. Web-only behavior remains in React

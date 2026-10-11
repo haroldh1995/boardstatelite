@@ -1,4 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
+import { HoldRepeater, interactions } from "../domain/interactions";
+import { usePressLifetime } from "./usePressLifetime";
 
 export function HoldAdjustButton({
   label,
@@ -6,59 +8,48 @@ export function HoldAdjustButton({
   step,
   onStep,
   children,
+  disabled = false,
 }: {
   label: string;
   className?: string;
   step: number;
   onStep: (delta: number) => void;
   children: React.ReactNode;
+  disabled?: boolean;
 }) {
-  const delayRef = useRef<number | null>(null);
-  const intervalRef = useRef<number | null>(null);
-  const pointerActiveRef = useRef(false);
-
-  useEffect(() => stopTimers, []);
-
-  function addStep() {
-    onStep(step);
-  }
-
-  function start(event: React.PointerEvent<HTMLButtonElement>) {
-    if (pointerActiveRef.current) return;
-    pointerActiveRef.current = true;
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    addStep();
-    delayRef.current = window.setTimeout(() => {
-      intervalRef.current = window.setInterval(addStep, 115);
-    }, 430);
-  }
-
-  function finish() {
-    if (!pointerActiveRef.current) return;
-    pointerActiveRef.current = false;
-    stopTimers();
-  }
-
-  function stopTimers() {
-    if (delayRef.current !== null) window.clearTimeout(delayRef.current);
-    if (intervalRef.current !== null) window.clearInterval(intervalRef.current);
-    delayRef.current = null;
-    intervalRef.current = null;
-  }
+  const latest = useRef({ step, onStep, disabled });
+  latest.current = { step, onStep, disabled };
+  const repeater = useRef(
+    new HoldRepeater({
+      schedule: (callback, delay) => window.setTimeout(callback, delay),
+      cancel: (handle) => window.clearTimeout(handle as number),
+    }),
+  );
+  const addStep = () => {
+    if (!latest.current.disabled) latest.current.onStep(latest.current.step);
+    else repeater.current.stop();
+  };
+  const press = usePressLifetime(
+    () => repeater.current.start(addStep),
+    () => repeater.current.stop(),
+  );
 
   return (
     <button
       type="button"
       className={className}
       aria-label={label}
-      onPointerDown={start}
-      onPointerUp={finish}
-      onPointerCancel={finish}
+      disabled={disabled}
+      {...press}
+      onContextMenu={(event) => event.preventDefault()}
+      onClick={(event) => {
+        if (event.detail === 0) {
+          interactions.cancelHold();
+          addStep();
+        }
+      }}
       onKeyDown={(event) => {
-        if (event.repeat || (event.key !== "Enter" && event.key !== " "))
-          return;
-        event.preventDefault();
-        onStep(step);
+        if (event.repeat) event.preventDefault();
       }}
     >
       {children}

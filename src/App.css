@@ -1937,6 +1937,16 @@ textarea:focus-visible {
   color: #f7d77c;
 }
 
+.turn-end-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+.turn-end-actions button {
+  flex: 0 0 auto;
+}
+
 .turn-review-button {
   min-height: 36px;
   padding: 6px 9px;
@@ -2040,7 +2050,7 @@ textarea:focus-visible {
   padding: max(12px, env(safe-area-inset-top)) 12px
     max(16px, env(safe-area-inset-bottom));
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(280px, 1fr) auto auto;
   background:
     radial-gradient(
       circle at 50% 42%,
@@ -2052,7 +2062,7 @@ textarea:focus-visible {
 
 .full-life-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 44px;
+  grid-template-columns: minmax(0, 1fr) 44px 44px;
   gap: 8px;
   align-items: start;
 }
@@ -2086,7 +2096,9 @@ textarea:focus-visible {
 
 .full-life-center > strong {
   font-family: var(--display-font);
-  font-size: clamp(8rem, 36svh, 18rem);
+  font-size: 9rem;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   line-height: 0.8;
   color: #fbfff9;
   text-shadow: 0 0 34px rgba(115, 255, 171, 0.24);
@@ -2144,6 +2156,150 @@ textarea:focus-visible {
 
 .full-life-attention svg {
   width: 16px;
+}
+
+.app-shell {
+  touch-action: pan-x pan-y;
+}
+.life-panel,
+.full-life-center {
+  transform: scale(var(--life-gesture-scale, 1));
+  transition: transform 180ms ease-out;
+}
+.life-magnifying .life-panel,
+.life-magnifying .full-life-center {
+  transition: none;
+}
+.life-magnifying .battlefield {
+  opacity: 0.6;
+}
+.accessible-action {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.accessible-action:focus-visible {
+  position: fixed;
+  z-index: 100;
+  top: 8px;
+  left: 8px;
+  width: auto;
+  height: auto;
+  clip-path: none;
+}
+.full-life-resources {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+}
+.full-life-resources svg {
+  width: 18px;
+  height: 18px;
+}
+.land-count {
+  touch-action: none;
+  min-width: 94px;
+  position: relative;
+}
+.land-breakdown {
+  display: block;
+  height: 16px;
+  font-size: 0.65rem;
+  white-space: nowrap;
+  position: absolute;
+  left: 4px;
+  bottom: 1px;
+  pointer-events: none;
+  z-index: 2;
+}
+.land-breakdown:not(:empty) {
+  padding-inline: 3px;
+  background: #10191d;
+  color: #f4e0b0;
+  border-radius: 3px;
+}
+.count-inspection-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.count-inspection-grid button,
+.count-contributor {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  text-align: left;
+}
+.count-contributor {
+  width: 100%;
+  margin: 4px 0;
+}
+.deck-choice {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  text-align: left;
+  min-height: 52px;
+  margin: 8px 0;
+}
+.numeric-adjuster {
+  min-width: 0;
+  text-align: center;
+}
+.numeric-adjuster > span:first-child {
+  display: block;
+  margin-bottom: 6px;
+}
+.numeric-delta {
+  display: block;
+  height: 22px;
+  color: #f7d77c;
+  font-variant-numeric: tabular-nums;
+}
+.numeric-adjuster .direct-adjust button {
+  touch-action: none;
+  min-width: 44px;
+  min-height: 44px;
+}
+.tap-ability-indicator {
+  position: absolute;
+  left: 6px;
+  bottom: 6px;
+  width: 44px;
+  height: 44px;
+  padding: 7px;
+  border-radius: 6px;
+  color: #ffe5a0;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  z-index: 3;
+}
+.tap-ability-indicator svg {
+  width: 28px;
+  height: 28px;
+  padding: 4px;
+  border: 1px solid #d3b75b;
+  border-radius: 6px;
+  background: rgba(9, 15, 14, 0.94);
+}
+.tap-ability-choice {
+  border-top: 1px solid #31453d;
+  padding: 12px 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .life-panel,
+  .full-life-center {
+    transition: none;
+    transform: none;
+  }
 }
 
 .permanent-manager-simple,
@@ -2491,9 +2647,8 @@ textarea:focus-visible {
     grid-template-columns: auto minmax(0, 1fr) auto;
   }
 
-  .turn-context .end-turn-button {
+  .turn-context:not(.between-turns) .turn-end-actions {
     grid-column: 1 / -1;
-    width: 100%;
   }
 
   .turn-context.between-turns {

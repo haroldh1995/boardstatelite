@@ -1,5 +1,6 @@
 import type { FieldState } from "../domain/types";
 import { crossAppLaunchManager } from "./launch";
+import { deckNexusConnection } from "./deckNexus";
 import {
   CLOUD_BACKUP_UNAVAILABLE_REASON,
   CROSS_APP_UNAVAILABLE_REASON,
@@ -21,6 +22,7 @@ import type {
 } from "./types";
 
 export class HubIntegrationManager {
+  readonly deckNexus = deckNexusConnection;
   private lastHub: HubIntegrationState | null = null;
   private lastError: string | null = null;
   private lastUnavailableReason: string | null = null;

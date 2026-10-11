@@ -140,7 +140,7 @@ function supportedTriggerCondition(condition: string): boolean {
 
 function splitInstructions(value: string): string[] {
   return value
-    .replace(/\band you (gain|lose|pay)\b/gi, ". You $1")
+    .replace(/\band (?:you )?(gain|lose|pay)\b/gi, ". You $1")
     .split(/[.;]/)
     .map((entry) => entry.trim().replace(/^then\s+/i, ""))
     .filter(Boolean);

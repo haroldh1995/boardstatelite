@@ -47,7 +47,7 @@ describe("Lite field persistence guardrails", () => {
     const normalized = normalizeField(fieldWithFutureMetadata);
 
     expect(normalized.player.life).toBe(40);
-    expect(normalized.groups.length).toBeGreaterThan(0);
+    expect(normalized.groups).toHaveLength(0);
     expect(
       (normalized as unknown as { boardStateAdapter?: unknown })
         .boardStateAdapter,
@@ -83,6 +83,6 @@ describe("Lite field persistence guardrails", () => {
     expect(imported?.settings.voice.ambientListeningEnabled).toBe(false);
     expect(imported?.listening.status).toBe("idle");
     expect(imported?.listening.indicator).toBe("hidden");
-    expect(imported?.groups).toHaveLength(1);
+    expect(imported?.groups).toHaveLength(0);
   });
 });

@@ -1,5 +1,4 @@
 import {
-  createGenericGroup,
   makeId,
   mergeCompatibleStacks,
   recalculateStats,
@@ -116,6 +115,8 @@ import type {
 } from "./types";
 import type { SharedSessionMetadata } from "../sharedSession/types";
 import type { HubIntegrationState } from "../hub/types";
+import { battlefieldIndex } from "./battlefieldIndex";
+import { normalizeDeckSnapshot } from "./deckSnapshot";
 import { createDefaultArgusState, normalizeArgusState } from "../argus";
 import { createDefaultTurnContext, normalizeTurnContext } from "../turn";
 import {
@@ -197,6 +198,7 @@ export function createDefaultField(): FieldState {
     settings,
   });
   const field: FieldState = {
+    sessionDeck: null,
     schemaVersion: 1,
     id: makeId("field"),
     session,
@@ -246,14 +248,7 @@ export function createDefaultField(): FieldState {
     updatedAt: now,
     player: createDefaultPlayer(40),
     opponentValues: createDefaultOpponentValues(),
-    groups: [
-      createGenericGroup({
-        kind: "Land",
-        label: "Generic lands",
-        quantity: 8,
-        zone: "battlefield",
-      }),
-    ],
+    groups: [],
     zoneCompositions: createDefaultZoneCompositionCollection(now),
     pinnedTotals: DEFAULT_PINNED_TOTALS,
     customEffects: [],
@@ -561,6 +556,7 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
     ...defaults,
     ...candidate,
     id: typeof candidate.id === "string" ? candidate.id : defaults.id,
+    sessionDeck: normalizeDeckSnapshot(candidate.sessionDeck),
     session: sessionWithHub,
     mode,
     multiplayer,
@@ -665,57 +661,15 @@ export function calculateTotals(
     Object.keys(TOTAL_LABELS).map((key) => [key, 0]),
   ) as Record<RelevantTotalKey, number>;
 
+  const index = battlefieldIndex(groups);
   for (const group of groups) {
     const quantity = group.quantity;
-    const types = new Set(group.characteristics.cardTypes);
-    const subtypes = new Set(group.characteristics.subtypes);
-    const supertypes = new Set(group.characteristics.supertypes);
 
     if (group.zone === "hand") totals.cardsInHand += quantity;
     if (group.zone === "graveyard") totals.cardsInGraveyard += quantity;
     if (group.zone === "exile") totals.cardsInExile += quantity;
     if (group.zone === "library") totals.cardsRemainingInLibrary += quantity;
     if (group.zone !== "battlefield") continue;
-
-    if (types.has("Land")) totals.lands += quantity;
-    if (types.has("Land") && supertypes.has("Basic"))
-      totals.basicLands += quantity;
-    if (types.has("Land") && !supertypes.has("Basic"))
-      totals.nonbasicLands += quantity;
-    if (subtypes.has("Plains")) totals.plains += quantity;
-    if (subtypes.has("Island")) totals.islands += quantity;
-    if (subtypes.has("Swamp")) totals.swamps += quantity;
-    if (subtypes.has("Mountain")) totals.mountains += quantity;
-    if (subtypes.has("Forest")) totals.forests += quantity;
-    if (subtypes.has("Gate")) totals.gates += quantity;
-    if (subtypes.has("Desert")) totals.deserts += quantity;
-    if (subtypes.has("Cave")) totals.caves += quantity;
-    if (subtypes.has("Locus")) totals.loci += quantity;
-    if (subtypes.has("Sphere")) totals.spheres += quantity;
-
-    if (types.has("Creature")) totals.creatures += quantity;
-    if (types.has("Artifact")) totals.artifacts += quantity;
-    if (subtypes.has("Equipment")) totals.equipment += quantity;
-    if (types.has("Enchantment")) totals.enchantments += quantity;
-    if (subtypes.has("Aura")) totals.auras += quantity;
-    if (subtypes.has("Vehicle")) totals.vehicles += quantity;
-    if (types.has("Planeswalker")) totals.planeswalkers += quantity;
-    if (types.has("Battle")) totals.battles += quantity;
-    if (group.characteristics.isLegendary)
-      totals.legendaryPermanents += quantity;
-    if (group.characteristics.isToken) totals.tokens += quantity;
-    if (!group.characteristics.isToken) totals.nontokenPermanents += quantity;
-    if (group.characteristics.isToken && subtypes.has("Treasure"))
-      totals.treasureTokens += quantity;
-    if (group.characteristics.isToken && subtypes.has("Clue"))
-      totals.clueTokens += quantity;
-    if (group.characteristics.isToken && subtypes.has("Food"))
-      totals.foodTokens += quantity;
-    if (group.characteristics.isToken && subtypes.has("Blood"))
-      totals.bloodTokens += quantity;
-    if (group.characteristics.isToken && subtypes.has("Map"))
-      totals.mapTokens += quantity;
-    if (subtypes.has("Powerstone")) totals.powerstones += quantity;
 
     const devotion = devotionForManaCost(group.identity?.manaCost ?? "");
     totals.devotionWhite += devotion.W * quantity;
@@ -725,6 +679,44 @@ export function calculateTotals(
     totals.devotionGreen += devotion.G * quantity;
   }
 
+  const count = (key: string) => index.counts[key]?.count ?? 0;
+  totals.lands = count("type:Land");
+  totals.basicLands = count("basic");
+  totals.nonbasicLands = count("nonbasic");
+  totals.creatures = count("type:Creature");
+  totals.artifacts = count("type:Artifact");
+  totals.enchantments = count("type:Enchantment");
+  totals.planeswalkers = count("type:Planeswalker");
+  totals.battles = count("type:Battle");
+  totals.tokens = count("tokens");
+  totals.nontokenPermanents = count("nontokens");
+  const facets: Partial<Record<BaseRelevantTotalKey, string>> = {
+    plains: "Plains",
+    islands: "Island",
+    swamps: "Swamp",
+    mountains: "Mountain",
+    forests: "Forest",
+    gates: "Gate",
+    deserts: "Desert",
+    caves: "Cave",
+    loci: "Locus",
+    spheres: "Sphere",
+    equipment: "Equipment",
+    auras: "Aura",
+    vehicles: "Vehicle",
+    powerstones: "Powerstone",
+  };
+  for (const [key, subtype] of Object.entries(facets))
+    totals[key as BaseRelevantTotalKey] = count(`subtype:${subtype}`);
+  totals.legendaryPermanents = count("supertype:Legendary");
+  for (const [key, subtype] of Object.entries({
+    treasureTokens: "Treasure",
+    clueTokens: "Clue",
+    foodTokens: "Food",
+    bloodTokens: "Blood",
+    mapTokens: "Map",
+  }))
+    totals[key as BaseRelevantTotalKey] = count(`token:${subtype}`);
   return totals;
 }
 

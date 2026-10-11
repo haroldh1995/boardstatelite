@@ -48,7 +48,11 @@ test("top player counters open the manual editor and retain corrected values", a
   await expect(
     page.getByRole("heading", { name: "Player Counters" }),
   ).toBeVisible();
-  await page.getByLabel("poison", { exact: true }).fill("7");
+  for (let index = 0; index < 7; index++) {
+    await page
+      .getByRole("button", { name: "Increase Poison", exact: true })
+      .click();
+  }
   await page.getByRole("button", { name: "Close" }).click();
 
   await expect(
@@ -158,16 +162,9 @@ test("not-tracked card state can be stopped and resumed from the permanent menu"
 
   await longPress(page, anim);
   await page.getByRole("button", { name: "Stop Tracking Card" }).click();
-  await expect(page.getByRole("dialog")).toContainText(
-    "This card will remain on your battlefield",
-  );
+  await expect(page.getByRole("dialog")).toContainText("Resume Tracking Card");
   await page.mouse.click(4, 4);
   await expect(page.locator(".modal-overlay")).toHaveCount(0);
-  await expect(anim).not.toHaveAttribute("aria-label", /Not Tracked/);
-
-  await longPress(page, anim);
-  await page.getByRole("button", { name: "Stop Tracking Card" }).click();
-  await page.getByRole("button", { name: "Stop Tracking" }).click();
   await expect(anim).toHaveAttribute("aria-label", /Not Tracked/);
   await expect(anim.locator(".tracking-badge")).toBeVisible();
 
@@ -182,7 +179,7 @@ test("not-tracked card state can be stopped and resumed from the permanent menu"
 
   await longPress(page, anim);
   await page.getByRole("button", { name: "Resume Tracking Card" }).click();
-  await page.getByRole("button", { name: "Resume Tracking" }).click();
+  await page.getByRole("button", { name: "Close", exact: true }).click();
   await expect(anim).not.toHaveAttribute("aria-label", /Not Tracked/);
 
   await page.getByRole("button", { name: /ACTIVATE FIELD/ }).click();

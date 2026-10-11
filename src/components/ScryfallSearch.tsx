@@ -6,8 +6,14 @@ import {
   interpretCardSearch,
 } from "../domain/cardSearch";
 import type { CardIdentity } from "../domain/types";
-import { rankScryfallResults, searchScryfallPage } from "../services/scryfall";
+import { searchScryfallPage } from "../services/scryfall";
 import { CardSearchFiltersPanel } from "./CardSearchFiltersPanel";
+import { useFieldStore } from "../state/useFieldStore";
+import { searchCards } from "../services/cardSearch";
+import {
+  rankContextualCards,
+  type CardSearchContext,
+} from "../domain/contextualCardSearch";
 
 export interface ScryfallSearchAction {
   id: string;
@@ -28,6 +34,7 @@ interface ScryfallSearchProps {
   onConfirm?: (card: CardIdentity) => void;
   actions?: ScryfallSearchAction[];
   initialQuery?: string;
+  context?: CardSearchContext;
 }
 
 export function ScryfallSearch({
@@ -36,7 +43,16 @@ export function ScryfallSearch({
   onConfirm,
   actions,
   initialQuery = "",
+  context = "general",
 }: ScryfallSearchProps) {
+  const deck = useFieldStore((state) => state.field.sessionDeck);
+  const recentCards = useFieldStore((state) => state.field.recentCards);
+  const recentCardsRef = useRef(recentCards);
+  recentCardsRef.current = recentCards;
+  const rememberCard = useFieldStore((state) => state.rememberCard);
+  const [scope, setScope] = useState<"my-deck" | "all-cards">(
+    deck ? "my-deck" : "all-cards",
+  );
   const [query, setQuery] = useState(initialQuery);
   const [filters, setFilters] = useState(createDefaultCardSearchFilters);
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -58,9 +74,11 @@ export function ScryfallSearch({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const requestKeyRef = useRef("");
   const loadingMoreRef = useRef(false);
-  const requestKey = `${query}\n${JSON.stringify(filters)}\n${ignoredConceptIds.join("|")}`;
+  const requestKey = `${query}\n${JSON.stringify(filters)}\n${ignoredConceptIds.join("|")}\n${scope}\n${deck?.deckId ?? ""}\n${deck?.capturedAt ?? ""}`;
   const searchActive =
-    query.trim().length >= 2 || hasActiveCardSearchFilters(filters);
+    query.trim().length >= 2 ||
+    hasActiveCardSearchFilters(filters) ||
+    Boolean(scope === "my-deck" && deck);
   const interpretation = useMemo(
     () => interpretCardSearch({ query, filters, ignoredConceptIds }),
     [filters, ignoredConceptIds, query],
@@ -108,11 +126,22 @@ export function ScryfallSearch({
       setLoading(true);
       setResults([]);
       setNextPage(null);
-      void searchScryfallPage(requestedQuery, {
-        signal: controller.signal,
-        filters,
-        ignoredConceptIds,
-      }).then((page) => {
+      void searchCards(
+        {
+          query: requestedQuery,
+          filters,
+          ignoredConceptIds,
+          deck,
+          recentCards: recentCardsRef.current,
+          scope,
+          context,
+        },
+        {
+          signal: controller.signal,
+          filters,
+          ignoredConceptIds,
+        },
+      ).then((page) => {
         if (controller.signal.aborted || requestKeyRef.current !== requestedKey)
           return;
         setResults(page.cards);
@@ -124,7 +153,16 @@ export function ScryfallSearch({
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [filters, ignoredConceptIds, query, requestKey, searchActive]);
+  }, [
+    filters,
+    ignoredConceptIds,
+    query,
+    requestKey,
+    searchActive,
+    deck,
+    scope,
+    context,
+  ]);
 
   const visibleResults = useMemo(() => {
     const seen = new Set<string>();
@@ -162,16 +200,21 @@ export function ScryfallSearch({
       return;
     }
     setResults((current) =>
-      rankScryfallResults(
-        requestedQuery,
+      rankContextualCards(
+        {
+          query: requestedQuery,
+          filters,
+          ignoredConceptIds,
+          deck,
+          recentCards,
+          context,
+        },
         [
           ...current,
           ...page.cards.filter(
             (card) => !current.some((entry) => entry.cardId === card.cardId),
           ),
         ],
-        filters,
-        ignoredConceptIds,
       ),
     );
     setNextPage(page.nextPage);
@@ -195,6 +238,39 @@ export function ScryfallSearch({
 
   return (
     <div className={`search-panel search-panel-${mode}`}>
+      {deck && (
+        <div className="segmented" aria-label="Card search scope">
+          <button
+            type="button"
+            className={scope === "my-deck" ? "selected" : ""}
+            onClick={() => {
+              setScope("my-deck");
+              setMode("search");
+            }}
+          >
+            My Deck
+          </button>
+          <button
+            type="button"
+            className={scope === "all-cards" ? "selected" : ""}
+            onClick={() => {
+              setScope("all-cards");
+              setMode("search");
+            }}
+          >
+            All Cards
+          </button>
+        </div>
+      )}
+      {deck && scope === "my-deck" && !loading && results.length === 0 && (
+        <button
+          type="button"
+          className="primary-action"
+          onClick={() => setScope("all-cards")}
+        >
+          Search All Cards
+        </button>
+      )}
       <label className="search-box">
         <Search aria-hidden="true" />
         <span className="sr-only">{label}</span>
@@ -309,6 +385,7 @@ export function ScryfallSearch({
               }
               onClick={() => {
                 setSelected(card);
+                rememberCard(card);
                 setMode("preview");
                 setConfirmationError(null);
               }}
