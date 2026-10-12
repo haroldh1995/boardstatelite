@@ -42,6 +42,9 @@ import { CurrentDeckSheet } from "./CurrentDeckSheet";
 import { NumericAdjuster } from "./NumericAdjuster";
 import { interactions } from "../domain/interactions";
 import { TapAbilitiesSheet } from "./TapAbilitiesSheet";
+import { PlayerTrackerLayoutSheet } from "./PlayerTrackerLayoutSheet";
+import { PlayerTrackerControls } from "./PlayerTrackerArea";
+import { DungeonSheet } from "./DungeonSheet";
 import {
   effectsProvidedBySource,
   manualKeywordState,
@@ -157,6 +160,14 @@ function ModalContent({ modal }: { modal: ModalState }) {
       return <LifeExactSheet />;
     case "playerCounters":
       return <PlayerCountersSheet />;
+    case "trackerLayout":
+      return <PlayerTrackerLayoutSheet />;
+    case "dungeons":
+      return (
+        <DungeonSheet
+          initialPlayerId={(modal.payload as { playerId?: string })?.playerId}
+        />
+      );
     case "managePermanent":
       return <ManagePermanentSheet groupId={modal.groupId} />;
     case "managePermanentAdvanced":
@@ -718,27 +729,17 @@ function NewGameSheet() {
 }
 
 function PlayerCountersSheet() {
-  const counters = useFieldStore((state) => state.field.player.counters);
-  const setPlayerCounter = useFieldStore((state) => state.setPlayerCounter);
-  const keys = ["poison", "energy", "experience", "rad"] as const;
+  const open = useFieldStore((state) => state.openModal);
   return (
     <div>
       <h2 id="modal-title">Player Counters</h2>
-      <div className="counter-editor-grid">
-        {keys.map((key) => (
-          <NumericAdjuster
-            key={key}
-            label={key === "rad" ? "Rad" : key[0].toUpperCase() + key.slice(1)}
-            value={counters[key]}
-            onCommit={(delta) =>
-              setPlayerCounter(
-                key,
-                useFieldStore.getState().field.player.counters[key] + delta,
-              )
-            }
-          />
-        ))}
-      </div>
+      <PlayerTrackerControls all />
+      <button
+        className="quiet-action"
+        onClick={() => open({ kind: "trackerLayout" })}
+      >
+        Life Screen Layout
+      </button>
     </div>
   );
 }

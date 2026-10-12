@@ -16,15 +16,13 @@ export function ExternalGameStateSheet() {
   const setArchenemyParticipant = useFieldStore(
     (store) => store.setArchenemyParticipant,
   );
-  const progressDungeon = useFieldStore((store) => store.progressDungeon);
+  const openModal = useFieldStore((store) => store.openModal);
   const setPlane = useFieldStore((store) => store.setPlane);
   const setScheme = useFieldStore((store) => store.setScheme);
   const rollPlanarDie = useFieldStore((store) => store.rollPlanarDie);
   const [sourceKind, setSourceKind] =
     useState<ExternalSourceObject["kind"]>("emblem");
   const [name, setName] = useState("");
-  const [dungeonName, setDungeonName] = useState("Undercity");
-  const [roomName, setRoomName] = useState("Secret Entrance");
 
   return (
     <div className="external-state-sheet">
@@ -35,14 +33,7 @@ export function ExternalGameStateSheet() {
           className={
             state.initiativeHolderId === localParticipantId ? "selected" : ""
           }
-          onClick={() =>
-            setHolder(
-              "initiative",
-              state.initiativeHolderId === localParticipantId
-                ? null
-                : localParticipantId,
-            )
-          }
+          onClick={() => openModal({ kind: "dungeons" })}
         >
           <Shield /> Initiative
         </button>
@@ -97,34 +88,8 @@ export function ExternalGameStateSheet() {
       </section>
       <section>
         <h3>Dungeons &amp; Initiative</h3>
-        <div className="numeric-pair">
-          <label>
-            Dungeon
-            <input
-              value={dungeonName}
-              onChange={(event) => setDungeonName(event.target.value)}
-            />
-          </label>
-          <label>
-            Room
-            <input
-              value={roomName}
-              onChange={(event) => setRoomName(event.target.value)}
-            />
-          </label>
-        </div>
-        <button
-          type="button"
-          onClick={() =>
-            progressDungeon({
-              dungeonId: dungeonName.toLowerCase().replaceAll(" ", "-"),
-              dungeonName,
-              roomId: roomName.toLowerCase().replaceAll(" ", "-"),
-              roomName,
-            })
-          }
-        >
-          <DoorOpen /> Record Room
+        <button type="button" onClick={() => openModal({ kind: "dungeons" })}>
+          <DoorOpen /> Open Dungeons &amp; Initiative
         </button>
         {state.dungeon.currentRoomName && (
           <p className="external-current">

@@ -9,6 +9,7 @@ import {
   ListFilter,
   RotateCcw,
   Library,
+  Castle,
 } from "lucide-react";
 import { useFieldStore } from "../state/useFieldStore";
 
@@ -22,6 +23,12 @@ export function UserToolsSheet() {
         they do not ask Athena for permission.
       </p>
       <div className="user-tool-grid">
+        <ToolButton
+          icon={<Castle />}
+          title="Dungeons & Initiative"
+          detail="Rooms, paths, and initiative."
+          onClick={() => openModal({ kind: "dungeons" })}
+        />
         <ToolButton
           icon={<ListFilter />}
           title="Battlefield Counts"

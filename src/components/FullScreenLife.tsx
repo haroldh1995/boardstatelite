@@ -8,6 +8,8 @@ import { useGroupedNumericAdjustment } from "./useGroupedNumericAdjustment";
 import { BattlefieldLandCount } from "./BattlefieldLandCount";
 import { QuickUndo } from "./QuickUndo";
 import { GameplayReminderBanner } from "./GameplayReminderBanner";
+import { PlayerTrackerArea } from "./PlayerTrackerArea";
+import { DungeonQuickStatus } from "./DungeonQuickStatus";
 
 export function FullScreenLife() {
   const field = useFieldStore((state) => state.field);
@@ -77,6 +79,8 @@ export function FullScreenLife() {
           </HoldAdjustButton>
         </div>
       </div>
+      <PlayerTrackerArea />
+      <DungeonQuickStatus />
       <div className="full-life-resources">
         <BattlefieldLandCount />
         <button
@@ -85,9 +89,6 @@ export function FullScreenLife() {
           onClick={() => openModal({ kind: "playerCounters" })}
         >
           <Layers aria-hidden="true" /> Player Counters
-          {field.player.counters.poison > 0
-            ? ` / Poison ${field.player.counters.poison}`
-            : ""}
         </button>
         {!memory.complete && (
           <button

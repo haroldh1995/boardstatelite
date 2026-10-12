@@ -12,9 +12,11 @@ import { TotalsStrip } from "./components/TotalsStrip";
 import { GameplayReminderBanner } from "./components/GameplayReminderBanner";
 import { TurnContextBar } from "./components/TurnContextBar";
 import { FullScreenLife } from "./components/FullScreenLife";
+import { DungeonQuickStatus } from "./components/DungeonQuickStatus";
 import { isReferenceFixtureMode } from "./dev/referenceMode";
 import { useFieldStore } from "./state/useFieldStore";
 import "./App.css";
+import "./components/personalizedTracking.css";
 import { interactions } from "./domain/interactions";
 import { useLifeMagnification } from "./components/useLifeMagnification";
 
@@ -175,6 +177,7 @@ function App() {
               <LifeTracker />
               <TurnContextBar />
               <TotalsStrip />
+              <DungeonQuickStatus />
               <GameplayReminderBanner />
               <MicrophoneStatusIndicator />
             </>

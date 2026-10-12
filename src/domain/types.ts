@@ -39,6 +39,7 @@ import type { ManualEffectState } from "./manualEffects";
 import type { ExternalGameState } from "./externalGameState";
 import type { RandomizerState } from "./randomizer";
 import type { CommanderDamageState } from "./commanderDamage";
+import type { PlayerTrackerPreferences } from "./playerTrackers";
 
 export type Zone =
   | "battlefield"
@@ -67,6 +68,8 @@ export type ModalKind =
   | "preview"
   | "life"
   | "playerCounters"
+  | "trackerLayout"
+  | "dungeons"
   | "managePermanent"
   | "trackingConfirm"
   | "removeStack"
@@ -287,6 +290,7 @@ export interface SettingsState {
   sound: boolean;
   haptics: boolean;
   fullScreenLife: boolean;
+  playerTrackers: PlayerTrackerPreferences;
   voice: EchoVoiceSettings;
   personalGameplay: EchoPersonalGameplaySettings;
   ambientOrchestrator: EchoAmbientOrchestratorSettings;

@@ -1,4 +1,8 @@
 import {
+  defaultPlayerTrackers,
+  normalizePlayerTrackers,
+} from "./playerTrackers";
+import {
   makeId,
   mergeCompatibleStacks,
   recalculateStats,
@@ -336,6 +340,7 @@ export function createDefaultSettings(): SettingsState {
     sound: false,
     haptics: true,
     fullScreenLife: false,
+    playerTrackers: defaultPlayerTrackers(),
     voice: createDefaultEchoVoiceSettings(),
     personalGameplay: createDefaultPersonalGameplaySettings(),
     ambientOrchestrator: createDefaultAmbientOrchestratorSettings(),
@@ -352,6 +357,7 @@ export function normalizeSettings(value: unknown): SettingsState {
     ...candidate,
     gameplayReminders: candidate.gameplayReminders === true,
     fullScreenLife: candidate.fullScreenLife === true,
+    playerTrackers: normalizePlayerTrackers(candidate.playerTrackers),
     voice: normalizeEchoVoiceSettings(candidate.voice),
     personalGameplay: normalizePersonalGameplaySettings(
       candidate.personalGameplay,
@@ -547,6 +553,7 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
   const externalGameState = normalizeExternalGameState(
     candidate.externalGameState,
     updatedAt,
+    multiplayer.registry.localParticipantId,
   );
   const randomizer = normalizeRandomizerState(candidate.randomizer);
   const commanderDamage = normalizeCommanderDamageState(
@@ -601,6 +608,9 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
       statuses: {
         ...defaults.player.statuses,
         ...candidate.player.statuses,
+        initiative:
+          externalGameState.initiativeHolderId ===
+          multiplayer.registry.localParticipantId,
       },
     },
     opponentValues: {
@@ -886,6 +896,7 @@ export function normalizeField(field: FieldState): FieldState {
   const externalGameState = normalizeExternalGameState(
     field.externalGameState,
     updatedAt,
+    multiplayer.registry.localParticipantId,
   );
   const randomizer = normalizeRandomizerState(field.randomizer);
   const commanderDamage = normalizeCommanderDamageState(field.commanderDamage);
@@ -922,6 +933,15 @@ export function normalizeField(field: FieldState): FieldState {
     randomizer,
     commanderDamage,
     groups,
+    player: {
+      ...field.player,
+      statuses: {
+        ...field.player.statuses,
+        initiative:
+          externalGameState.initiativeHolderId ===
+          multiplayer.registry.localParticipantId,
+      },
+    },
     zoneCompositions,
     settings,
     updatedAt,

@@ -1,0 +1,301 @@
+.player-tracker-area {
+  width: min(100%, 680px);
+  margin: 0 auto 10px;
+  min-width: 0;
+}
+.player-tracker-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: #d3ddeb;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+}
+.player-tracker-heading .icon-button {
+  min-width: 44px;
+  min-height: 44px;
+}
+.player-tracker-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+}
+.player-tracker-grid .numeric-adjuster {
+  min-width: 0;
+  border: 1px solid #354650;
+  border-radius: 6px;
+  padding: 6px;
+  background: #060d14e8;
+}
+.player-tracker-grid .numeric-adjuster > span:first-child {
+  overflow-wrap: anywhere;
+  font-size: 0.85rem;
+}
+.player-tracker-grid .direct-adjust {
+  grid-template-columns: 44px minmax(32px, 1fr) 44px;
+  gap: 4px;
+}
+.player-tracker-grid .direct-adjust button {
+  min-width: 44px;
+  min-height: 44px;
+}
+.player-tracker-grid .direct-adjust strong {
+  font-size: 1.4rem;
+}
+.player-tracker-grid .numeric-delta {
+  min-height: 18px;
+  font-size: 0.8rem;
+}
+.more-player-trackers {
+  max-height: 240px;
+  overflow: auto;
+}
+.tracker-layout-sheet {
+  display: grid;
+  gap: 14px;
+}
+.tracker-order-list {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+.tracker-order-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) repeat(3, 44px);
+  align-items: center;
+  gap: 3px;
+  border-bottom: 1px solid #30404b;
+  padding-bottom: 8px;
+}
+.tracker-order-list strong {
+  overflow-wrap: anywhere;
+}
+.tracker-order-list input {
+  min-width: 0;
+  width: 100%;
+}
+.tracker-save-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 48px;
+  gap: 8px;
+  align-items: end;
+}
+.tracker-save-row button {
+  min-height: 48px;
+}
+.tracker-saved-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.dungeon-quick-status {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin: 6px 0;
+}
+.dungeon-quick-status button {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+}
+.dungeon-sheet {
+  display: grid;
+  gap: 14px;
+}
+.dungeon-sheet select {
+  width: 100%;
+  min-width: 0;
+}
+.dungeon-sheet details {
+  border-top: 1px solid #34454e;
+  padding-top: 10px;
+}
+.dungeon-sheet summary,
+.tracker-layout-sheet summary,
+.more-player-trackers summary {
+  cursor: pointer;
+  padding: 10px 0;
+  min-height: 44px;
+  color: #e5d09a;
+}
+.initiative-panel {
+  display: grid;
+  gap: 8px;
+  border-left: 3px solid #b99b50;
+  padding-left: 12px;
+}
+.initiative-panel p {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+}
+.initiative-panel svg {
+  width: 18px;
+  height: 18px;
+}
+.dungeon-venture-actions,
+.dungeon-effect-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.dungeon-venture-actions button,
+.dungeon-effect-actions button {
+  flex: 1 1 150px;
+  min-height: 44px;
+}
+.dungeon-position {
+  margin: 0;
+  color: #cee0ed;
+  font-size: 0.9rem;
+}
+.dungeon-map-title {
+  margin: 0;
+  text-align: center;
+  color: #eddaa4;
+}
+.dungeon-map {
+  display: grid;
+  gap: 12px;
+}
+.dungeon-map-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  align-items: start;
+}
+.dungeon-room {
+  min-width: 0;
+  border: 1px solid #354650;
+  border-radius: 6px;
+  background: #090e19;
+  overflow-wrap: anywhere;
+}
+.dungeon-room button {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  min-height: 76px;
+  gap: 4px;
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  padding: 8px 4px;
+  color: #d5dfe4;
+  font-size: 0.8rem;
+  text-transform: none;
+}
+.dungeon-room button:disabled {
+  opacity: 1;
+  cursor: default;
+}
+.dungeon-room button svg {
+  width: 18px;
+  height: 18px;
+}
+.dungeon-room button span {
+  font-size: 0.7rem;
+  color: #ebd49d;
+}
+.dungeon-room p {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  margin: 0;
+  padding: 0 7px 9px;
+}
+.dungeon-room.current {
+  border-color: #9d9bf0;
+  box-shadow: inset 0 0 0 1px #9d9bf0;
+  background: #1a213d;
+}
+.dungeon-room.available {
+  border-color: #cfb66d;
+  background: #171913;
+}
+.dungeon-room.available button {
+  color: #ffedb5;
+}
+.dungeon-room.visited:not(.current) {
+  border-color: #668b93;
+}
+.dungeon-path {
+  display: block;
+  padding: 6px;
+  font-size: 0.65rem;
+  line-height: 1.4;
+  color: #a7bbc4;
+  border-top: 1px solid #33434b;
+}
+.dungeon-original img {
+  display: block;
+  width: min(100%, 480px);
+  height: auto;
+  margin: 10px auto;
+}
+.dungeon-original a {
+  display: block;
+  font-size: 0.75rem;
+  color: #c2cde0;
+}
+.dungeon-pending {
+  display: grid;
+  gap: 12px;
+}
+.dungeon-room-effect {
+  border: 1px solid #6c6694;
+  border-radius: 6px;
+  padding: 12px;
+  background: #111423;
+}
+.dungeon-room-effect h4 {
+  margin: 0;
+  color: #e6d59e;
+}
+.dungeon-room-effect p {
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+.dungeon-room-effect small {
+  display: block;
+  margin: 8px 0;
+}
+.dungeon-correction {
+  display: grid;
+  gap: 10px;
+}
+.dungeon-history li {
+  margin-bottom: 6px;
+}
+@media (max-width: 359px) {
+  .player-tracker-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .player-tracker-area .player-tracker-grid .numeric-adjuster {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 142px;
+    align-items: center;
+  }
+  .player-tracker-area .numeric-delta {
+    grid-column: 2;
+    text-align: center;
+  }
+  .tracker-order-list li {
+    grid-template-columns: minmax(0, 1fr) repeat(3, 44px);
+  }
+  .tracker-order-list .icon-button {
+    min-width: 44px;
+    padding: 8px;
+  }
+  .dungeon-map-row {
+    gap: 4px;
+  }
+}

@@ -1,4 +1,12 @@
 import { makeId } from "./cards";
+import {
+  defaultDungeons,
+  normalizeDungeons,
+  migrateLegacyDungeon,
+  enterDungeonRoom,
+  type DungeonState,
+} from "./dungeons";
+import { DUNGEONS, dungeonById, dungeonRoom } from "./dungeonCatalog";
 
 export const EXTERNAL_GAME_STATE_VERSION = 1;
 
@@ -56,6 +64,9 @@ export interface ExternalGameState {
   dayNight: "off" | "day" | "night";
   citysBlessingParticipantIds: string[];
   dungeon: DungeonProgressState;
+  /** Canonical per-player progression. `dungeon` is the legacy local-player projection. */
+  dungeons: DungeonState;
+  tablePlayers: Array<{ id: string; name: string }>;
   planechase: PlanechaseState;
   archenemy: ArchenemyState;
   updatedAt: string;
@@ -67,6 +78,8 @@ export function createDefaultExternalGameState(
   return {
     version: EXTERNAL_GAME_STATE_VERSION,
     sources: [],
+    dungeons: defaultDungeons(),
+    tablePlayers: [],
     initiativeHolderId: null,
     monarchHolderId: null,
     dayNight: "off",
@@ -100,10 +113,22 @@ export function createDefaultExternalGameState(
 export function normalizeExternalGameState(
   value: unknown,
   timestamp = new Date().toISOString(),
+  localPlayerId = "local",
 ): ExternalGameState {
   const defaults = createDefaultExternalGameState(timestamp);
   if (!value || typeof value !== "object") return defaults;
   const candidate = value as Partial<ExternalGameState>;
+  let dungeons = normalizeDungeons(candidate.dungeons);
+  if (localPlayerId !== "local" && dungeons.players.local) {
+    const { local, ...others } = dungeons.players;
+    dungeons = { ...dungeons, players: { ...others, [localPlayerId]: local } };
+  }
+  if (!candidate.dungeons)
+    dungeons = migrateLegacyDungeon(dungeons, candidate.dungeon, localPlayerId);
+  const run =
+    dungeons.players[localPlayerId]?.active ??
+    dungeons.players[localPlayerId]?.completed.at(-1);
+  const definition = dungeonById(run?.dungeonId);
   return {
     ...defaults,
     ...candidate,
@@ -116,7 +141,33 @@ export function normalizeExternalGameState(
     )
       ? [...new Set(candidate.citysBlessingParticipantIds)]
       : [],
-    dungeon: { ...defaults.dungeon, ...candidate.dungeon },
+    dungeons,
+    tablePlayers: Array.isArray(candidate.tablePlayers)
+      ? candidate.tablePlayers
+          .filter(
+            (player) =>
+              player &&
+              typeof player.id === "string" &&
+              typeof player.name === "string",
+          )
+          .slice(0, 20)
+          .map((player) => ({
+            id: player.id,
+            name: player.name.trim().slice(0, 40),
+          }))
+      : [],
+    dungeon:
+      run && definition
+        ? {
+            dungeonId: definition.id,
+            dungeonName: definition.name,
+            currentRoomId: run.currentRoomId,
+            currentRoomName:
+              dungeonRoom(run.dungeonId, run.currentRoomId)?.name ?? null,
+            visitedRoomIds: run.visits.map((visit) => visit.roomId),
+            completed: run.completedAt !== null,
+          }
+        : defaults.dungeon,
     planechase: {
       ...defaults.planechase,
       ...candidate.planechase,
@@ -187,6 +238,24 @@ export function progressDungeon(
   },
   timestamp = new Date().toISOString(),
 ): ExternalGameState {
+  const definition =
+    dungeonById(input.dungeonId) ??
+    DUNGEONS.find((entry) => entry.name === input.dungeonName);
+  const room = definition?.rooms.find(
+    (entry) => entry.id === input.roomId || entry.name === input.roomName,
+  );
+  if (definition && room) {
+    const dungeons = enterDungeonRoom(state.dungeons, {
+      id: makeId("dungeon-correction"),
+      playerId: "local",
+      dungeonId: definition.id,
+      roomId: room.id,
+      kind: "dungeon",
+      at: timestamp,
+      correction: true,
+    }).state;
+    return normalizeExternalGameState({ ...state, dungeons }, timestamp);
+  }
   const sameDungeon = state.dungeon.dungeonId === input.dungeonId;
   return {
     ...state,

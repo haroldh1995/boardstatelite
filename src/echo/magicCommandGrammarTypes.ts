@@ -24,6 +24,9 @@ export type EchoMagicCommandStatus =
   | "disabled";
 
 export type EchoMagicCommandAction =
+  | "take-initiative"
+  | "venture-dungeon"
+  | "venture-undercity"
   | "correct"
   | "play"
   | "cast"

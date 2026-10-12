@@ -134,6 +134,8 @@ export function createPublicGameplaySnapshot(field: FieldState) {
       citysBlessingParticipantIds:
         field.externalGameState.citysBlessingParticipantIds,
       dungeon: field.externalGameState.dungeon,
+      dungeons: field.externalGameState.dungeons,
+      tablePlayers: field.externalGameState.tablePlayers,
       planechase: field.externalGameState.planechase,
       archenemy: field.externalGameState.archenemy,
     },

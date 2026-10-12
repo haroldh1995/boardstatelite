@@ -20,6 +20,10 @@ export function TurnContextBar({ minimal = false }: { minimal?: boolean }) {
   const endTurn = useFieldStore((state) => state.endTurn);
   const setTurnPhase = useFieldStore((state) => state.setTurnPhase);
   const advance = useFieldStore((state) => state.advanceTurnPhase);
+  const observeUpkeep = useFieldStore((state) => state.observeUpkeep);
+  const localPlayer = useFieldStore(
+    (state) => state.field.multiplayer.registry.localParticipantId,
+  );
   const openModal = useFieldStore((state) => state.openModal);
   const memory = summarizeTurnMemory(context);
   const land = getLandPlayTurnStatus(planner);
@@ -92,6 +96,14 @@ export function TurnContextBar({ minimal = false }: { minimal?: boolean }) {
             </button>
           ))}
         </div>
+      )}
+      {context.step === "untap" && (
+        <button
+          className="quiet-action"
+          onClick={() => observeUpkeep(localPlayer)}
+        >
+          Upkeep
+        </button>
       )}
       <button
         type="button"

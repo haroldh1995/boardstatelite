@@ -310,6 +310,10 @@ export interface AthenaAwarenessContext {
   attachmentLinks: AthenaAttachmentLink[];
   counterSummaries: AthenaCounterSummary[];
   relevantTotals: AthenaRelevantTotalSnapshot[];
+  dungeonContext: {
+    initiativeHolderId: string | null;
+    players: FieldState["externalGameState"]["dungeons"]["players"];
+  };
   zoneQuantities: AthenaZoneQuantitySnapshot[];
   trackingDisabledGroupIds: string[];
   depoweredGroupIds: string[];

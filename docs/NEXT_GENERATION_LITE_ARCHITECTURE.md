@@ -219,3 +219,13 @@ and card-search interpretation/ranking. Web-only behavior remains in React
 components and platform adapters. SwiftUI and Android implementations can
 reproduce the same contracts with native capture, randomness, persistence,
 audio, haptics, animation, and lifecycle adapters.
+
+### Personalized Tracking and Dungeons
+
+See [Personalized Tracking and Dungeon Intelligence](DUNGEONS.md) for the verified
+four-dungeon catalog, per-player run and room-resolution contracts, initiative
+upkeep integration, Echo accepted-intent adapter and public-state projection.
+Counter layouts are persistent presentation preferences; counter values and
+dungeon histories remain game-scoped. Neither layout edits nor dungeon corrections
+manufacture gameplay triggers. All controls reuse existing hold/transaction and
+session-reset infrastructure.

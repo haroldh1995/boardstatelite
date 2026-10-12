@@ -137,6 +137,19 @@ const NUMBER_WORDS = new Map<string, number>([
 ]);
 
 const COMMAND_DEFINITIONS: CommandDefinition[] = [
+  definition("take-initiative", "custom", [
+    "take the initiative",
+    "take initiative",
+    "i take the initiative",
+  ]),
+  definition("venture-undercity", "custom", [
+    "venture into undercity",
+    "venture into the undercity",
+  ]),
+  definition("venture-dungeon", "custom", [
+    "venture into the dungeon",
+    "venture into dungeon",
+  ]),
   definition("correct", "manual-correction", [
     "catch me up",
     "correction",

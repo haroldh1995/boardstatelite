@@ -429,6 +429,10 @@ export function createAthenaAwarenessContext(
         counters: { ...object.counters },
       })),
     relevantTotals: totalsSnapshot(field),
+    dungeonContext: {
+      initiativeHolderId: field.externalGameState.initiativeHolderId,
+      players: structuredClone(field.externalGameState.dungeons.players),
+    },
     zoneQuantities: zoneQuantitySnapshot(field.groups),
     trackingDisabledGroupIds: battlefield
       .filter((object) => !object.trackingEnabled)

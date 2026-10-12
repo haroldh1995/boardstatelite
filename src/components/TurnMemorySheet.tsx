@@ -2,6 +2,7 @@ import { Check, Eye, X } from "lucide-react";
 import { getLandPlayTurnStatus } from "../echo/preTurnPlanner";
 import { quickPhaseLabel, summarizeTurnMemory } from "../turn";
 import { useFieldStore } from "../state/useFieldStore";
+import { dungeonMemoryPlayer } from "../domain/dungeonMemory";
 
 export function TurnMemorySheet() {
   const field = useFieldStore((state) => state.field);
@@ -40,6 +41,20 @@ export function TurnMemorySheet() {
             {(trigger.status === "pending" ||
               trigger.status === "possible-missed") && (
               <div>
+                {trigger.id.startsWith("dungeon-") && (
+                  <button
+                    onClick={() =>
+                      openModal({
+                        kind: "dungeons",
+                        payload: {
+                          playerId: dungeonMemoryPlayer(field, trigger.id),
+                        },
+                      })
+                    }
+                  >
+                    <Eye /> Open Dungeon
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => resolveTrigger(trigger.id, "resolved")}

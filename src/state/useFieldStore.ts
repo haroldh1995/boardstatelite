@@ -1,4 +1,20 @@
 import { create } from "zustand";
+import {
+  playerCounterValue,
+  withPlayerCounter,
+} from "../domain/playerTrackers";
+import {
+  enterDungeonRoom,
+  resolveDungeonRoom,
+  requestVenture,
+  requestInitiativeUpkeep,
+  acknowledgeVenture,
+  type DungeonMove,
+  type VentureKind,
+} from "../domain/dungeons";
+import { withDungeonMemory } from "../domain/dungeonMemory";
+import { applyDungeonBookkeeping } from "../athena/dungeonBookkeeping";
+import { dungeonIntentMutation } from "../echo/dungeonIntent";
 import { interactions } from "../domain/interactions";
 import { createNewGame } from "../domain/sessionLifecycle";
 import {
@@ -244,6 +260,25 @@ interface FieldStore {
   selectSessionDeck: (snapshot: SessionDeckSnapshot | null) => void;
   rememberCard: (card: CardIdentity) => void;
   fullScreenLife: boolean;
+  adjustPlayerTracker: (id: string, delta: number) => void;
+  moveDungeon: (
+    move: Omit<DungeonMove, "id" | "at"> & { id?: string },
+  ) => string | null;
+  resolveDungeonEffect: (
+    playerId: string,
+    effectId: string,
+    mode: "apply" | "manual" | "countered",
+    targetId?: string,
+  ) => string | null;
+  requestDungeonVenture: (
+    playerId: string,
+    kind: VentureKind,
+    id?: string,
+  ) => void;
+  takeInitiative: (playerId: string, id?: string) => void;
+  observeUpkeep: (playerId: string, turnId?: string) => void;
+  addDungeonPlayer: (name: string) => string;
+  clearDungeonPosition: (playerId: string, completed: boolean) => void;
   setLifePresentation: (expanded: boolean) => void;
   field: FieldState;
   hydrated: boolean;
@@ -398,7 +433,7 @@ interface FieldStore {
   dismissCatchUpSuggestion: () => void;
   processAmbientIntent: (
     intent: AmbientIntent | AmbientIntentInput,
-    mutation: AmbientFieldMutation,
+    mutation?: AmbientFieldMutation,
   ) => AmbientPipelineResult;
   processConfirmedAthenaEvent: (
     event: AthenaForecastInput,
@@ -650,6 +685,304 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
     void saveField(next);
   },
   fullScreenLife: false,
+  adjustPlayerTracker(id, delta) {
+    const before = get().field;
+    if (!Number.isFinite(delta) || !delta) return;
+    const value =
+      playerCounterValue(before.player.counters, id) + Math.trunc(delta);
+    if (
+      id === "poison" ||
+      id === "energy" ||
+      id === "experience" ||
+      id === "rad"
+    ) {
+      get().setPlayerCounter(id, value);
+      return;
+    }
+    const counters = withPlayerCounter(before.player.counters, id, value);
+    if (counters === before.player.counters) return;
+    commitField(
+      "Adjust player counter",
+      before,
+      normalizeField({ ...before, player: { ...before.player, counters } }),
+      ["Player counter updated."],
+      set,
+      null,
+      false,
+      [],
+    );
+  },
+  moveDungeon(input) {
+    interactions.end();
+    const before = get().field;
+    const move = {
+      ...input,
+      id: input.id ?? makeId("dungeon-move"),
+      at: new Date().toISOString(),
+    };
+    const result = enterDungeonRoom(before.externalGameState.dungeons, move);
+    if (!result.changed) return result.error;
+    const next = withDungeonMemory(
+      normalizeField({
+        ...before,
+        externalGameState: {
+          ...before.externalGameState,
+          dungeons: result.state,
+        },
+      }),
+    );
+    commitField(
+      input.correction ? "Correct dungeon position" : "Enter dungeon room",
+      before,
+      next,
+      [
+        input.correction
+          ? "Position corrected without room-entry effects."
+          : "Room entered; its ability awaits resolution.",
+      ],
+      set,
+      null,
+      false,
+      [],
+    );
+    return null;
+  },
+  resolveDungeonEffect(playerId, effectId, mode, targetId) {
+    const before = get().field;
+    const effect = before.externalGameState.dungeons.players[
+      playerId
+    ]?.effects.find(
+      (entry) => entry.id === effectId && entry.status === "pending",
+    );
+    if (!effect) return null;
+    let next = before;
+    const events: GameEvent[] = [];
+    if (mode === "apply") {
+      const queue = athenaTriggerQueueForField(
+        before,
+        new Date().toISOString(),
+      );
+      const applied = applyDungeonBookkeeping(
+        before,
+        playerId,
+        effect,
+        targetId,
+        queue,
+      );
+      if (!applied.result) return applied.error;
+      next = withAthenaTriggerWatchers(
+        applied.result.resultingField,
+        queue.toSnapshot(),
+      );
+      if (applied.result.rootCanonicalEvent)
+        events.push(applied.result.rootCanonicalEvent);
+      events.push(
+        ...(applied.result.autoResolution?.generatedCanonicalEvents ?? []),
+      );
+    }
+    const dungeons = resolveDungeonRoom(
+      next.externalGameState.dungeons,
+      playerId,
+      effectId,
+      mode === "apply" ? "applied" : mode,
+      new Date().toISOString(),
+    );
+    next = withDungeonMemory(
+      normalizeField({
+        ...next,
+        externalGameState: { ...next.externalGameState, dungeons },
+      }),
+    );
+    commitField(
+      "Resolve dungeon room",
+      before,
+      next,
+      [
+        mode === "apply"
+          ? "Room bookkeeping applied."
+          : "Room ability accounted for without replaying effects.",
+      ],
+      set,
+      null,
+      false,
+      events,
+    );
+    return null;
+  },
+  requestDungeonVenture(playerId, kind, id = makeId("venture")) {
+    const before = get().field;
+    const dungeons = requestVenture(before.externalGameState.dungeons, {
+      id,
+      playerId,
+      kind,
+      reason: "venture",
+      at: new Date().toISOString(),
+    });
+    if (dungeons === before.externalGameState.dungeons) return;
+    commitField(
+      "Record venture",
+      before,
+      withDungeonMemory(
+        normalizeField({
+          ...before,
+          externalGameState: { ...before.externalGameState, dungeons },
+        }),
+      ),
+      ["Venture awaits a room choice."],
+      set,
+      null,
+      false,
+      [],
+    );
+  },
+  takeInitiative(playerId, id = makeId("initiative")) {
+    const before = get().field;
+    const dungeons = requestVenture(before.externalGameState.dungeons, {
+      id,
+      playerId,
+      kind: "undercity",
+      reason: "initiative",
+      at: new Date().toISOString(),
+    });
+    if (dungeons === before.externalGameState.dungeons) return;
+    commitField(
+      "Take Initiative",
+      before,
+      withDungeonMemory(
+        normalizeField({
+          ...before,
+          externalGameState: {
+            ...before.externalGameState,
+            initiativeHolderId: playerId,
+            dungeons,
+          },
+        }),
+      ),
+      ["Initiative taken; venture into Undercity pending."],
+      set,
+      null,
+      false,
+      [],
+    );
+  },
+  observeUpkeep(playerId, turnId) {
+    const before = get().field;
+    const at = new Date().toISOString();
+    const dungeons = requestInitiativeUpkeep(
+      before.externalGameState.dungeons,
+      playerId,
+      before.externalGameState.initiativeHolderId,
+      turnId ?? before.turnContext.turnId,
+      at,
+    );
+    const local = playerId === before.multiplayer.registry.localParticipantId;
+    if (
+      dungeons === before.externalGameState.dungeons &&
+      (!local || before.turnContext.step === "upkeep")
+    )
+      return;
+    const next = withDungeonMemory(
+      normalizeField({
+        ...before,
+        turnContext: local
+          ? {
+              ...before.turnContext,
+              step: "upkeep",
+              quickPhase: "beginning",
+              phaseChangedAt: at,
+            }
+          : before.turnContext,
+        externalGameState: { ...before.externalGameState, dungeons },
+      }),
+    );
+    commitField(
+      "Begin upkeep",
+      before,
+      next,
+      ["Upkeep recorded."],
+      set,
+      null,
+      false,
+      [],
+    );
+  },
+  addDungeonPlayer(name) {
+    const before = get().field;
+    const clean = name.trim().slice(0, 40);
+    if (!clean) return "";
+    const existing = before.externalGameState.tablePlayers.find(
+      (entry) => entry.name.toLowerCase() === clean.toLowerCase(),
+    );
+    if (existing) return existing.id;
+    if (before.externalGameState.tablePlayers.length >= 20) return "";
+    const id = makeId("table-player");
+    commitField(
+      "Add table player",
+      before,
+      normalizeField({
+        ...before,
+        externalGameState: {
+          ...before.externalGameState,
+          tablePlayers: [
+            ...before.externalGameState.tablePlayers,
+            { id, name: clean },
+          ],
+        },
+      }),
+      [clean],
+      set,
+      null,
+      false,
+      [],
+    );
+    return id;
+  },
+  clearDungeonPosition(playerId, completed) {
+    const before = get().field;
+    const state = before.externalGameState.dungeons;
+    const player = state.players[playerId];
+    if (!player?.active) return;
+    const nextPlayer = {
+      ...player,
+      active: null,
+      effects: player.effects.map((effect) =>
+        effect.runId === player.active?.id && effect.status === "pending"
+          ? { ...effect, status: "manual" as const }
+          : effect,
+      ),
+      completed: completed
+        ? [
+            ...player.completed,
+            {
+              ...player.active,
+              corrected: true,
+              completedAt: new Date().toISOString(),
+            },
+          ]
+        : player.completed,
+    };
+    commitField(
+      "Correct dungeon record",
+      before,
+      withDungeonMemory(
+        normalizeField({
+          ...before,
+          externalGameState: {
+            ...before.externalGameState,
+            dungeons: {
+              ...state,
+              players: { ...state.players, [playerId]: nextPlayer },
+            },
+          },
+        }),
+      ),
+      ["Dungeon record corrected without gameplay effects."],
+      set,
+      null,
+      false,
+      [],
+    );
+  },
   setLifePresentation(expanded) {
     interactions.end();
     set({ fullScreenLife: expanded });
@@ -1006,6 +1339,10 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
   },
 
   advanceTurnPhase() {
+    if (get().field.turnContext.step === "untap") {
+      get().observeUpkeep(get().field.multiplayer.registry.localParticipantId);
+      return;
+    }
     const before = get().field;
     const next = normalizeField({
       ...before,
@@ -1024,6 +1361,40 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
   },
 
   resolveTurnTrigger(id, status) {
+    if (id.startsWith("dungeon-room:")) {
+      const effectId = id.slice("dungeon-room:".length);
+      const players = get().field.externalGameState.dungeons.players;
+      const playerId = Object.keys(players).find((key) =>
+        players[key].effects.some((effect) => effect.id === effectId),
+      );
+      if (playerId && status === "resolved")
+        get().resolveDungeonEffect(playerId, effectId, "manual");
+      else get().openModal({ kind: "dungeons", payload: { playerId } });
+      return;
+    }
+    if (id.startsWith("dungeon-request:") && status === "resolved") {
+      const before = get().field;
+      const dungeons = acknowledgeVenture(
+        before.externalGameState.dungeons,
+        id.slice("dungeon-request:".length),
+      );
+      commitField(
+        "Account for venture",
+        before,
+        withDungeonMemory(
+          normalizeField({
+            ...before,
+            externalGameState: { ...before.externalGameState, dungeons },
+          }),
+        ),
+        ["Venture resolved at the table."],
+        set,
+        null,
+        false,
+        [],
+      );
+      return;
+    }
     const before = get().field;
     const next = normalizeField({
       ...before,
@@ -1812,7 +2183,7 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
     const outcome = ambientEventPipeline.process({
       field: get().field,
       intent,
-      mutation,
+      mutation: dungeonIntentMutation(intent) ?? mutation,
       approval: { method: "automatic" },
       timestamp,
     });
@@ -2778,6 +3149,15 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
   updateSettings(settings) {
     interactions.end();
     const before = get().field;
+    if (Object.keys(settings).every((key) => key === "playerTrackers")) {
+      const next = {
+        ...before,
+        settings: normalizeSettings({ ...before.settings, ...settings }),
+      };
+      set({ field: next });
+      void saveField(next);
+      return;
+    }
     const next = normalizeField({
       ...before,
       settings: normalizeSettings({
@@ -3313,7 +3693,7 @@ function commitField(
     observedAfter,
     committedAt,
   );
-  const derivedAfter = withDerivedField(coordinatedAfter);
+  const derivedAfter = withDerivedField(withDungeonMemory(coordinatedAfter));
   const entry: HistoryEntry = {
     id: makeId("history"),
     label,
