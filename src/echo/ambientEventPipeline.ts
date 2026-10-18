@@ -79,6 +79,24 @@ export class AmbientEventPipeline {
   };
 
   process(request: AmbientPipelineRequest): AmbientPipelineResult {
+    const inferred = [
+      "contextual-listening",
+      "ai-recommendation",
+      "system",
+    ].includes(request.intent.source);
+    if (
+      inferred &&
+      request.field.settings.automationProfile !== "automatic" &&
+      (!request.approval || request.approval.method === "automatic")
+    ) {
+      request = {
+        ...request,
+        approval: {
+          method: "confirmation-required",
+          reason: "Automation profile requires review of inferred actions.",
+        },
+      };
+    }
     const timestamp = request.timestamp ?? new Date().toISOString();
     const stages: AmbientPipelineStageRecord[] = [];
     const fail = (

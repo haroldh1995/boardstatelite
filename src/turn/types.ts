@@ -28,6 +28,7 @@ export type TriggerMemoryStatus =
   | "possible-missed";
 
 export interface TriggerMemoryItem {
+  workflow?: import("../athena/abilityWorkflowTypes").AbilityWorkflow;
   id: string;
   sourceId: string | null;
   sourceLabel: string;
@@ -41,6 +42,7 @@ export interface TriggerMemoryItem {
 }
 
 export interface TurnContextState {
+  abilityUses?: import("../domain/abilityMetadata").AbilityUse[];
   version: typeof TURN_CONTEXT_VERSION;
   status: "between-turns" | "active";
   turnId: string;

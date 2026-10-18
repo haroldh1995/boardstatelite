@@ -1,35 +1,86 @@
-import { availablePermanentActions } from "../domain/availableActions";
+import { abilityAvailability, cardAbilities } from "../domain/abilityMetadata";
 import { useFieldStore } from "../state/useFieldStore";
+
 export function TapAbilitiesSheet({ groupId }: { groupId?: string }) {
-  const group = useFieldStore((state) =>
-    state.field.groups.find((entry) => entry.id === groupId),
-  );
-  const record = useFieldStore((state) => state.recordTapAbility);
+  const field = useFieldStore((state) => state.field);
+  const begin = useFieldStore((state) => state.beginAbility);
+  const correct = useFieldStore((state) => state.correctAbilityUsage);
+  const group = field.groups.find((entry) => entry.id === groupId);
   if (!group) return <p>Permanent no longer present.</p>;
-  const actions = availablePermanentActions(group);
+  const actions = cardAbilities(group, field).filter(
+    (ability) => ability.kind === "activated",
+  );
   return (
-    <div>
+    <div className="ability-sheet">
       <h2 id="modal-title">{group.label}</h2>
-      <h3>Tap Abilities</h3>
-      {group.statuses.summoningSick && <p>Possible summoning restriction</p>}
-      {actions.map((action) => (
-        <div className="tap-ability-choice" key={action.id}>
-          <p>{action.label}</p>
-          {action.manualResolution && (
-            <p className="muted">
-              Resolve additional costs, choices and effects at the table.
-            </p>
-          )}
+      {group.identity?.imageSmall && (
+        <img
+          className="ability-card-thumbnail"
+          src={group.identity.imageSmall}
+          alt={group.label}
+        />
+      )}
+      <h3>Activated Abilities</h3>
+      {actions.map((action) => {
+        const state = abilityAvailability(field, group, action);
+        return (
+          <section className="ability-choice" key={action.id}>
+            <p className="oracle-ability">{action.text}</p>
+            <small>Cost: {action.cost}</small>
+            {[...state.reasons, ...state.advisories].map((reason) => (
+              <p className="muted" key={reason}>
+                {reason}
+              </p>
+            ))}
+            <button
+              className="primary-action"
+              onClick={() => begin(group.id, action.id)}
+            >
+              {state.available ? "Activate" : "Record Physical Activation"}
+            </button>
+            {state.reasons.some((reason) => reason.startsWith("Recorded")) && (
+              <button onClick={() => correct(group.id, action.id)}>
+                Correct Recorded Use
+              </button>
+            )}
+          </section>
+        );
+      })}
+      {!actions.length && <p>No tracked activated abilities on this face.</p>}
+    </div>
+  );
+}
+
+export function FieldAbilitiesSheet() {
+  const field = useFieldStore((state) => state.field);
+  const begin = useFieldStore((state) => state.beginAbility);
+  const legacy = useFieldStore((state) => state.activateField);
+  const triggers = field.groups.flatMap((group) =>
+    cardAbilities(group)
+      .filter((ability) => ability.kind === "triggered")
+      .map((ability) => ({ group, ability })),
+  );
+  return (
+    <div className="ability-sheet">
+      <h2 id="modal-title">Activate Field</h2>
+      {triggers.map(({ group, ability }) => (
+        <section className="ability-choice" key={`${group.id}:${ability.id}`}>
+          <h3>{group.label}</h3>
+          <p>{ability.text}</p>
           <button
-            type="button"
             className="primary-action"
-            onClick={() => record(group.id, action.id)}
+            onClick={() => begin(group.id, ability.id)}
           >
-            Record Activation
+            Trigger Occurred
           </button>
-        </div>
+        </section>
       ))}
-      {!actions.length && <p>No untapped tracked tap abilities.</p>}
+      {!triggers.length && <p>No tracked triggered abilities.</p>}
+      {field.customEffects.some(
+        (effect) => effect.enabled && effect.trigger === "activate-field",
+      ) && (
+        <button onClick={() => legacy(true)}>Apply Custom Field Effects</button>
+      )}
     </div>
   );
 }

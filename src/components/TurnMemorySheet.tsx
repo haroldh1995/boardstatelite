@@ -1,6 +1,6 @@
 import { Check, Eye, X } from "lucide-react";
 import { getLandPlayTurnStatus } from "../echo/preTurnPlanner";
-import { quickPhaseLabel, summarizeTurnMemory } from "../turn";
+import { summarizeTurnMemory } from "../turn";
 import { useFieldStore } from "../state/useFieldStore";
 import { dungeonMemoryPlayer } from "../domain/dungeonMemory";
 
@@ -15,7 +15,11 @@ export function TurnMemorySheet() {
       <h2 id="modal-title">Turn Memory</h2>
       <div className="turn-memory-summary">
         <strong>{memory.compactLabel}</strong>
-        <span>{quickPhaseLabel(field.turnContext.quickPhase)}</span>
+        <span>
+          {field.turnContext.status === "active"
+            ? "Your turn"
+            : "Between turns"}
+        </span>
         <span>{land.complete ? "Land accounted" : "Land not marked"}</span>
         <span>
           {field.turnContext.combatAccounted
@@ -41,6 +45,18 @@ export function TurnMemorySheet() {
             {(trigger.status === "pending" ||
               trigger.status === "possible-missed") && (
               <div>
+                {trigger.workflow && (
+                  <button
+                    onClick={() =>
+                      openModal({
+                        kind: "abilityWorkflow",
+                        payload: { id: trigger.id },
+                      })
+                    }
+                  >
+                    <Eye /> Review Ability
+                  </button>
+                )}
                 {trigger.id.startsWith("dungeon-") && (
                   <button
                     onClick={() =>
@@ -58,6 +74,7 @@ export function TurnMemorySheet() {
                 <button
                   type="button"
                   onClick={() => resolveTrigger(trigger.id, "resolved")}
+                  hidden={Boolean(trigger.workflow)}
                 >
                   <Check /> Resolved
                 </button>

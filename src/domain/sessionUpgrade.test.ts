@@ -184,6 +184,10 @@ describe("available tap actions", () => {
     useFieldStore
       .getState()
       .recordTapAbility(group.id, availablePermanentActions(group)[0].id);
+    const pending = useFieldStore
+      .getState()
+      .field.turnContext.triggerMemory.find((item) => item.workflow)!;
+    expect(useFieldStore.getState().advanceAbility(pending.id)).toBeNull();
     const groups = useFieldStore.getState().field.groups;
     expect(
       groups
@@ -218,7 +222,7 @@ describe("available tap actions", () => {
     group.depowerMode = "all";
     expect(availablePermanentActions(group)).toEqual([]);
   });
-  it("records tapping and supported life as one undoable transaction without fake tokens", () => {
+  it("separates committed tapping from undoable life resolution without fake tokens", () => {
     useFieldStore.getState().addCard(
       testCard({
         name: "Life source",
@@ -230,13 +234,23 @@ describe("available tap actions", () => {
     const action = availablePermanentActions(group)[0];
     const history = useFieldStore.getState().undoStack.length;
     useFieldStore.getState().recordTapAbility(group.id, action.id);
+    const pending = useFieldStore
+      .getState()
+      .field.turnContext.triggerMemory.find((item) => item.workflow)!;
+    expect(useFieldStore.getState().field.player.life).toBe(40);
+    expect(useFieldStore.getState().advanceAbility(pending.id)).toBeNull();
+    expect(useFieldStore.getState().field.player.life).toBe(40);
+    expect(useFieldStore.getState().field.groups[0].statuses.tapped).toBe(true);
+    expect(useFieldStore.getState().advanceAbility(pending.id)).toBeNull();
     const state = useFieldStore.getState();
     expect(state.field.player.life).toBe(43);
     expect(state.field.groups).toHaveLength(1);
     expect(state.field.groups[0].statuses.tapped).toBe(true);
-    expect(state.undoStack.length).toBe(history + 1);
+    expect(state.undoStack.length).toBe(history + 3);
     state.undo();
     expect(useFieldStore.getState().field.player.life).toBe(40);
+    expect(useFieldStore.getState().field.groups[0].statuses.tapped).toBe(true);
+    useFieldStore.getState().undo();
     expect(useFieldStore.getState().field.groups[0].statuses.tapped).toBe(
       false,
     );

@@ -8,11 +8,43 @@ import {
   configureKeyValueStorage,
   getKeyValueStorage,
 } from "../platform/storage";
-import { loadLastField, saveField } from "./db";
+import {
+  getSaveWarning,
+  loadLastField,
+  saveField,
+  subscribeSaveWarning,
+} from "./db";
 
 const originalPersistence = getFieldPersistencePort();
 const originalStorage = getKeyValueStorage();
 const values = new Map<string, string>();
+it("reports failed recovery storage and clears the warning after a successful save", async () => {
+  const notify = vi.fn();
+  const unsubscribe = subscribeSaveWarning(notify);
+  configureKeyValueStorage({
+    getItem: () => null,
+    removeItem: () => {},
+    setItem: () => {
+      throw new Error("Full");
+    },
+  });
+  configureFieldPersistencePort({
+    ...originalPersistence,
+    saveField: async () => {
+      throw new Error("Unavailable");
+    },
+  });
+  await saveField(createDefaultField());
+  expect(getSaveWarning()).toBe(true);
+  configureFieldPersistencePort({
+    ...originalPersistence,
+    saveField: async () => {},
+  });
+  await saveField(createDefaultField());
+  expect(getSaveWarning()).toBe(false);
+  expect(notify).toHaveBeenCalledTimes(2);
+  unsubscribe();
+});
 beforeEach(() => {
   values.clear();
   configureKeyValueStorage({

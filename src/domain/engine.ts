@@ -23,7 +23,10 @@ import type {
 
 const LOOP_STEP_LIMIT = 200;
 
-export function activateField(field: FieldState): ResolutionResult {
+export function activateField(
+  field: FieldState,
+  customOnly = false,
+): ResolutionResult {
   const working = cloneField(field);
   const details: ResolutionStep[] = [];
   const events: GameEvent[] = [];
@@ -31,7 +34,9 @@ export function activateField(field: FieldState): ResolutionResult {
   let loopDetected = false;
   let steps = 0;
 
-  const activeAnimGroups = findActiveByName(working, "anim pakal");
+  const activeAnimGroups = customOnly
+    ? []
+    : findActiveByName(working, "anim pakal");
   const tokenEntryBatches: { quantity: number; groupIds: string[] }[] = [];
 
   for (const anim of activeAnimGroups) {

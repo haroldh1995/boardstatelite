@@ -371,6 +371,7 @@ export function createTokenGroup(input: {
 export function withStackKey(group: PermanentGroup): PermanentGroup {
   const stackIdentity = group.identity?.cardId ?? `generic:${group.label}`;
   const keyPayload = {
+    abilityInstanceId: group.abilityInstanceId,
     stackIdentity,
     zone: group.zone,
     owner: group.owner,

@@ -96,7 +96,11 @@ export type ModalKind =
   | "battlefieldCounts"
   | "newGame"
   | "currentDeck"
-  | "tapAbilities";
+  | "tapAbilities"
+  | "abilityWorkflow"
+  | "fieldAbilities"
+  | "activity"
+  | "firstGame";
 
 export type CounterName =
   | "+1/+1"
@@ -214,6 +218,7 @@ export interface PowerToughnessState {
 }
 
 export interface PermanentGroup {
+  abilityInstanceId?: string;
   id: string;
   session?: ObjectSessionBinding;
   quantity: number;
@@ -277,6 +282,8 @@ export interface OpponentValues {
 }
 
 export interface SettingsState {
+  automationProfile: "manual" | "assisted" | "automatic";
+  firstGameCompleted: boolean;
   startingLife: number;
   cardSize: "compact" | "standard" | "large";
   tappedStyle: "rotate" | "badge";
@@ -343,6 +350,13 @@ export type ValueExpression =
   | { type: "opponent-value"; key: keyof Omit<OpponentValues, "custom"> };
 
 export interface FieldState {
+  activity?: Array<{
+    id: string;
+    label: string;
+    summary: string[];
+    at: string;
+    origin: string;
+  }>;
   sessionDeck: import("./deckSnapshot").SessionDeckSnapshot | null;
   schemaVersion: 1;
   id: string;

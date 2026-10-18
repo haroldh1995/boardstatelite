@@ -1270,6 +1270,12 @@ function eventFacets(event: AthenaForecastInput): AthenaTriggerEventFacet[] {
       (type) => type.toLowerCase() === "land",
     ) === true || event.eventCategory === "land-entered";
   add(event.eventCategory, false, "final-event");
+  if (
+    event.eventCategory === "permanent-sacrificed" &&
+    isCreature &&
+    event.zoneDestination === "graveyard"
+  )
+    add("permanent-died", true, "death-facet");
   if (event.eventCategory === "token-created") {
     add("token-entered", true, "token-facet");
   }

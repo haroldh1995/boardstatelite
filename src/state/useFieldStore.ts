@@ -22,7 +22,6 @@ import {
   type SessionDeckSnapshot,
 } from "../domain/deckSnapshot";
 import { availablePermanentActions } from "../domain/availableActions";
-import { classifySupportedEffectOutcomes } from "../domain/effectOutcomes";
 import {
   createCardGroup,
   createGenericGroup,
@@ -253,9 +252,25 @@ import {
 import type { TriggerMemoryStatus, TurnQuickPhase } from "../turn/types";
 
 const HISTORY_LIMIT = 80;
+import { cardAbilities } from "../domain/abilityMetadata";
+import {
+  prepareAbility,
+  replaceWorkflow,
+  advanceAbilityWorkflow,
+} from "../athena/abilityWorkflow";
+import type { AbilityChoice } from "../athena/abilityWorkflowTypes";
 let activeAthenaTriggerQueue: AthenaPendingTriggerQueue | null = null;
 
 interface FieldStore {
+  abilityFocus: boolean;
+  setAbilityFocus: (enabled: boolean) => void;
+  beginAbility: (groupId: string, abilityId: string) => void;
+  setAbilityChoice: (id: string, key: string, choice: AbilityChoice) => void;
+  advanceAbility: (
+    id: string,
+    mode?: "apply" | "manual" | "cancel",
+  ) => string | null;
+  correctAbilityUsage: (groupId: string, abilityId: string) => void;
   recordTapAbility: (groupId: string, actionId: string) => void;
   selectSessionDeck: (snapshot: SessionDeckSnapshot | null) => void;
   rememberCard: (card: CardIdentity) => void;
@@ -298,7 +313,7 @@ interface FieldStore {
     requestId?: string | null;
   }) => { valid: boolean; reason: string };
   addGeneric: (input: Parameters<typeof createGenericGroup>[0]) => void;
-  activateField: () => void;
+  activateField: (customOnly?: boolean) => void;
   applyCounters: (
     groupId: string,
     counter: string,
@@ -520,148 +535,149 @@ interface FieldStore {
 }
 
 export const useFieldStore = create<FieldStore>((set, get) => ({
-  recordTapAbility(groupId, actionId) {
+  abilityFocus: false,
+  setAbilityFocus(enabled) {
+    interactions.end();
+    set({ abilityFocus: enabled });
+  },
+  beginAbility(groupId, abilityId) {
     interactions.end();
     const before = get().field;
-    let group = before.groups.find((entry) => entry.id === groupId);
-    if (!group) return;
-    const action = availablePermanentActions(group).find(
-      (entry) => entry.id === actionId,
-    );
-    if (!action) return;
-    const split = splitGroupForQuantity(before.groups, group.id, 1);
-    group = split.groups.find((entry) => entry.id === split.targetId)!;
-    let next = { ...before, groups: split.groups };
-    const events: GameEvent[] = [];
-    const drafts: Array<
-      Omit<
-        AthenaForecastInputDraft,
-        | "eventId"
-        | "eventSource"
-        | "authoritySource"
-        | "timestamp"
-        | "confidence"
-      >
-    > = [
-      {
-        eventCategory: "permanent-tapped",
-        quantity: 1,
-        sourceObjectId: group.id,
-        subjectGroupIds: [group.id],
-        metadata: { label: group.label, ability: action.label },
+    const group = before.groups.find((entry) => entry.id === groupId);
+    const ability =
+      group &&
+      cardAbilities(group, before).find((entry) => entry.id === abilityId);
+    if (!group || !ability) return;
+    const item = prepareAbility(before, groupId, ability);
+    const next = {
+      ...before,
+      turnContext: {
+        ...before.turnContext,
+        triggerMemory: [...before.turnContext.triggerMemory, item],
       },
-    ];
-    if (!action.manualResolution) {
-      for (const outcome of classifySupportedEffectOutcomes(action.effect)
-        .outcomes) {
-        if (outcome.kind === "life")
-          drafts.push({
-            eventCategory:
-              outcome.mode === "gain" ? "life-gained" : "life-lost",
-            quantity: outcome.amount,
-            sourceObjectId: group.id,
-            metadata: { mode: outcome.mode },
-          });
-        else
-          drafts.push({
-            eventCategory: "token-created",
-            quantity: outcome.quantity,
-            sourceObjectId: group.id,
-            tokenDefinition: {
-              id: makeId("ability-token"),
-              name: outcome.name,
-              power: outcome.power,
-              toughness: outcome.toughness,
-              characteristics: {
-                cardTypes: outcome.cardTypes,
-                subtypes: outcome.subtypes,
-                supertypes: [],
-                colors: outcome.colors,
-                manaValue: 0,
-                isToken: true,
-                isCreature: outcome.cardTypes.includes("Creature"),
-                isLegendary: false,
-                knownFields: [
-                  "cardTypes",
-                  "subtypes",
-                  "colors",
-                  "isToken",
-                  "isCreature",
-                ],
-              },
-            },
-            metadata: {
-              label: outcome.name,
-              tapped: outcome.tapped,
-              attacking: outcome.attacking,
-            },
-          });
-      }
-    }
-    const queue = athenaTriggerQueueForField(before, new Date().toISOString());
-    let manual = action.manualResolution;
-    for (const draft of drafts) {
-      const event = createConfirmedManualAthenaEvent(next, draft);
-      const result = processAthenaConfirmedEventWithBookkeeping({
-        field: next,
-        event,
-        queue,
-        timestamp: event.timestamp,
-      });
-      if (result.validity !== "committed") {
-        manual = true;
-        break;
-      }
-      next = result.resultingField;
-      if (result.rootCanonicalEvent) events.push(result.rootCanonicalEvent);
-      events.push(...(result.autoResolution?.generatedCanonicalEvents ?? []));
-    }
-    // Recording a physical activation is never vetoed by an incomplete prediction.
-    next = {
-      ...next,
-      groups: next.groups.map((entry) =>
-        entry.id === split.targetId
-          ? withStackKey({
-              ...entry,
-              statuses: { ...entry.statuses, tapped: true },
-            })
-          : entry,
-      ),
     };
-    next = withAthenaTriggerWatchers(next, queue.toSnapshot());
-    if (manual)
-      next = {
-        ...next,
-        turnContext: {
-          ...next.turnContext,
-          triggerMemory: [
-            ...next.turnContext.triggerMemory,
-            {
-              id: makeId("ability-review"),
-              sourceId: group.id,
-              sourceLabel: group.label,
-              label: action.effect,
-              optional: false,
-              oncePerTurnKey: null,
-              status: "pending",
-              observedAt: new Date().toISOString(),
-              resolvedAt: null,
-              public: true,
-            },
-          ],
-        },
-      };
     commitField(
-      `Tapped ${group.label}`,
+      ability.kind === "activated" ? "Ability prepared" : "Trigger recorded",
       before,
       next,
-      [action.label],
+      [group.label, ability.text],
+      set,
+    );
+    set({ modal: { kind: "abilityWorkflow", payload: { id: item.id } } });
+  },
+  setAbilityChoice(id, key, choice) {
+    const before = get().field;
+    const workflow = before.turnContext.triggerMemory.find(
+      (item) => item.id === id,
+    )?.workflow;
+    if (!workflow || !["selection", "resolution"].includes(workflow.stage))
+      return;
+    const field = replaceWorkflow(before, id, {
+      ...workflow,
+      choices: { ...workflow.choices, [key]: choice },
+    });
+    set({ field });
+    void saveField(field);
+  },
+  advanceAbility(id, mode = "apply") {
+    const before = get().field;
+    const workflow = before.turnContext.triggerMemory.find(
+      (item) => item.id === id,
+    )?.workflow;
+    if (!workflow || !["selection", "resolution"].includes(workflow.stage))
+      return "This action is already complete.";
+    if (mode !== "apply") {
+      let next = replaceWorkflow(before, id, {
+        ...workflow,
+        stage: mode === "cancel" ? "cancelled" : "manual",
+      });
+      if (mode === "manual" && workflow.stage === "selection") {
+        next = {
+          ...next,
+          turnContext: {
+            ...next.turnContext,
+            abilityUses: [
+              ...(next.turnContext.abilityUses ?? []),
+              {
+                sourceId: workflow.sourceId,
+                abilityId: workflow.ability.id,
+                turnId: before.turnContext.turnId,
+                actionId: id,
+                loyalty: workflow.ability.loyalty,
+              },
+            ],
+          },
+        };
+      }
+      commitField(
+        mode === "cancel" ? "Ability cancelled" : "Ability resolved at table",
+        before,
+        next,
+        [
+          workflow.sourceLabel,
+          workflow.ability.text,
+          workflow.costsCommitted
+            ? "Previously paid costs remain paid."
+            : "No unreported battlefield changes applied.",
+        ],
+        set,
+      );
+      return null;
+    }
+    const result = advanceAbilityWorkflow(before, id);
+    if (result.error) return result.error;
+    commitField(
+      workflow.stage === "selection" ? "Ability activated" : "Ability resolved",
+      before,
+      result.field,
+      [
+        workflow.sourceLabel,
+        workflow.ability.text,
+        ...result.events.map(
+          (event) => `${event.type.replaceAll("-", " ")}: ${event.quantity}`,
+        ),
+      ],
       set,
       null,
       false,
-      events,
+      result.events,
     );
-    set({ modal: manual ? { kind: "turnMemory" } : null });
+    return null;
+  },
+  correctAbilityUsage(groupId, abilityId) {
+    const before = get().field;
+    const next = {
+      ...before,
+      turnContext: {
+        ...before.turnContext,
+        abilityUses: (before.turnContext.abilityUses ?? []).filter(
+          (use) => !(use.sourceId === groupId && use.abilityId === abilityId),
+        ),
+      },
+    };
+    commitField(
+      "Ability usage corrected",
+      before,
+      next,
+      ["Corrected the recorded use; no gameplay triggers generated."],
+      set,
+      null,
+      false,
+    );
+  },
+  recordTapAbility(groupId, actionId) {
+    const group = get().field.groups.find((entry) => entry.id === groupId);
+    const legacy =
+      group &&
+      availablePermanentActions(group).find((entry) => entry.id === actionId);
+    const ability =
+      group &&
+      cardAbilities(group).find(
+        (entry) =>
+          entry.kind === "activated" &&
+          (entry.id === actionId || entry.effect === legacy?.effect),
+      );
+    if (ability) get().beginAbility(groupId, ability.id);
   },
   selectSessionDeck(snapshot) {
     interactions.end();
@@ -1128,13 +1144,15 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
     });
   },
 
-  activateField() {
+  activateField(customOnly = false) {
     const field = get().field;
     commitResult(
       "Activate Field",
-      rulesAdapterManager.evaluateWithFallback(field, () =>
-        resolveActivateField(field),
-      ),
+      customOnly
+        ? resolveActivateField(field, true)
+        : rulesAdapterManager.evaluateWithFallback(field, () =>
+            resolveActivateField(field),
+          ),
       set,
     );
   },
@@ -1272,6 +1290,7 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
   startTurn() {
     interactions.end();
     const before = get().field;
+    if (before.turnContext.status === "active") return;
     const timestamp = new Date().toISOString();
     const next = normalizeField({
       ...before,
@@ -3205,6 +3224,7 @@ export const useFieldStore = create<FieldStore>((set, get) => ({
     set({
       field: next,
       fullScreenLife: false,
+      abilityFocus: false,
       undoStack: [],
       redoStack: [],
       lastResult: null,
@@ -3693,7 +3713,30 @@ function commitField(
     observedAfter,
     committedAt,
   );
-  const derivedAfter = withDerivedField(withDungeonMemory(coordinatedAfter));
+  const activityId = makeId("activity");
+  const derivedAfter = withDerivedField(
+    withDungeonMemory({
+      ...coordinatedAfter,
+      activity: [
+        ...(before.activity ?? []),
+        {
+          id: activityId,
+          label,
+          summary,
+          at: committedAt,
+          origin: /correct|reconcil/i.test(label)
+            ? "Manual correction"
+            : /echo|voice/i.test(label)
+              ? "Echo"
+              : /argus/i.test(label)
+                ? "ARGUS"
+                : /athena|automatic/i.test(label)
+                  ? "Athena bookkeeping"
+                  : "Player",
+        },
+      ].slice(-200),
+    }),
+  );
   const entry: HistoryEntry = {
     id: makeId("history"),
     label,

@@ -8,11 +8,8 @@ test("turn context and full-screen life remain fast at phone width", async ({
   await continuePastStartup(page);
 
   await page.getByRole("button", { name: "Start Turn" }).click();
-  await page.getByRole("button", { name: "Combat" }).click();
-  await expect(page.getByRole("button", { name: "Combat" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  await expect(page.getByRole("region", { name: "Your turn" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Combat" })).toHaveCount(0);
 
   await page
     .getByRole("button", { name: "Expand Life Tracker", exact: true })

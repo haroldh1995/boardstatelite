@@ -1,74 +1,30 @@
-import { Check, ChevronRight, Clock3, Sparkles } from "lucide-react";
+import { Check, Clock3, Sparkles } from "lucide-react";
 import { getLandPlayTurnStatus } from "../echo/preTurnPlanner";
-import { quickPhaseLabel, summarizeTurnMemory } from "../turn";
-import type { TurnQuickPhase } from "../turn/types";
+import { summarizeTurnMemory } from "../turn";
 import { useFieldStore } from "../state/useFieldStore";
 import { QuickUndo } from "./QuickUndo";
 
-const PHASES: Array<{ value: TurnQuickPhase; label: string }> = [
-  { value: "beginning", label: "Start" },
-  { value: "precombat-main", label: "Main" },
-  { value: "combat", label: "Combat" },
-  { value: "postcombat-main", label: "Main 2" },
-  { value: "ending", label: "End" },
-];
-
 export function TurnContextBar({ minimal = false }: { minimal?: boolean }) {
-  const context = useFieldStore((state) => state.field.turnContext);
-  const planner = useFieldStore((state) => state.field.preTurnPlanner);
+  const field = useFieldStore((state) => state.field);
   const startTurn = useFieldStore((state) => state.startTurn);
   const endTurn = useFieldStore((state) => state.endTurn);
-  const setTurnPhase = useFieldStore((state) => state.setTurnPhase);
-  const advance = useFieldStore((state) => state.advanceTurnPhase);
-  const observeUpkeep = useFieldStore((state) => state.observeUpkeep);
-  const localPlayer = useFieldStore(
-    (state) => state.field.multiplayer.registry.localParticipantId,
-  );
   const openModal = useFieldStore((state) => state.openModal);
-  const memory = summarizeTurnMemory(context);
-  const land = getLandPlayTurnStatus(planner);
-
-  if (context.status === "between-turns") {
-    return (
-      <section
-        className="turn-context between-turns"
-        aria-label="Between turns"
-      >
-        <span>
-          <Clock3 aria-hidden="true" /> Between turns
-        </span>
-        {memory.possibleMissed > 0 && (
-          <button
-            type="button"
-            className="turn-review-button"
-            onClick={() => openModal({ kind: "turnMemory" })}
-          >
-            Review {memory.possibleMissed} possible missed
-          </button>
-        )}
-        {!minimal && (
-          <div className="turn-end-actions">
-            <QuickUndo />
-            <button
-              type="button"
-              className="primary-action"
-              onClick={startTurn}
-            >
-              Start Turn
-            </button>
-          </div>
-        )}
-      </section>
-    );
-  }
-
+  const memory = summarizeTurnMemory(field.turnContext);
+  const land = getLandPlayTurnStatus(field.preTurnPlanner);
+  const active = field.turnContext.status === "active";
   return (
-    <section className={minimal ? "turn-context minimal" : "turn-context"}>
+    <section
+      className={minimal ? "turn-context minimal" : "turn-context"}
+      aria-label={active ? "Your turn" : "Between turns"}
+    >
+      <span>
+        {active ? <Check aria-hidden="true" /> : <Clock3 aria-hidden="true" />}
+        {active ? `Turn ${field.turnContext.turnNumber}` : "Between turns"}
+      </span>
       <button
-        type="button"
         className="turn-memory-button"
         onClick={() => openModal({ kind: "turnMemory" })}
-        aria-label={`${memory.compactLabel}. ${memory.pending} pending triggers and ${memory.possibleMissed} possible missed triggers.`}
+        aria-label={`Turn Memory. ${memory.pending} pending and ${memory.possibleMissed} possible missed.`}
       >
         {memory.complete ? (
           <Check aria-hidden="true" />
@@ -77,48 +33,24 @@ export function TurnContextBar({ minimal = false }: { minimal?: boolean }) {
         )}
         <span>{memory.compactLabel}</span>
       </button>
-      {minimal ? (
-        <button type="button" className="phase-advance" onClick={advance}>
-          {quickPhaseLabel(context.quickPhase)}{" "}
-          <ChevronRight aria-hidden="true" />
-        </button>
-      ) : (
-        <div className="phase-segments" aria-label="Turn phase">
-          {PHASES.map((phase) => (
-            <button
-              type="button"
-              key={phase.value}
-              className={context.quickPhase === phase.value ? "selected" : ""}
-              aria-pressed={context.quickPhase === phase.value}
-              onClick={() => setTurnPhase(phase.value)}
-            >
-              {phase.label}
-            </button>
-          ))}
-        </div>
-      )}
-      {context.step === "untap" && (
+      {active && (
         <button
-          className="quiet-action"
-          onClick={() => observeUpkeep(localPlayer)}
+          className={land.complete ? "turn-land complete" : "turn-land"}
+          onClick={() => openModal({ kind: "landPlay" })}
+          aria-label={land.accessibilityLabel}
         >
-          Upkeep
+          Land {land.marked}/{land.expected}
+          {land.complete ? " ✓" : ""}
         </button>
       )}
-      <button
-        type="button"
-        className={land.complete ? "turn-land complete" : "turn-land"}
-        onClick={() => openModal({ kind: "landPlay" })}
-        aria-label={land.accessibilityLabel}
-      >
-        Land {land.marked}/{land.expected}
-        {land.complete ? " ✓" : ""}
-      </button>
       {!minimal && (
         <div className="turn-end-actions">
           <QuickUndo />
-          <button type="button" className="end-turn-button" onClick={endTurn}>
-            End Turn
+          <button
+            className="end-turn-button"
+            onClick={active ? endTurn : startTurn}
+          >
+            {active ? "End Turn" : "Start Turn"}
           </button>
         </div>
       )}

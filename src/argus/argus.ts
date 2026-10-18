@@ -139,6 +139,7 @@ export function proposeArgusCanonicalEvent(
   observationId: string,
   event: GameEvent,
   reason: string,
+  automationProfile: "manual" | "assisted" | "automatic" = "assisted",
 ): ArgusState {
   const observation = state.observations.find(
     (entry) => entry.id === observationId,
@@ -153,7 +154,9 @@ export function proposeArgusCanonicalEvent(
         ? "multimodal-observation"
         : "single-source-observation",
     event,
-    requiresConfirmation: observationRequiresAcceptance(observation.confidence),
+    requiresConfirmation:
+      automationProfile !== "automatic" ||
+      observationRequiresAcceptance(observation.confidence),
     reason,
   };
   return {

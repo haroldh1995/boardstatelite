@@ -1,0 +1,152 @@
+.activation-mode-control {
+  display: flex;
+  min-width: 0;
+  position: relative;
+  pointer-events: auto;
+}
+.activation-mode-control .activate-button {
+  flex: 1;
+  min-width: 0;
+  touch-action: pan-y;
+  grid-template-columns: minmax(0, 1fr);
+  padding: 8px;
+  text-align: center;
+  border-radius: 8px 0 0 8px;
+}
+.activation-mode-control .activate-sigil {
+  display: none;
+}
+.activation-mode-control .activate-copy {
+  min-width: 0;
+}
+.activation-mode-control .activate-button strong {
+  font-size: 15px;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.activation-mode-control .activate-button small {
+  font-size: 9px;
+  line-height: 1.2;
+}
+.app-shell .turn-context {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.turn-context > span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+.app-shell .turn-context .turn-memory-button {
+  min-width: 44px;
+  min-height: 44px;
+  justify-content: center;
+}
+.app-shell .turn-context .turn-end-actions {
+  margin-left: auto;
+  grid-column: auto;
+}
+.activation-mode-switch {
+  width: 44px;
+  min-width: 44px;
+  border-radius: 0 6px 6px 0;
+}
+.ability-focus-mode {
+  border-color: #a49ce5;
+}
+.ability-focus-available .card-image-frame {
+  outline: 2px solid #aca0f4;
+  box-shadow: 0 0 12px #9384c755;
+}
+.ability-focus-unavailable .card-image-frame {
+  outline: 1px dashed #a89970;
+}
+.ability-choice {
+  padding: 14px 0;
+  margin: 0;
+  border: 0;
+  border-bottom: 1px solid #82774a55;
+}
+.ability-choice legend {
+  padding-top: 12px;
+  font-weight: 600;
+}
+.oracle-ability {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.ability-stage {
+  color: #d8c586;
+  font-weight: 600;
+}
+.ability-card-thumbnail {
+  width: 90px;
+  float: right;
+  margin: 0 8px 12px 12px;
+  border-radius: 5px;
+}
+.ability-workflow-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+.ability-sheet button,
+.first-game-guide button {
+  min-height: 44px;
+}
+.ability-target {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 6px 0;
+}
+.ability-target img {
+  width: 38px;
+  border-radius: 3px;
+}
+.ability-target input[type="checkbox"] {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+.ability-target input[type="number"] {
+  width: 72px;
+}
+.activity-list {
+  padding-left: 20px;
+}
+.activity-list li {
+  padding: 14px 0;
+  border-bottom: 1px solid #82774a55;
+}
+.activity-list small {
+  display: block;
+  color: #b7bec5;
+  margin-top: 5px;
+}
+.activity-list p {
+  margin: 5px 0;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 380px) {
+  .activation-mode-control .activate-sigil {
+    display: none;
+  }
+  .activation-mode-control strong {
+    font-size: 12px;
+  }
+  .activation-mode-control small {
+    font-size: 9px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ability-focus-available .card-image-frame {
+    transition: none;
+  }
+}

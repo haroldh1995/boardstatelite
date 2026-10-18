@@ -1,4 +1,5 @@
 import { makeId } from "../domain/cards";
+import { normalizeAbilityWorkflow } from "../athena/abilityWorkflowPersistence";
 import {
   TURN_CONTEXT_VERSION,
   type TriggerMemoryItem,
@@ -70,7 +71,31 @@ export function normalizeTurnContext(
         : DEFAULT_STEP[quickPhase],
     turnNumber: bounded(candidate.turnNumber, 0, 999999, 0),
     triggerMemory: Array.isArray(candidate.triggerMemory)
-      ? candidate.triggerMemory.slice(-160)
+      ? candidate.triggerMemory
+          .filter((item) => item && typeof item.id === "string")
+          .slice(-160)
+          .map((item) => ({
+            ...item,
+            workflow: normalizeAbilityWorkflow(item.workflow),
+          }))
+      : [],
+    abilityUses: Array.isArray(candidate.abilityUses)
+      ? candidate.abilityUses
+          .filter(
+            (use) =>
+              use &&
+              typeof use.sourceId === "string" &&
+              typeof use.abilityId === "string" &&
+              typeof use.turnId === "string" &&
+              typeof use.actionId === "string",
+          )
+          .map((use) => ({
+            sourceId: use.sourceId,
+            abilityId: use.abilityId,
+            turnId: use.turnId,
+            actionId: use.actionId,
+            loyalty: use.loyalty === true,
+          }))
       : [],
     oncePerTurnKeys: unique(candidate.oncePerTurnKeys),
     dismissedReminderKeys: unique(candidate.dismissedReminderKeys),
@@ -81,6 +106,7 @@ export function startTurn(
   state: TurnContextState,
   timestamp = new Date().toISOString(),
 ): TurnContextState {
+  if (state.status === "active") return state;
   const archived = state.triggerMemory.filter((entry) =>
     ["resolved", "declined", "possible-missed"].includes(entry.status),
   ).length;
@@ -95,7 +121,11 @@ export function startTurn(
     endedAt: null,
     phaseChangedAt: timestamp,
     combatAccounted: false,
-    triggerMemory: [],
+    triggerMemory: state.triggerMemory.filter(
+      (item) =>
+        item.workflow &&
+        ["selection", "resolution"].includes(item.workflow.stage),
+    ),
     archivedTriggerCount: state.archivedTriggerCount + archived,
     oncePerTurnKeys: [],
     dismissedReminderKeys: [],

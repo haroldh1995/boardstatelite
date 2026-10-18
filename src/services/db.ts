@@ -4,7 +4,24 @@ import { nowMs } from "../platform/runtime";
 import { getKeyValueStorage } from "../platform/storage";
 
 let saveQueue = Promise.resolve();
+let saveRevision = 0;
+let saveWarning = false;
+const saveListeners = new Set<() => void>();
+export const getSaveWarning = () => saveWarning;
+export function subscribeSaveWarning(listener: () => void) {
+  saveListeners.add(listener);
+  return () => {
+    saveListeners.delete(listener);
+  };
+}
+function reportSaveWarning(value: boolean) {
+  if (value === saveWarning) return;
+  saveWarning = value;
+  saveListeners.forEach((listener) => listener());
+}
 export function saveField(field: FieldState): Promise<void> {
+  const revision = ++saveRevision;
+  let fallbackSaved = false;
   const storage = getKeyValueStorage();
   try {
     storage.setItem("baord-state-lite:last-field-id", field.id);
@@ -12,6 +29,7 @@ export function saveField(field: FieldState): Promise<void> {
       "baord-state-lite:last-field-fallback",
       JSON.stringify(field),
     );
+    fallbackSaved = true;
   } catch {
     // A full or unavailable key-value cache must not prevent durable saving.
     try {
@@ -20,12 +38,16 @@ export function saveField(field: FieldState): Promise<void> {
       /* Storage may be disabled entirely. */
     }
   }
-  const pending = saveQueue.then(() => persistField(field));
+  const pending = saveQueue.then(async () => {
+    const durableSaved = await persistField(field);
+    if (revision === saveRevision)
+      reportSaveWarning(!durableSaved && !fallbackSaved);
+  });
   saveQueue = pending.catch(() => {});
   return pending;
 }
 
-async function persistField(field: FieldState): Promise<void> {
+async function persistField(field: FieldState): Promise<boolean> {
   const persistence = getFieldPersistencePort();
   try {
     await persistence.saveField({
@@ -33,8 +55,10 @@ async function persistField(field: FieldState): Promise<void> {
       updatedAt: field.updatedAt,
       field,
     });
+    return true;
   } catch {
     // The newest synchronous fallback already exists; an older write must not overwrite it.
+    return false;
   }
 }
 

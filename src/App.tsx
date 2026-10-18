@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
+import { getSaveWarning, subscribeSaveWarning } from "./services/db";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { Battlefield } from "./components/Battlefield";
 import { ActiveTurnActionStrip } from "./components/ActiveTurnActionStrip";
@@ -21,6 +22,11 @@ import { interactions } from "./domain/interactions";
 import { useLifeMagnification } from "./components/useLifeMagnification";
 
 function App() {
+  const saveWarning = useSyncExternalStore(
+    subscribeSaveWarning,
+    getSaveWarning,
+    getSaveWarning,
+  );
   const initialize = useFieldStore((state) => state.initialize);
   const initializeListening = useFieldStore(
     (state) => state.initializeListening,
@@ -147,6 +153,12 @@ function App() {
           <p>{fieldName}</p>
         </div>
       </header>
+      {saveWarning && (
+        <div className="update-banner" role="alert">
+          This game could not be saved. Keep Lite open and export a backup from
+          Options.
+        </div>
+      )}
       {needRefresh[0] && (
         <aside className="pwa-update-toast" role="status" aria-live="polite">
           <span>New visual update ready</span>

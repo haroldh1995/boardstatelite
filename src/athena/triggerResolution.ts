@@ -875,6 +875,7 @@ export function processAthenaConfirmedEventWithBookkeeping(input: {
   budget?: Partial<AthenaAutoResolutionBudget>;
   cancellation?: AthenaTriggerResolutionOptions["cancellation"];
   replacement?: AthenaReplacementProcessingOptions;
+  deferTriggeredResolution?: boolean;
 }): AthenaConfirmedConsequencePipelineResult {
   const timestamp = input.timestamp ?? input.event.timestamp;
   const environment = createForecastEnvironment(input.field);
@@ -1062,18 +1063,20 @@ export function processAthenaConfirmedEventWithBookkeeping(input: {
       directBattlefieldMutation: false,
     };
   }
-  const autoResolution = processAthenaPendingTriggers({
-    field: rootCommit.field,
-    queue: input.queue,
-    timestamp,
-    decisions: input.decisions,
-    budget: input.budget,
-    cancellation: input.cancellation,
-  });
+  const autoResolution = input.deferTriggeredResolution
+    ? null
+    : processAthenaPendingTriggers({
+        field: rootCommit.field,
+        queue: input.queue,
+        timestamp,
+        decisions: input.decisions,
+        budget: input.budget,
+        cancellation: input.cancellation,
+      });
   return {
     version: ATHENA_TRIGGER_RESOLUTION_VERSION,
     originalField: input.field,
-    resultingField: autoResolution.field,
+    resultingField: autoResolution?.field ?? rootCommit.field,
     proposedEvent: event,
     rootReplacement: replacement,
     rootCanonicalEvent: rootCommit.event,
@@ -1260,6 +1263,39 @@ export function applyAthenaCanonicalConsequenceEvent(
     changed.add(retained.id);
     if (!beforeIds.has(retained.id)) generated.add(retained.id);
   } else if (event.eventCategory === "cards-discarded") {
+    if (event.subjectGroupIds.length > 0) {
+      if (event.subjectGroupIds.length !== 1)
+        return fail("Select one tracked hand card for this discard.");
+      const subject = working.groups.find(
+        (group) =>
+          group.id === event.subjectGroupIds[0] && group.zone === "hand",
+      );
+      if (!subject || event.quantity > subject.quantity)
+        return fail("The selected hand card is no longer available.");
+      const split = splitGroupForQuantity(
+        working.groups,
+        subject.id,
+        event.quantity,
+      );
+      if (!split.targetId)
+        return fail("The selected card could not be discarded.");
+      working.groups = split.groups.map((group) =>
+        group.id === split.targetId
+          ? withStackKey({ ...group, zone: "graveyard" })
+          : group,
+      );
+      return {
+        valid: true,
+        reason: "Selected card discarded.",
+        field: working,
+        event: {
+          ...gameEventFromForecast(event, resolutionId),
+          groupIds: [split.targetId],
+        },
+        changedGroupIds: [split.targetId],
+        generatedGroupIds: [],
+      };
+    }
     let remaining = event.quantity;
     working.groups = working.groups
       .map((entry) => {

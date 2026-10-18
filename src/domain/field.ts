@@ -327,6 +327,8 @@ export function createDefaultOpponentValues(): OpponentValues {
 
 export function createDefaultSettings(): SettingsState {
   return {
+    automationProfile: "assisted",
+    firstGameCompleted: false,
     startingLife: 40,
     cardSize: "standard",
     tappedStyle: "rotate",
@@ -356,6 +358,12 @@ export function normalizeSettings(value: unknown): SettingsState {
     ...defaults,
     ...candidate,
     gameplayReminders: candidate.gameplayReminders === true,
+    automationProfile:
+      candidate.automationProfile === "manual" ||
+      candidate.automationProfile === "automatic"
+        ? candidate.automationProfile
+        : "assisted",
+    firstGameCompleted: candidate.firstGameCompleted === true,
     fullScreenLife: candidate.fullScreenLife === true,
     playerTrackers: normalizePlayerTrackers(candidate.playerTrackers),
     voice: normalizeEchoVoiceSettings(candidate.voice),
@@ -562,6 +570,7 @@ export function sanitizeImportedField(value: unknown): FieldState | null {
   return {
     ...defaults,
     ...candidate,
+    activity: normalizeActivity(candidate.activity),
     id: typeof candidate.id === "string" ? candidate.id : defaults.id,
     sessionDeck: normalizeDeckSnapshot(candidate.sessionDeck),
     session: sessionWithHub,
@@ -742,6 +751,25 @@ export function devotionForManaCost(
   return devotion;
 }
 
+function normalizeActivity(
+  value: FieldState["activity"],
+): NonNullable<FieldState["activity"]> {
+  return Array.isArray(value)
+    ? value
+        .filter(
+          (entry) =>
+            entry &&
+            typeof entry.id === "string" &&
+            typeof entry.label === "string" &&
+            typeof entry.at === "string" &&
+            typeof entry.origin === "string" &&
+            Array.isArray(entry.summary) &&
+            entry.summary.every((line) => typeof line === "string"),
+        )
+        .slice(-200)
+    : [];
+}
+
 export function normalizeField(field: FieldState): FieldState {
   const updatedAt = new Date().toISOString();
   const settings = normalizeSettings(field.settings);
@@ -907,6 +935,7 @@ export function normalizeField(field: FieldState): FieldState {
   );
   return {
     ...field,
+    activity: normalizeActivity(field.activity),
     session: sessionWithHub,
     mode,
     multiplayer,

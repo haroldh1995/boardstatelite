@@ -192,6 +192,34 @@ describe("Canonical Ambient Event Pipeline", () => {
     expect(result.event).toBeNull();
   });
 
+  it("reviews inferred actions in Manual and commits supported high-confidence actions in Automatic", () => {
+    const pipeline = new AmbientEventPipeline();
+    const manual = createDefaultField();
+    manual.settings.automationProfile = "manual";
+    const request = {
+      intent: {
+        id: "inferred-profile",
+        kind: "modify-life" as const,
+        source: "system" as const,
+        confidence: "high" as const,
+        payload: { amount: 1 },
+      },
+      mutation: ({ field }: { field: FieldState }) =>
+        resolveSetLife(field, 41, "gain"),
+    };
+    expect(pipeline.process({ field: manual, ...request }).status).toBe(
+      "preview",
+    );
+    const automatic = createDefaultField();
+    automatic.settings.automationProfile = "automatic";
+    const committed = new AmbientEventPipeline().process({
+      field: automatic,
+      ...request,
+    });
+    expect(committed.status).toBe("completed");
+    expect(committed.field.player.life).toBe(41);
+  });
+
   it("routes cancellation and recovery decisions before mutation", () => {
     const field = createDefaultField();
     const pipeline = new AmbientEventPipeline();

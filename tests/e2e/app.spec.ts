@@ -169,13 +169,9 @@ test("not-tracked card state can be stopped and resumed from the permanent menu"
   await expect(anim.locator(".tracking-badge")).toBeVisible();
 
   await page.getByRole("button", { name: /ACTIVATE FIELD/ }).click();
-  await expect(page.getByRole("dialog")).toContainText(
-    "No supported active abilities resolved",
-  );
-  await page
-    .locator(".modal-actions")
-    .getByRole("button", { name: "Close" })
-    .click();
+  await expect(page.getByRole("dialog")).not.toContainText("Anim Pakal");
+  await expect(page.getByRole("dialog")).toContainText("Cathars' Crusade");
+  await page.getByRole("button", { name: "Close", exact: true }).click();
 
   await longPress(page, anim);
   await page.getByRole("button", { name: "Resume Tracking Card" }).click();

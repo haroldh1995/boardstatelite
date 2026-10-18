@@ -253,6 +253,8 @@ export function decideAmbientApprovalWithConfidence(input: {
   }
   if (input.approval?.method === "recovery-required")
     return "recovery-required";
+  if (input.approval?.method === "confirmation-required" && input.hasPreview)
+    return "preview-required";
   if (input.approval?.method === "manual" && input.hasPreview) {
     return "preview-required";
   }

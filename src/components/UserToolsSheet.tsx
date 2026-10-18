@@ -24,6 +24,12 @@ export function UserToolsSheet() {
       </p>
       <div className="user-tool-grid">
         <ToolButton
+          icon={<ListFilter />}
+          title="Game Activity"
+          detail="Review actions and recover mistakes."
+          onClick={() => openModal({ kind: "activity" })}
+        />
+        <ToolButton
           icon={<Castle />}
           title="Dungeons & Initiative"
           detail="Rooms, paths, and initiative."

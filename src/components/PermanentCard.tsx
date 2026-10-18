@@ -14,6 +14,7 @@ import { useFieldStore } from "../state/useFieldStore";
 import { effectsProvidedBySource } from "../domain/manualEffects";
 import { interactions } from "../domain/interactions";
 import { availablePermanentActions } from "../domain/availableActions";
+import { cardAbilities, abilityAvailability } from "../domain/abilityMetadata";
 
 interface PermanentCardProps {
   group: PermanentGroup;
@@ -31,6 +32,16 @@ export function PermanentCard({
   onDropOn,
 }: PermanentCardProps) {
   const openModal = useFieldStore((state) => state.openModal);
+  const focus = useFieldStore((state) => state.abilityFocus);
+  const field = useFieldStore((state) => state.field);
+  const focusedAbilities = focus
+    ? cardAbilities(group, field).filter(
+        (ability) => ability.kind === "activated",
+      )
+    : [];
+  const focusAvailable = focusedAbilities.some(
+    (ability) => abilityAvailability(field, group, ability).available,
+  );
   const removeGroup = useFieldStore((state) => state.removeGroup);
   const activeDecision = useFieldStore((state) =>
     activeAthenaDecision(state.field.athena.decisions),
@@ -140,6 +151,10 @@ export function PermanentCard({
           return;
         }
         if (taps >= 2) {
+          if (focus && focusedAbilities.length > 0) {
+            openModal({ kind: "tapAbilities", groupId: group.id });
+            return;
+          }
           if (group.quantity > 1)
             openModal({ kind: "removeStack", groupId: group.id });
           else removeGroup(group.id, 1);
@@ -159,6 +174,11 @@ export function PermanentCard({
     <article
       className={[
         "permanent-card",
+        focusedAbilities.length
+          ? focusAvailable
+            ? "ability-focus-available"
+            : "ability-focus-unavailable"
+          : "",
         `card-variant-${variant}`,
         compact ? "compact-card" : "",
         isStack ? "is-stack" : "",
@@ -223,12 +243,16 @@ export function PermanentCard({
             {"\u00d7"}
             {group.quantity}
           </span>
-          {availableActions.length > 0 && (
+          {(availableActions.length > 0 || focusedAbilities.length > 0) && (
             <button
               type="button"
               className="tap-ability-indicator"
-              title="Tap abilities"
-              aria-label={`Use tap ability on ${group.label}`}
+              title={focus ? "Inspect activated abilities" : "Tap abilities"}
+              aria-label={
+                focus
+                  ? `Inspect activated abilities on ${group.label}`
+                  : `Use tap ability on ${group.label}`
+              }
               onPointerDown={(event) => event.stopPropagation()}
               onPointerUp={(event) => event.stopPropagation()}
               onClick={(event) => {

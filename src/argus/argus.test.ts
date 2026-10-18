@@ -77,6 +77,24 @@ describe("ARGUS observation boundary", () => {
     expect(accepted.observations[0].canonicalEventId).toBe(event.id);
   });
 
+  it("applies automation profiles without fabricating confidence", () => {
+    const observed = observation("confirmed");
+    const initial = recordArgusObservation(createDefaultArgusState(), observed);
+    expect(
+      proposeArgusCanonicalEvent(initial, observed.id, event, "Match", "manual")
+        .proposals[0].requiresConfirmation,
+    ).toBe(true);
+    expect(
+      proposeArgusCanonicalEvent(
+        initial,
+        observed.id,
+        event,
+        "Match",
+        "automatic",
+      ).proposals[0].requiresConfirmation,
+    ).toBe(false);
+  });
+
   it("reconciles rescans by reporting appeared, retained, and missing objects", () => {
     const changes = compareArgusSnapshots(
       {

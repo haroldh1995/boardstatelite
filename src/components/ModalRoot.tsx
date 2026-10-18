@@ -41,7 +41,10 @@ import { BattlefieldCountsSheet } from "./BattlefieldCountsSheet";
 import { CurrentDeckSheet } from "./CurrentDeckSheet";
 import { NumericAdjuster } from "./NumericAdjuster";
 import { interactions } from "../domain/interactions";
-import { TapAbilitiesSheet } from "./TapAbilitiesSheet";
+import { TapAbilitiesSheet, FieldAbilitiesSheet } from "./TapAbilitiesSheet";
+import { AbilityWorkflowSheet } from "./AbilityWorkflowSheet";
+import { ActivitySheet, FirstGameSheet } from "./ReleaseTools";
+import "./abilityFocus.css";
 import { PlayerTrackerLayoutSheet } from "./PlayerTrackerLayoutSheet";
 import { PlayerTrackerControls } from "./PlayerTrackerArea";
 import { DungeonSheet } from "./DungeonSheet";
@@ -203,6 +206,14 @@ function ModalContent({ modal }: { modal: ModalState }) {
       return <NewGameSheet />;
     case "tapAbilities":
       return <TapAbilitiesSheet groupId={modal.groupId} />;
+    case "fieldAbilities":
+      return <FieldAbilitiesSheet />;
+    case "abilityWorkflow":
+      return <AbilityWorkflowSheet id={(modal.payload as { id: string }).id} />;
+    case "activity":
+      return <ActivitySheet />;
+    case "firstGame":
+      return <FirstGameSheet />;
     case "staticEffects":
       return <StaticEffectsSheet />;
     case "externalGameState":
@@ -313,6 +324,14 @@ function StartupWarning() {
         </button>
         <button type="button" onClick={() => setLearn((value) => !value)}>
           Learn How Tracking Works
+        </button>
+        <button
+          onClick={() => {
+            acknowledgeStartup();
+            openModal({ kind: "firstGame" });
+          }}
+        >
+          First Game Guide
         </button>
       </div>
     </div>
@@ -2096,6 +2115,31 @@ function SettingsSheet() {
       <div className="sheet-columns">
         <section>
           <h3>Gameplay</h3>
+          <label>
+            Automation profile
+            <select
+              value={field.settings.automationProfile}
+              onChange={(event) =>
+                updateSettings({
+                  automationProfile: event.target.value as
+                    | "manual"
+                    | "assisted"
+                    | "automatic",
+                })
+              }
+            >
+              <option value="manual">Manual</option>
+              <option value="assisted">Assisted</option>
+              <option value="automatic">Automatic</option>
+            </select>
+          </label>
+          <button
+            onClick={() =>
+              useFieldStore.getState().openModal({ kind: "firstGame" })
+            }
+          >
+            First Game Guide
+          </button>
           <label>
             Card size
             <select

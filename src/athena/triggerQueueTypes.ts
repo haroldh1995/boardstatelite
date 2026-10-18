@@ -157,7 +157,7 @@ export interface AthenaTriggerEventFacet {
   quantity: number;
   logicalEventCount: number;
   structural: boolean;
-  reason: "final-event" | "entry-facet" | "token-facet";
+  reason: "final-event" | "entry-facet" | "token-facet" | "death-facet";
 }
 
 export interface AthenaSkippedTriggerRelationship {

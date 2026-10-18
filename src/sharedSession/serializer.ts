@@ -147,9 +147,20 @@ export function createPublicGameplaySnapshot(field: FieldState) {
       status: field.turnContext.status,
       turnNumber: field.turnContext.turnNumber,
       phase: field.turnContext.quickPhase,
-      publicTriggerMemory: field.turnContext.triggerMemory.filter(
-        (entry) => entry.public,
-      ),
+      publicTriggerMemory: field.turnContext.triggerMemory
+        .filter((entry) => entry.public)
+        .map((entry) => ({
+          id: entry.id,
+          sourceId: entry.sourceId,
+          sourceLabel: entry.sourceLabel,
+          label: entry.label,
+          optional: entry.optional,
+          oncePerTurnKey: entry.oncePerTurnKey,
+          status: entry.status,
+          observedAt: entry.observedAt,
+          resolvedAt: entry.resolvedAt,
+          public: true,
+        })),
     },
   };
 }
