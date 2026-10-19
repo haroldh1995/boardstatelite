@@ -2,7 +2,7 @@
 
 Architecture reference: [Next-Generation Lite Architecture](docs/NEXT_GENERATION_LITE_ARCHITECTURE.md)
 
-Ability workflow reference: [Ability Automation and Turn-Only Gameplay](docs/ABILITY_AUTOMATION.md). Commercial distribution blockers and repeatable qualification work are tracked in [Commercial Release Gates](docs/RELEASE_GATES.md).
+Ability workflow reference: [Ability Automation and Turn-Only Gameplay](docs/ABILITY_AUTOMATION.md). Commercial distribution blockers and repeatable qualification work are tracked in [Commercial Release Gates](docs/RELEASE_GATES.md). The preflight results and isolated production-path demo runner are documented in [Final Preflight Report](docs/FINAL_PREFLIGHT_REPORT.md) and [Preflight Runbook](docs/PREFLIGHT_RUNBOOK.md).
 
 Baord State Lite is a mobile-first Magic: The Gathering companion app for tracking a personal battlefield without becoming a full digital battlefield simulator.
 
@@ -74,6 +74,7 @@ npm test
 npm run build
 npm run e2e
 npm run test:visual
+npm run demo:scenarios
 ```
 
 Update the committed visual baselines after intentional UI changes:

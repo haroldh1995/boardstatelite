@@ -15,6 +15,7 @@
     "e2e": "playwright test",
     "test:visual": "playwright test tests/e2e/visual.spec.ts",
     "test:visual:update": "playwright test tests/e2e/visual.spec.ts --update-snapshots",
+    "demo:scenarios": "vitest run src/dev/demoScenarioRunner.test.ts --reporter=verbose --no-file-parallelism --maxWorkers=1",
     "preview": "vite preview"
   },
   "dependencies": {
