@@ -1,0 +1,104 @@
+{
+  "title": "BoardState Lite live feature test",
+  "baseURL": "http://127.0.0.1:4174",
+  "viewport": {
+    "width": 390,
+    "height": 844
+  },
+  "build": "preflight-live-20261018233615",
+  "commit": "d570bfc9da7636dd2f3bebb735e187ec2eedcd34",
+  "recording": "C:\\Users\\Home\\Documents\\Codex\\boardstatelite\\release-marketing\\raw\\page@731977029f27f77cbc5482576b31bac5.webm",
+  "results": [
+    {
+      "id": "live-01",
+      "feature": "Ability Focus",
+      "scenario": "Switch the existing activation surface into Ability Focus and inspect Sol Ring.",
+      "expected": "Activated-ability permanents highlight and the ability inspector exposes current Oracle text and costs.",
+      "actual": "Sol Ring was highlighted; its {T}: Add {C}{C} ability was inspected and committed into pending resolution.",
+      "status": "pass",
+      "timestamp": "00:00:03",
+      "errors": []
+    },
+    {
+      "id": "live-02",
+      "feature": "Activate Field",
+      "scenario": "Open Activate Field and invoke a deterministic tracked trigger from the reference battlefield.",
+      "expected": "The existing activation flow presents tracked triggered abilities and resolves supported deterministic bookkeeping without invented choices.",
+      "actual": "Activate Field opened and accepted a tracked trigger through the production workflow.",
+      "status": "pass",
+      "timestamp": "00:00:05",
+      "errors": []
+    },
+    {
+      "id": "live-03",
+      "feature": "New Game",
+      "scenario": "Start a fresh Commander game from User Tools, preserving app preferences while clearing game state.",
+      "expected": "The one-step confirmation clears current gameplay state and returns to a clean standard battlefield.",
+      "actual": "New Game completed; life returned to 40 and the battlefield is ready for a new session.",
+      "status": "pass",
+      "timestamp": "00:00:06",
+      "errors": []
+    },
+    {
+      "id": "live-04",
+      "feature": "Turn-aware life tracking",
+      "scenario": "Start the recorded turn and adjust life repeatedly in Full-Screen Life.",
+      "expected": "The signed delta is cumulative and the presentation transition does not mutate gameplay state.",
+      "actual": "40 became 37 and the visible transaction delta became -3 after five losses and two gains.",
+      "status": "pass",
+      "timestamp": "00:00:07",
+      "errors": []
+    },
+    {
+      "id": "live-05",
+      "feature": "Custom player counters",
+      "scenario": "Add and arrange a secondary player tracker from Full-Screen Life.",
+      "expected": "Player-counter layout changes are presentation-only and remain separate from canonical values.",
+      "actual": "Rad and a renamed custom Progress tracker were added without changing the life transaction.",
+      "status": "pass",
+      "timestamp": "00:00:08",
+      "errors": []
+    },
+    {
+      "id": "live-06",
+      "feature": "Commander Damage",
+      "scenario": "Open Commander Damage from Full-Screen Life and record combat damage against one commander.",
+      "expected": "Commander damage is tracked per commander and combat entry updates the life transaction coherently.",
+      "actual": "Atraxa was added as an individual commander source and one combat-damage adjustment was recorded.",
+      "status": "pass",
+      "timestamp": "00:00:09",
+      "errors": []
+    },
+    {
+      "id": "live-07",
+      "feature": "Scryfall card entry",
+      "scenario": "Return to the battlefield and add a real permanent through the Scryfall search surface.",
+      "expected": "A live Scryfall result is selected and added through the production card-entry path.",
+      "actual": "Sol Ring was found through Scryfall and added to the battlefield without a fabricated placeholder.",
+      "status": "pass",
+      "timestamp": "00:00:11",
+      "errors": []
+    },
+    {
+      "id": "live-08",
+      "feature": "Turn lifecycle and land tracking",
+      "scenario": "Record a land play, inspect battlefield land state, end the turn, and begin the next turn.",
+      "expected": "Turn Land and battlefield-derived land state remain distinct across the explicit turn boundary.",
+      "actual": "The recorded turn ended and the next explicit Start Turn boundary was accepted.",
+      "status": "pass",
+      "timestamp": "00:00:13",
+      "errors": []
+    },
+    {
+      "id": "live-09",
+      "feature": "Dungeons and Initiative",
+      "scenario": "Open User Tools, start a dungeon path, and take initiative.",
+      "expected": "Dungeon progress and initiative are represented as first-class game state through the production utility surface.",
+      "actual": "Initiative was assigned and a valid dungeon room was entered through the interactive map.",
+      "status": "pass",
+      "timestamp": "00:00:14",
+      "errors": []
+    }
+  ],
+  "generatedAt": "2026-10-19T04:36:32.505Z"
+}

@@ -1,0 +1,35 @@
+1
+00:00:00,000 --> 00:00:06,000
+Commander gets complicated. Keeping track of it should not.
+
+2
+00:00:06,000 --> 00:00:15,000
+Meet BoardState Lite. Built for the way you actually play.
+
+3
+00:00:15,000 --> 00:00:27,000
+Track your battlefield, manage your counters, and keep your game moving.
+
+4
+00:00:27,000 --> 00:00:43,000
+Lite handles the bookkeeping it understands, and lets you make the decisions that matter.
+
+5
+00:00:43,000 --> 00:00:53,000
+Remember what you have activated. Correct mistakes in seconds. Stay focused on the game.
+
+6
+00:00:53,000 --> 00:01:03,000
+More than a life counter. An intelligent companion for your entire Commander experience.
+
+7
+00:01:03,000 --> 00:01:10,000
+Less bookkeeping. More Magic. BoardState Lite.
+
+8
+00:01:10,000 --> 00:01:13,000
+Play the cards. Let Lite handle the bookkeeping.
+
+9
+00:01:10,000 --> 00:01:13,000
+Try BoardState Lite today.

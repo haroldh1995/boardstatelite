@@ -15,6 +15,11 @@ playwright-report
 test-results
 output/
 .vite-visual.pid
+release-marketing/raw/
+release-marketing/renders/
+release-marketing/narration.wav
+release-marketing/evidence/screenshots/
+release-marketing/evidence/video-check/
 
 # Editor directories and files
 .vscode/*
