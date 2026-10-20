@@ -1,23 +1,7 @@
-# BoardState Lite Live Test and Advertisement
+# BoardState Lite Advertisement Revision 02
 
-This directory contains the reproducible capture and render workflow for the current release candidate.
+The production source is `render-final-ad.ps1`. It uses the verified live captures under `release-marketing/raw/verified-marketing/` and writes final review renders under `release-marketing/renders/final-revision/`.
 
-## Capture
+The human performance script is `final-narration-script.md`. Captions are supplied as `captions-revision-02.srt` and `captions-revision-02.vtt`. The review cuts intentionally omit placeholder AI narration; the remaining commercial step is to record and mix a suitable human or licensed narration performance.
 
-1. Build and start the production preview: `npm run build` then `npm run preview -- --host 127.0.0.1 --port 4174 --strictPort`.
-2. Run `node release-marketing/capture-live-demo.mjs`.
-3. The isolated Playwright context records authentic UI interactions into `release-marketing/raw/` and writes machine-readable evidence plus screenshots into `release-marketing/evidence/`.
-
-The capture uses a fresh browser context and the app's reference battlefield fixture. It does not touch a personal browser profile or production account.
-
-## Render
-
-On Windows, `generate-voiceover.ps1` uses the installed Windows Speech voice and writes `release-marketing/narration.wav`. `render-ad.ps1` uses `FFMPEG` when set, otherwise the local validation binary at `node_modules/ffmpeg-win32.exe`, and writes the 16:9 master, 9:16 social cut, 15-second teaser, and thumbnail to `release-marketing/renders/`.
-
-The editable production source is the PowerShell render script, the capture script, the captions, and this procedure. Raw evidence is kept separate from edited promotional renders.
-
-## Integrity
-
-The evidence report records each live scenario's expected behavior, observed result, timestamp, build identifier, and commit. The advertisement only uses verified product claims and identifies BoardState Lite as an unofficial companion for physical Commander play.
-
-Card information and imagery shown by the app are sourced through the application's existing Scryfall integration. Scryfall attribution remains in the application. No commercial music is bundled; the narration is generated locally from the approved script and the cuts use original application interaction audio only.
+See `release-marketing/production/editorial-audit-revision-02.md` for keep/reshoot/remove decisions, `release-marketing/evidence/feature-evidence-map-revision-02.md` for evidence provenance, and `release-marketing/evidence/final-quality-control-revision-02.md` for QC status.

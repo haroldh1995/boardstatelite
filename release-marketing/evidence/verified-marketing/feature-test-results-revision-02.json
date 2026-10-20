@@ -1,0 +1,20 @@
+{
+  "build": "380b0a0612e2d5c63e13f05f64c232c424bc376d",
+  "runtime": "http://127.0.0.1:4174/",
+  "browser": "Chromium",
+  "viewport": "430x900",
+  "suite": "tests/e2e/marketing-capture-pass.spec.ts",
+  "suiteResult": "2 passed",
+  "features": [
+    { "id": "life-full-screen", "status": "pass", "evidence": "core-feature-pass.webm" },
+    { "id": "deterministic-counters", "status": "pass", "evidence": "core-feature-pass.webm" },
+    { "id": "ability-focus", "status": "pass", "evidence": "core-feature-pass.webm" },
+    { "id": "once-per-turn-usage", "status": "pass", "evidence": "core-feature-pass.webm" },
+    { "id": "undo", "status": "pass", "evidence": "core-feature-pass.webm" },
+    { "id": "dungeons-initiative", "status": "pass", "evidence": "dungeon-initiative-pass.webm" },
+    { "id": "target-selection", "status": "blocked", "evidence": "../final-ad/08-target-selection.png", "note": "Live target selector was not exposed." },
+    { "id": "sacrifice-selection", "status": "blocked", "evidence": "../final-ad/08-target-selection.png", "note": "Could not reach a valid sacrifice selector." },
+    { "id": "offline-recovery", "status": "not-tested" },
+    { "id": "echo-argus", "status": "not-tested" }
+  ]
+}

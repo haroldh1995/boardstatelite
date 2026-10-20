@@ -1,0 +1,29 @@
+{
+  "project": "BoardState Lite",
+  "revision": "advertisement-revision-02",
+  "sourceCommitBeforeProduction": "380b0a0612e2d5c63e13f05f64c232c424bc376d",
+  "renders": {
+    "landscapeMasterReviewCut": "renders/final-revision/boardstate-lite-cinematic-master-16x9-revision-02-review-cut.mp4",
+    "verticalReviewCut": "renders/final-revision/boardstate-lite-cinematic-social-9x16-revision-02-review-cut.mp4",
+    "verticalTeaserReviewCut": "renders/final-revision/boardstate-lite-cinematic-teaser-15s-revision-02-review-cut.mp4",
+    "poster": "renders/final-revision/boardstate-lite-cinematic-poster-revision-02.jpg"
+  },
+  "evidence": {
+    "core": "raw/verified-marketing/core-feature-pass.webm",
+    "dungeonsAndInitiative": "raw/verified-marketing/dungeon-initiative-pass.webm",
+    "featureMap": "evidence/feature-evidence-map-revision-02.md",
+    "qualityControl": "evidence/final-quality-control-revision-02.md"
+  },
+  "production": {
+    "renderScript": "production/render-final-ad.ps1",
+    "narrationScript": "production/final-narration-script.md",
+    "captionsSrt": "production/captions-revision-02.srt",
+    "captionsVtt": "production/captions-revision-02.vtt",
+    "editorialAudit": "production/editorial-audit-revision-02.md"
+  },
+  "audio": {
+    "music": "original generated instrumental bed",
+    "narration": "not mixed; human performance required for final commercial master"
+  },
+  "claimsPolicy": "Only passing live evidence is used in the review cuts. Target selection, sacrifice selection, Offline recovery, Echo, and ARGUS are omitted."
+}
