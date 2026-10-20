@@ -1,0 +1,23 @@
+{
+  "production": "boardstate-lite-original-cinematic",
+  "status": "rendered-and-decoded",
+  "outputs": [
+    { "path": "release-marketing/renders/original-cinematic/boardstate-lite-original-cinematic-master-16x9.mp4", "width": 1920, "height": 1080, "durationSeconds": 75.02, "video": "h264/yuv420p", "audio": "aac/48000Hz stereo" },
+    { "path": "release-marketing/renders/original-cinematic/boardstate-lite-original-cinematic-social-9x16.mp4", "width": 1080, "height": 1920, "durationSeconds": 75.02, "video": "h264/yuv420p", "audio": "aac/48000Hz stereo" },
+    { "path": "release-marketing/renders/original-cinematic/boardstate-lite-original-cinematic-teaser-15s.mp4", "width": 1080, "height": 1920, "durationSeconds": 15.01, "video": "h264/yuv420p", "audio": "aac/48000Hz stereo" }
+  ],
+  "visualReview": {
+    "landscapeContactSheet": "release-marketing/evidence/original-cinematic/landscape-contact.jpg",
+    "verticalContactSheet": "release-marketing/evidence/original-cinematic/vertical-contact.jpg",
+    "poster": "release-marketing/renders/original-cinematic/boardstate-lite-original-cinematic-poster.jpg",
+    "reviewed": true
+  },
+  "claimsIntegrity": {
+    "rawApplicationRecordingsUsedAsAdFoundation": false,
+    "unverifiedTargetOrSacrificeClaim": false,
+    "unverifiedEchoOrArgusClaim": false,
+    "phaseTrackingClaim": false,
+    "publicDownloadClaim": false
+  },
+  "narration": { "audioIncluded": false, "scriptIncluded": true, "reason": "No suitable human or properly licensed professional narrator was available in the current environment." }
+}

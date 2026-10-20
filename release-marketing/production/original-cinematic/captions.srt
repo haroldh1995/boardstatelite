@@ -1,0 +1,31 @@
+1
+00:00:00,000 --> 00:00:06,000
+Commander gets complicated. Keeping track of it shouldn't.
+
+2
+00:00:06,000 --> 00:00:16,000
+Meet BoardState Lite: your intelligent companion for physical Commander.
+
+3
+00:00:16,000 --> 00:00:29,000
+When one action affects every qualifying creature, Lite handles the repetitive counter bookkeeping automatically.
+
+4
+00:00:29,000 --> 00:00:40,000
+When the game calls for a decision, you stay in control.
+
+5
+00:00:40,000 --> 00:00:51,000
+Swipe into Ability Focus to see what your permanents can do and remember what is already used.
+
+6
+00:00:51,000 --> 00:00:59,000
+Review the action, undo it cleanly, and keep playing.
+
+7
+00:00:59,000 --> 00:01:08,000
+From dungeons and initiative to custom counters, Lite keeps the details organized.
+
+8
+00:01:08,000 --> 00:01:15,000
+Play the cards. Let Lite handle the bookkeeping. BoardState Lite.

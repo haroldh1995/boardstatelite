@@ -1,0 +1,44 @@
+{
+  "production": "boardstate-lite-original-cinematic",
+  "visualFoundation": "original procedural canvas motion graphics",
+  "disclosure": "GAMEPLAY VISUALIZATION",
+  "sourceHtml": "release-marketing/production/original-cinematic/boardstate-lite-original-cinematic.html",
+  "captureScript": "release-marketing/production/original-cinematic/capture-original-cinematic.mjs",
+  "renderScript": "release-marketing/production/original-cinematic/render-original-cinematic.ps1",
+  "outputs": [
+    "release-marketing/renders/original-cinematic/boardstate-lite-original-cinematic-master-16x9.mp4",
+    "release-marketing/renders/original-cinematic/boardstate-lite-original-cinematic-social-9x16.mp4",
+    "release-marketing/renders/original-cinematic/boardstate-lite-original-cinematic-teaser-15s.mp4",
+    "release-marketing/renders/original-cinematic/boardstate-lite-original-cinematic-poster.jpg"
+  ],
+  "audio": {
+    "score": "release-marketing/assets/original-cinematic/original-cinematic-score.wav",
+    "narration": null,
+    "note": "Original procedural instrumental score; no synthetic narration presented as final."
+  },
+  "documents": [
+    "release-marketing/production/original-cinematic/storyboard.md",
+    "release-marketing/production/original-cinematic/narration-script.md",
+    "release-marketing/production/original-cinematic/captions.srt",
+    "release-marketing/production/original-cinematic/captions.vtt",
+    "release-marketing/evidence/original-cinematic/claims-map.md",
+    "release-marketing/evidence/original-cinematic/qc-report.md"
+  ],
+  "advertisedVerifiedFeatures": [
+    "life and Full-Screen Life concept",
+    "commander damage",
+    "deterministic counter bookkeeping",
+    "Ability Focus",
+    "once-per-turn activation availability",
+    "Undo/correction",
+    "Dungeons and Initiative",
+    "custom player counters"
+  ],
+  "excludedUnverifiedFeatures": [
+    "target selection",
+    "sacrifice selection",
+    "offline recovery",
+    "Echo recognition",
+    "ARGUS recognition"
+  ]
+}

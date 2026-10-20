@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BoardState Lite - Original Cinematic</title>
+  <style>
+    html, body { margin: 0; width: 100%; height: 100%; background: #050813; overflow: hidden; }
+    canvas { display: block; width: 100%; height: 100%; background: #050813; }
+  </style>
+</head>
+<body>
+<canvas id="film" aria-label="BoardState Lite original cinematic gameplay visualization"></canvas>
+<script>
+(() => {
+  const canvas = document.getElementById('film');
+  const params = new URLSearchParams(location.search);
+  const mode = params.get('format') || 'landscape';
+  const vertical = mode === 'vertical' || mode === 'teaser';
+  const teaser = mode === 'teaser';
+  const W = vertical ? 1080 : 1920;
+  const H = vertical ? 1920 : 1080;
+  const duration = teaser ? 15 : 75;
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  const TAU = Math.PI * 2;
+  const seeded = (n) => {
+    const x = Math.sin(n * 12.9898) * 43758.5453;
+    return x - Math.floor(x);
+  };
+  const clamp = (n, a = 0, b = 1) => Math.max(a, Math.min(b, n));
+  const ease = (n) => n < .5 ? 4 * n * n * n : 1 - Math.pow(-2 * n + 2, 3) / 2;
+  const smooth = (n) => n * n * (3 - 2 * n);
+  const lerp = (a, b, n) => a + (b - a) * n;
+  const f = (n) => n.toFixed(0);
+  const X = (n) => vertical ? W * n / 1080 : W * n / 1920;
+  const Y = (n) => vertical ? H * n / 1920 : H * n / 1080;
+  const R = (n) => vertical ? W * n / 1080 : W * n / 1920;
+  const font = (size, weight = 500) => `${weight} ${R(size)}px Inter, Segoe UI, Arial, sans-serif`;
+  const alpha = (hex, a) => hex.replace(')', `, ${a})`).replace('rgb(', 'rgba(');
+  const rgba = (r, g, b, a) => `rgba(${r},${g},${b},${a})`;
+  const colors = { ink: '#050813', navy: '#0b1227', violet: '#9277ff', blue: '#55c8ff', gold: '#e9c878', white: '#f4f7ff', muted: '#95a2c5', green: '#78e2b5', red: '#ff789a' };
+
+  function roundRect(x, y, w, h, r, fill, stroke, line = 1) {
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, r);
+    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+    if (stroke) { ctx.lineWidth = line; ctx.strokeStyle = stroke; ctx.stroke(); }
+  }
+  function text(value, x, y, size, color = colors.white, align = 'left', weight = 500, max = 99999) {
+    ctx.font = font(size, weight);
+    ctx.textAlign = align;
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = color;
+    if (value.length > 0) ctx.fillText(value, x, y, max);
+  }
+  function glow(x, y, radius, color, strength = .4) {
+    const g = ctx.createRadialGradient(x, y, 0, x, y, radius);
+    g.addColorStop(0, rgba(color[0], color[1], color[2], strength));
+    g.addColorStop(1, rgba(color[0], color[1], color[2], 0));
+    ctx.fillStyle = g;
+    ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+  }
+  function line(x1, y1, x2, y2, color, width = 2, a = 1) {
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+    ctx.strokeStyle = color.startsWith('#') ? color : color;
+    ctx.globalAlpha = a; ctx.lineWidth = width; ctx.stroke(); ctx.globalAlpha = 1;
+  }
+  function badge(value, x, y, color, scale = 1) {
+    const w = R(78 * scale), h = R(30 * scale);
+    roundRect(x - w / 2, y - h / 2, w, h, R(15 * scale), rgba(5, 8, 19, .86), color, R(1.5 * scale));
+    text(value, x, y + R(1), 16 * scale, color, 'center', 700);
+  }
+  function card(x, y, w, h, label, accent, opts = {}) {
+    ctx.save();
+    const lift = opts.lift || 0;
+    const rot = opts.rot || 0;
+    ctx.translate(x + w / 2, y + h / 2 - lift); ctx.rotate(rot);
+    const grad = ctx.createLinearGradient(-w / 2, -h / 2, w / 2, h / 2);
+    grad.addColorStop(0, '#151d3a'); grad.addColorStop(.54, '#0d142b'); grad.addColorStop(1, '#070b19');
+    roundRect(-w / 2, -h / 2, w, h, R(20), grad, rgba(134, 151, 222, opts.dim ? .24 : .55), R(2));
+    const art = ctx.createLinearGradient(-w / 2, -h / 2, w / 2, 0);
+    art.addColorStop(0, rgba(accent[0], accent[1], accent[2], .82));
+    art.addColorStop(1, rgba(accent[0], accent[1], accent[2], .06));
+    roundRect(-w / 2 + R(9), -h / 2 + R(9), w - R(18), h * .42, R(14), art, null);
+    ctx.globalAlpha = .38;
+    ctx.beginPath(); ctx.arc(0, -h * .05, w * .21, 0, TAU); ctx.fillStyle = rgba(255, 255, 255, .13); ctx.fill();
+    ctx.beginPath(); ctx.arc(w * .18, -h * .1, w * .06, 0, TAU); ctx.fillStyle = rgba(255, 255, 255, .26); ctx.fill();
+    ctx.globalAlpha = 1;
+    text(label, -w / 2 + R(18), h * .18, 18, colors.white, 'left', 650);
+    text(opts.kind || 'PERMANENT', -w / 2 + R(18), h * .36, 12, colors.muted, 'left', 600);
+    if (opts.counter) badge(opts.counter, w / 2 - R(36), h / 2 - R(26), colors.gold, .82);
+    ctx.restore();
+  }
+  function particles(t, count = 65, y0 = 0, y1 = H) {
+    for (let i = 0; i < count; i++) {
+      const x = (seeded(i + 11) * W + Math.sin(t * .22 + i) * R(30)) % W;
+      const y = (seeded(i + 43) * (y1 - y0) + y0 + t * (5 + seeded(i) * 14)) % H;
+      const a = .08 + seeded(i + 4) * .19;
+      ctx.fillStyle = rgba(137, 139, 255, a);
+      ctx.beginPath(); ctx.arc(x, y, R(1.4 + seeded(i + 5) * 3), 0, TAU); ctx.fill();
+    }
+  }
+  function backdrop(t) {
+    const g = ctx.createLinearGradient(0, 0, W, H);
+    g.addColorStop(0, '#040713'); g.addColorStop(.48, '#0a1026'); g.addColorStop(1, '#050814');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    glow(X(vertical ? 300 : 380), Y(vertical ? 590 : 280), R(vertical ? 540 : 700), [73, 76, 209], .17);
+    glow(X(vertical ? 820 : 1550), Y(vertical ? 1410 : 760), R(vertical ? 500 : 620), [206, 111, 228], .10);
+    particles(t, vertical ? 82 : 110);
+    ctx.globalAlpha = .2;
+    for (let i = 0; i < 9; i++) line(0, Y(i * 140 + 30), W, Y(i * 140 + 30), '#2a3563', 1);
+    ctx.globalAlpha = 1;
+  }
+  function watermark() {
+    text('GAMEPLAY VISUALIZATION', X(vertical ? 54 : 70), Y(vertical ? 70 : 58), 12, rgba(180, 194, 241, .65), 'left', 650);
+    text('BOARDSTATE LITE', X(vertical ? 1026 : 1850), Y(vertical ? 70 : 58), 12, rgba(180, 194, 241, .65), 'right', 650);
+  }
+  function title(head, sub, y, accent = colors.gold) {
+    text(head, X(vertical ? 540 : 960), Y(y), vertical ? 34 : 42, colors.white, 'center', 750);
+    if (sub) text(sub, X(vertical ? 540 : 960), Y(y + (vertical ? 54 : 48)), vertical ? 17 : 20, accent, 'center', 600);
+  }
+  function logo(y, scale = 1, opacity = 1) {
+    ctx.save(); ctx.globalAlpha = opacity;
+    const cx = X(vertical ? 540 : 960), cy = Y(y);
+    glow(cx, cy, R(210 * scale), [109, 103, 255], .28);
+    ctx.strokeStyle = colors.gold; ctx.lineWidth = R(3 * scale); ctx.beginPath();
+    ctx.moveTo(cx, cy - R(70 * scale)); ctx.lineTo(cx + R(56 * scale), cy - R(37 * scale)); ctx.lineTo(cx + R(56 * scale), cy + R(37 * scale));
+    ctx.lineTo(cx, cy + R(70 * scale)); ctx.lineTo(cx - R(56 * scale), cy + R(37 * scale)); ctx.lineTo(cx - R(56 * scale), cy - R(37 * scale)); ctx.closePath(); ctx.stroke();
+    ctx.strokeStyle = colors.blue; ctx.lineWidth = R(5 * scale); ctx.beginPath(); ctx.moveTo(cx - R(24 * scale), cy + R(37 * scale)); ctx.lineTo(cx, cy + R(3 * scale)); ctx.lineTo(cx + R(24 * scale), cy + R(37 * scale)); ctx.stroke();
+    text('BOARDSTATE', cx, cy + R(105 * scale), 20 * scale, colors.white, 'center', 700);
+    text('LITE', cx, cy + R(133 * scale), 15 * scale, colors.gold, 'center', 700);
+    ctx.restore();
+  }
+  function ribbon(x1, y1, x2, y2, phase, color) {
+    ctx.save(); ctx.globalAlpha = .8;
+    const c1x = lerp(x1, x2, .32), c1y = y1 - R(60) + Math.sin(phase) * R(30);
+    const c2x = lerp(x1, x2, .72), c2y = y2 + R(70) + Math.cos(phase) * R(30);
+    const grad = ctx.createLinearGradient(x1, y1, x2, y2); grad.addColorStop(0, rgba(color[0], color[1], color[2], 0)); grad.addColorStop(.3, rgba(color[0], color[1], color[2], .85)); grad.addColorStop(1, rgba(color[0], color[1], color[2], 0));
+    ctx.strokeStyle = grad; ctx.lineWidth = R(8); ctx.beginPath(); ctx.moveTo(x1, y1); ctx.bezierCurveTo(c1x, c1y, c2x, c2y, x2, y2); ctx.stroke();
+    ctx.strokeStyle = rgba(255, 255, 255, .22); ctx.lineWidth = R(2); ctx.beginPath(); ctx.moveTo(x1, y1); ctx.bezierCurveTo(c1x, c1y, c2x, c2y, x2, y2); ctx.stroke();
+    ctx.restore();
+  }
+
+  function scene1(t) {
+    title('COMMANDER GETS COMPLICATED', 'KEEPING TRACK OF IT SHOULDN\'T', vertical ? 300 : 150, colors.gold);
+    const cy = vertical ? 870 : 625;
+    const cw = vertical ? 190 : 220, ch = vertical ? 270 : 310;
+    const count = vertical ? 7 : 9;
+    for (let i = 0; i < count; i++) {
+      const row = vertical ? i % 4 : 0; const col = vertical ? Math.floor(i / 4) : i;
+      const x = vertical ? X(100 + col * 310) : X(120 + i * 205);
+      const y = vertical ? Y(530 + row * 285) : Y(cy + Math.sin(i * 1.7) * 35);
+      card(x, y, R(cw), R(ch), ['ARC', 'EMBER', 'TIDAL', 'NOVA', 'VAULT'][i % 5], [[78, 183, 255], [188, 119, 255], [255, 186, 98]][i % 3], { counter: i % 3 ? `+${i % 3}` : null, rot: Math.sin(i * 3) * .035 });
+    }
+    const lifeX = vertical ? X(190) : X(470); const lifeY = vertical ? Y(1620) : Y(820);
+    roundRect(lifeX - R(125), lifeY - R(48), R(250), R(96), R(22), rgba(4, 8, 20, .9), rgba(111, 131, 221, .65), R(2));
+    text('LIFE', lifeX, lifeY - R(19), 13, colors.muted, 'center', 700); text('40', lifeX, lifeY + R(18), 42, colors.white, 'center', 750);
+    const tX = vertical ? X(800) : X(1430), tY = vertical ? Y(1620) : Y(820);
+    roundRect(tX - R(125), tY - R(48), R(250), R(96), R(22), rgba(4, 8, 20, .9), rgba(233, 200, 120, .65), R(2));
+    text('COMMANDER', tX, tY - R(19), 13, colors.muted, 'center', 700); text('12', tX, tY + R(18), 42, colors.gold, 'center', 750);
+    if (t > 1) {
+      line(X(vertical ? 540 : 300), Y(vertical ? 1780 : 930), X(vertical ? 540 : 1620), Y(vertical ? 1780 : 930), colors.violet, R(3), .7);
+      text('LIFE  •  DAMAGE  •  COUNTERS  •  TRIGGERS', X(vertical ? 540 : 960), Y(vertical ? 1815 : 968), 15, colors.muted, 'center', 600);
+    }
+  }
+  function scene2(t) {
+    logo(vertical ? 380 : 335, vertical ? .78 : 1, clamp((t - 5.8) * 2));
+    title('YOUR GAME. ONE CLEAR VIEW.', 'LIFE  •  DAMAGE  •  BATTLEFIELD', vertical ? 700 : 160, colors.blue);
+    const p = clamp((t - 6) / 5);
+    const ly = vertical ? 940 : 495;
+    roundRect(X(vertical ? 120 : 360), Y(ly), R(vertical ? 840 : 1200), R(vertical ? 360 : 260), R(30), rgba(11, 17, 41, .88), rgba(105, 124, 219, .5), R(2));
+    text('LIFE', X(vertical ? 260 : 560), Y(ly + (vertical ? 94 : 83)), 14, colors.muted, 'center', 700);
+    text(String(40 - Math.floor(p * 3)), X(vertical ? 260 : 560), Y(ly + (vertical ? 194 : 152)), vertical ? 90 : 86, colors.white, 'center', 760);
+    text(p > .55 ? '-3' : 'READY', X(vertical ? 260 : 560), Y(ly + (vertical ? 280 : 220)), 16, p > .55 ? colors.red : colors.blue, 'center', 700);
+    line(X(vertical ? 540 : 960), Y(ly + (vertical ? 44 : 35)), X(vertical ? 540 : 960), Y(ly + (vertical ? 316 : 225)), rgba(126, 146, 232, .5), R(1));
+    text('COMMANDER', X(vertical ? 820 : 1170), Y(ly + (vertical ? 94 : 83)), 14, colors.muted, 'center', 700);
+    text(String(12 + Math.floor(p * 2)), X(vertical ? 820 : 1170), Y(ly + (vertical ? 194 : 152)), vertical ? 90 : 86, colors.gold, 'center', 760);
+    text('TRACKED', X(vertical ? 820 : 1170), Y(ly + (vertical ? 280 : 220)), 16, colors.gold, 'center', 700);
+    text('FAST ADJUSTMENT', X(vertical ? 540 : 960), Y(vertical ? 1450 : 850), 17, colors.white, 'center', 700);
+    text('Full-Screen Life keeps the table in view.', X(vertical ? 540 : 960), Y(vertical ? 1495 : 895), 18, colors.muted, 'center', 500);
+  }
+  function scene3(t) {
+    title('AUTOMATIC COUNTER DISTRIBUTION', 'ONE ACTION. EVERY QUALIFYING CREATURE.', vertical ? 230 : 130, colors.gold);
+    const phase = clamp((t - 16) / 12);
+    const w = vertical ? 190 : 245, h = vertical ? 268 : 320;
+    const y = vertical ? 720 : 440;
+    for (let i = 0; i < 5; i++) {
+      const x = vertical ? X(80 + (i % 2) * 490) : X(225 + i * 285);
+      const yy = vertical ? Y(y + Math.floor(i / 2) * 315) : Y(y + (i % 2) * 24);
+      const born = clamp((phase - i * .11) * 4);
+      card(x, yy, R(w), R(h), ['EMBER', 'TIDAL', 'NOVA', 'VAULT', 'ARC'][i], [[240, 124, 126], [79, 202, 255], [167, 122, 255]][i % 3], { lift: born * R(13), counter: phase > .62 ? '+1/+1' : null });
+      if (phase > .12 && phase < .92) glow(x + R(w / 2), yy + R(h / 2), R(110), [78, 177, 255], .07);
+    }
+    const sx = vertical ? X(540) : X(960), sy = vertical ? Y(565) : Y(825);
+    roundRect(sx - R(135), sy - R(42), R(270), R(84), R(20), rgba(14, 19, 44, .96), colors.blue, R(2));
+    text('APPLY +1/+1', sx, sy, 18, colors.white, 'center', 700);
+    if (phase > .15) {
+      for (let i = 0; i < 5; i++) {
+        const x = vertical ? X(80 + (i % 2) * 490 + w / 2) : X(225 + i * 285 + w / 2);
+        const yy = vertical ? Y(y + Math.floor(i / 2) * 315 + h / 2) : Y(y + (i % 2) * 24 + h / 2);
+        ribbon(sx, sy - R(45), x, yy, t * 2 + i, [88, 194, 255]);
+      }
+    }
+    if (phase > .72) {
+      text('BOOKKEEPING COMPLETE', sx, vertical ? Y(1665) : Y(970), 17, colors.green, 'center', 700);
+      text('all five tracked creatures updated', sx, vertical ? Y(1710) : Y(1008), 15, colors.muted, 'center', 500);
+    }
+  }
+  function scene4(t) {
+    title('PLAYER-CONTROLLED WHEN IT COUNTS', 'LITE ASSISTS. YOU DECIDE.', vertical ? 300 : 150, colors.blue);
+    const p = clamp((t - 29) / 11);
+    const cx = X(vertical ? 540 : 960), cy = Y(vertical ? 930 : 520);
+    for (let i = 0; i < 3; i++) {
+      const x = vertical ? X(120 + i * 330) : X(430 + i * 300);
+      const y = vertical ? Y(650) : Y(405);
+      card(x, y, R(vertical ? 210 : 240), R(vertical ? 292 : 330), ['TARGET A', 'TARGET B', 'TARGET C'][i], [[85, 183, 250], [213, 151, 102], [138, 115, 245]][i], { dim: p > .45 && i !== 1 });
+      if (i === Math.min(2, Math.floor(p * 4))) {
+        ctx.strokeStyle = colors.gold; ctx.lineWidth = R(5); ctx.beginPath(); ctx.arc(x + R(vertical ? 105 : 120), y + R(vertical ? 146 : 165), R(vertical ? 132 : 146) + Math.sin(t * 4) * R(8), 0, TAU); ctx.stroke();
+        glow(x + R(vertical ? 105 : 120), y + R(vertical ? 146 : 165), R(110), [233, 200, 120], .13);
+      }
+    }
+    roundRect(cx - R(190), Y(vertical ? 1350 : 820), R(380), R(82), R(22), rgba(11, 17, 41, .93), colors.gold, R(2));
+    text(p > .55 ? 'PLAYER CHOICE CONFIRMED' : 'REVIEW THE DECISION', cx, Y(vertical ? 1391 : 861), 16, p > .55 ? colors.green : colors.gold, 'center', 700);
+    text('When the game needs a decision, the player remains in control.', cx, Y(vertical ? 1540 : 960), vertical ? 17 : 18, colors.muted, 'center', 500);
+  }
+  function scene5(t) {
+    title('ABILITY FOCUS', 'KNOW YOUR OPTIONS. TRACK EVERY ACTIVATION.', vertical ? 240 : 140, colors.violet);
+    const p = clamp((t - 40) / 11);
+    const cx = X(vertical ? 540 : 960), cy = Y(vertical ? 1020 : 520);
+    const cards = vertical ? 4 : 5;
+    for (let i = 0; i < cards; i++) {
+      const x = vertical ? X(135 + (i % 2) * 440) : X(270 + i * 300);
+      const y = vertical ? Y(650 + Math.floor(i / 2) * 350) : Y(380 + (i % 2) * 30);
+      const active = i === (vertical ? 1 : 2);
+      card(x, y, R(vertical ? 200 : 250), R(vertical ? 284 : 340), ['RELIC', 'ORRERY', 'HARBOR', 'SIGNAL', 'VAULT'][i], [91, 111, 216], { dim: active && p > .62, counter: active && p > .7 ? 'USED' : null });
+      if (active) { ctx.strokeStyle = p > .68 ? rgba(233, 200, 120, .42) : colors.violet; ctx.lineWidth = R(5); ctx.beginPath(); ctx.arc(x + R(vertical ? 100 : 125), y + R(vertical ? 142 : 170), R(vertical ? 130 : 150), 0, TAU); ctx.stroke(); }
+    }
+    const panelY = vertical ? 1540 : 790;
+    roundRect(X(vertical ? 120 : 590), Y(panelY), R(vertical ? 840 : 740), R(vertical ? 240 : 180), R(24), rgba(9, 14, 34, .96), rgba(146, 119, 255, .7), R(2));
+    text('{T}: YOU GAIN 3 LIFE', cx, Y(panelY + (vertical ? 70 : 53)), 22, colors.white, 'center', 700);
+    text('ONCE EACH TURN', cx, Y(panelY + (vertical ? 116 : 94)), 15, colors.gold, 'center', 700);
+    text(p > .65 ? 'ACTIVATED  •  NEXT TURN READY' : 'AVAILABLE', cx, Y(panelY + (vertical ? 178 : 140)), 15, p > .65 ? colors.green : colors.blue, 'center', 650);
+  }
+  function scene6(t) {
+    title('CORRECT. CONTINUE. PLAY.', 'REVIEW ACTIONS WITHOUT LOSING MOMENTUM.', vertical ? 340 : 160, colors.gold);
+    const p = clamp((t - 51) / 8);
+    const cx = X(vertical ? 540 : 960), y = Y(vertical ? 850 : 480);
+    roundRect(X(vertical ? 120 : 390), y, R(vertical ? 840 : 1140), R(vertical ? 470 : 320), R(28), rgba(10, 16, 39, .93), rgba(94, 119, 219, .5), R(2));
+    for (let i = 0; i < 4; i++) { const x = X(vertical ? 180 + (i % 2) * 410 : 510 + i * 250); const yy = vertical ? Y(980 + Math.floor(i / 2) * 160) : Y(590); card(x, yy, R(vertical ? 160 : 180), R(vertical ? 220 : 240), ['ARC', 'RELIC', 'NOVA', 'EMBER'][i], [95, 175, 228], { counter: i === 1 && p < .55 ? '+2' : i === 1 ? '+1' : null }); }
+    roundRect(cx - R(150), Y(vertical ? 1500 : 860), R(300), R(76), R(20), p > .5 ? rgba(61, 37, 86, .9) : rgba(13, 23, 49, .95), p > .5 ? colors.gold : colors.violet, R(2));
+    text(p > .5 ? 'ACTION UNDONE' : 'UNDO  •  COUNTER +2', cx, Y(vertical ? 1538 : 898), 16, p > .5 ? colors.green : colors.white, 'center', 700);
+    if (p > .5) text('previous state restored', cx, Y(vertical ? 1640 : 980), 16, colors.muted, 'center', 500);
+  }
+  function scene7(t) {
+    title('MORE THAN A LIFE COUNTER', 'DUNGEONS  •  INITIATIVE  •  CUSTOM COUNTERS', vertical ? 230 : 140, colors.blue);
+    const p = clamp((t - 59) / 9);
+    const ox = X(vertical ? 540 : 960), oy = Y(vertical ? 950 : 530);
+    line(X(vertical ? 150 : 580), Y(vertical ? 950 : 530), X(vertical ? 540 : 960), Y(vertical ? 950 : 530), colors.gold, R(5), .7);
+    line(X(vertical ? 540 : 960), Y(vertical ? 950 : 530), X(vertical ? 930 : 1340), Y(vertical ? 950 : 530), colors.gold, R(5), p > .35 ? .9 : .25);
+    const rooms = [[vertical ? 70 : 430, vertical ? 790 : 455, 'SECRET ENTRANCE'], [vertical ? 395 : 770, vertical ? 790 : 455, 'FORGE'], [vertical ? 710 : 1110, vertical ? 790 : 455, 'LOST WELL']];
+    rooms.forEach((r, i) => { roundRect(X(r[0]), Y(r[1]), R(vertical ? 300 : 280), R(vertical ? 230 : 180), R(20), rgba(i === 1 && p > .3 ? 42 : 12, i === 1 && p > .3 ? 32 : 20, 62, .92), i === 1 && p > .3 ? colors.gold : colors.violet, R(2)); text(r[2], X(r[0] + (vertical ? 150 : 140)), Y(r[1] + (vertical ? 92 : 70)), vertical ? 15 : 16, colors.white, 'center', 700); text(i === 1 && p > .3 ? 'CURRENT ROOM' : i === 0 ? 'COMPLETED' : 'NEXT', X(r[0] + (vertical ? 150 : 140)), Y(r[1] + (vertical ? 145 : 112)), 13, i === 1 ? colors.gold : colors.muted, 'center', 650); });
+    const iy = vertical ? 1310 : 795;
+    roundRect(ox - R(185), Y(iy), R(370), R(90), R(24), rgba(10, 18, 43, .96), colors.gold, R(2));
+    text('INITIATIVE  •  YOU', ox, Y(iy + 45), 18, colors.gold, 'center', 700);
+    text('Keep the journey visible as the game moves.', ox, Y(vertical ? 1515 : 955), 17, colors.muted, 'center', 500);
+  }
+  function scene8(t) {
+    const p = clamp((t - 68) / 7);
+    const s = vertical ? 1.02 : 1.1;
+    logo(vertical ? 780 : 430, s, p);
+    const cx = X(vertical ? 540 : 960);
+    text('PLAY THE CARDS.', cx, Y(vertical ? 1080 : 650), vertical ? 29 : 38, colors.white, 'center', 750);
+    text('LET LITE HANDLE THE BOOKKEEPING.', cx, Y(vertical ? 1140 : 700), vertical ? 24 : 32, colors.gold, 'center', 700);
+    text('YOUR INTELLIGENT COMMANDER COMPANION', cx, Y(vertical ? 1370 : 835), vertical ? 16 : 18, colors.muted, 'center', 650);
+    text('COMING SOON', cx, Y(vertical ? 1515 : 925), 15, colors.blue, 'center', 700);
+  }
+  function draw(raw) {
+    const t = Math.min(raw, duration);
+    const designTime = teaser ? t * 5 : t;
+    backdrop(designTime);
+    if (designTime < 6) scene1(designTime);
+    else if (designTime < 16) scene2(designTime);
+    else if (designTime < 29) scene3(designTime);
+    else if (designTime < 40) scene4(designTime);
+    else if (designTime < 51) scene5(designTime);
+    else if (designTime < 59) scene6(designTime);
+    else if (designTime < 68) scene7(designTime);
+    else scene8(designTime);
+    watermark();
+    if (raw < duration) requestAnimationFrame((now) => draw((now - start) / 1000));
+  }
+  const start = performance.now();
+  draw(0);
+})();
+</script>
+</body>
+</html>
